@@ -1,1 +1,0 @@
-# mi_ruta_sejas

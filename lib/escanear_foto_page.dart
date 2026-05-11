@@ -11,16 +11,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-
-      // Pantalla inicial
       home: const EscanearFotoPage(),
     );
   }
 }
 
-/// =======================================
-/// PANTALLA SUBIR FOTOGRAFIA
-/// =======================================
 class EscanearFotoPage extends StatelessWidget {
   const EscanearFotoPage({super.key});
 
@@ -83,17 +78,7 @@ class EscanearFotoPage extends StatelessWidget {
                   height: 45,
 
                   child: ElevatedButton(
-                    onPressed: () {
-
-                      // Ir a pantalla de éxito
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const RecargaExitosaPage(),
-                        ),
-                      );
-                    },
+                    onPressed: () {},
 
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black,
@@ -112,60 +97,6 @@ class EscanearFotoPage extends StatelessWidget {
                       ),
                     ),
                   ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// =======================================
-/// PANTALLA RECARGA EXITOSA
-/// =======================================
-class RecargaExitosaPage extends StatelessWidget {
-  const RecargaExitosaPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-
-              // Círculo verde
-              Container(
-                width: 120,
-                height: 120,
-
-                decoration: const BoxDecoration(
-                  color: Colors.green,
-                  shape: BoxShape.circle,
-                ),
-
-                child: const Icon(
-                  Icons.check,
-                  color: Colors.white,
-                  size: 70,
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              // Texto
-              const Text(
-                '¡Abonaste saldo\nde manera\nexitosa!',
-                textAlign: TextAlign.center,
-
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],

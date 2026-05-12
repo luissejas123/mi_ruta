@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 
 import '../widgets/custom_textfield.dart';
 import '../widgets/register_button.dart';
@@ -39,112 +43,137 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFE5E5E5),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Container(
-              width: 320,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.black, width: 2),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'MiRuta',
-                    style: TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthLoaded) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('¡Bienvenido ${state.user.fullName}!'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          // TODO: Navegar a HomePage o siguiente pantalla
+        } else if (state is AuthError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      },
+      child: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, state) {
+          return Scaffold(
+            backgroundColor: const Color(0xFFE5E5E5),
+            body: SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Container(
+                    width: 320,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 40,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.black, width: 2),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'MiRuta',
+                          style: TextStyle(
+                            fontSize: 40,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Crear cuenta',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 30),
+                        CustomTextField(
+                          hintText: 'Nombre Completo',
+                          icon: Icons.alternate_email,
+                          controller: _nameController,
+                        ),
+                        const SizedBox(height: 18),
+                        CustomTextField(
+                          hintText: 'Ingresar Carnet de Identidad',
+                          icon: Icons.badge_outlined,
+                          controller: _idController,
+                        ),
+                        const SizedBox(height: 18),
+                        CustomTextField(
+                          hintText: 'Numero de telefono',
+                          icon: Icons.phone_outlined,
+                          controller: _phoneController,
+                        ),
+                        const SizedBox(height: 18),
+                        CustomTextField(
+                          hintText: 'Correo Electrónico',
+                          icon: Icons.email_outlined,
+                          controller: _emailController,
+                        ),
+                        const SizedBox(height: 18),
+                        CustomTextField(
+                          hintText: 'Contraseña',
+                          icon: Icons.lock_outline,
+                          obscureText: true,
+                          controller: _passwordController,
+                        ),
+                        const SizedBox(height: 30),
+                        if (state is AuthLoading)
+                          const CircularProgressIndicator()
+                        else
+                          RegisterButton(
+                            text: 'Registrarse',
+                            onPressed: () {
+                              if (_nameController.text.isEmpty ||
+                                  _idController.text.isEmpty ||
+                                  _phoneController.text.isEmpty ||
+                                  _emailController.text.isEmpty ||
+                                  _passwordController.text.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Por favor completa todos los campos',
+                                    ),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              } else {
+                                context.read<AuthBloc>().add(
+                                  RegisterEvent(
+                                    email: _emailController.text,
+                                    password: _passwordController.text,
+                                    fullName: _nameController.text,
+                                    governmentId: _idController.text,
+                                    phoneNumber: _phoneController.text,
+                                    role: 'user',
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                      ],
                     ),
                   ),
-
-                  const SizedBox(height: 20),
-
-                  const Text(
-                    'Crear cuenta',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  CustomTextField(
-                    hintText: 'Nombre Completo',
-                    icon: Icons.alternate_email,
-                    controller: _nameController,
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  CustomTextField(
-                    hintText: 'Ingresar Carnet de Identidad',
-                    icon: Icons.badge_outlined,
-                    controller: _idController,
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  CustomTextField(
-                    hintText: 'Numero de telefono',
-                    icon: Icons.phone_outlined,
-                    controller: _phoneController,
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  CustomTextField(
-                    hintText: 'Correo Electrónico',
-                    icon: Icons.email_outlined,
-                    controller: _emailController,
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  CustomTextField(
-                    hintText: 'Contraseña',
-                    icon: Icons.lock_outline,
-                    obscureText: true,
-                    controller: _passwordController,
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  RegisterButton(
-                    text: 'Registrarse',
-                    onPressed: () {
-                      if (_nameController.text.isEmpty ||
-                          _idController.text.isEmpty ||
-                          _phoneController.text.isEmpty ||
-                          _emailController.text.isEmpty ||
-                          _passwordController.text.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Por favor completa todos los campos',
-                            ),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Registro en proceso...'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

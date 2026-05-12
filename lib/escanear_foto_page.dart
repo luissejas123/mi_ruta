@@ -1,23 +1,56 @@
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
+import 'package:image_picker/image_picker.dart';
+import 'enviar_imagen.dart';
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class EscanearFotoPage extends StatefulWidget {
+  const EscanearFotoPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: const EscanearFotoPage(),
-    );
-  }
+  State<EscanearFotoPage> createState() =>
+      _EscanearFotoPageState();
 }
 
-class EscanearFotoPage extends StatelessWidget {
-  const EscanearFotoPage({super.key});
+class _EscanearFotoPageState
+    extends State<EscanearFotoPage> {
+
+  final ImagePicker _picker = ImagePicker();
+
+  Uint8List? _imageBytes;
+
+  Future<void> _pickImage() async {
+
+    final XFile? result = await _picker.pickImage(
+      source: ImageSource.gallery,
+    );
+
+    if (result != null) {
+
+      String path = result.path.toLowerCase();
+
+      // Validar formatos
+      if (!path.endsWith('.jpg') &&
+          !path.endsWith('.jpeg') &&
+          !path.endsWith('.png')) {
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Solo se permiten imágenes JPG o PNG',
+            ),
+          ),
+        );
+
+        return;
+      }
+
+      final bytes = await result.readAsBytes();
+
+      setState(() {
+        _imageBytes = bytes;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,81 +58,158 @@ class EscanearFotoPage extends StatelessWidget {
       backgroundColor: Colors.white,
 
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20),
 
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
 
-              // Flecha atrás
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () {},
-              ),
+              children: [
 
-              const SizedBox(height: 30),
-
-              // Título
-              const Center(
-                child: Text(
-                  'SUBIR FOTOGRAFIA',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                // Flecha atrás
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () {},
                 ),
-              ),
 
-              const SizedBox(height: 50),
+                const SizedBox(height: 20),
 
-              // Cuadro para imagen
-              Center(
-                child: Container(
-                  width: 220,
-                  height: 220,
-
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Colors.grey,
+                // Título
+                const Center(
+                  child: Text(
+                    'SUBIR FOTOGRAFIA',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
                     ),
-                    borderRadius: BorderRadius.circular(4),
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 80),
+                const SizedBox(height: 30),
 
-              // Botón enviar
-              Center(
-                child: SizedBox(
-                  width: 130,
-                  height: 45,
+                // Botón galería
+                Center(
+                  child: ElevatedButton.icon(
+                    onPressed: _pickImage,
 
-                  child: ElevatedButton(
-                    onPressed: () {},
+                    icon: const Icon(Icons.photo),
+
+                    label: const Text(
+                      'Subir desde galería',
+                    ),
 
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      elevation: 6,
-                    ),
+                      backgroundColor:
+                          Colors.grey.shade300,
+                      foregroundColor: Colors.black,
 
-                    child: const Text(
-                      'Enviar',
-                      style: TextStyle(
-                        color: Colors.amber,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                      padding:
+                          const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 15,
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+
+                const SizedBox(height: 20),
+
+                // Imagen
+                Center(
+                  child: Container(
+                    width: 240,
+                    height: 240,
+
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.grey,
+                      ),
+                    ),
+
+                    child: _imageBytes != null
+                        ? Image.memory(
+                            _imageBytes!,
+                            fit: BoxFit.cover,
+                          )
+                        : const Center(
+                            child: Text(
+                              'Imagen aquí',
+                            ),
+                          ),
+                  ),
+                ),
+
+                const SizedBox(height: 15),
+
+                // Texto ayuda
+                Center(
+                  child: Text(
+                    'Solo imágenes JPG y PNG',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 50),
+
+                // Botón subir imagen
+                Center(
+                  child: SizedBox(
+                    width: 170,
+                    height: 48,
+
+                    child: ElevatedButton(
+                      onPressed: () {
+
+                        if (_imageBytes == null) {
+
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Debes seleccionar una imagen',
+                              ),
+                            ),
+                          );
+
+                          return;
+                        }
+
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                EnviarImagenPage(
+                              imageBytes: _imageBytes,
+                            ),
+                          ),
+                        );
+                      },
+
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                      ),
+
+                      child: const Text(
+                        'Subir Imagen',
+                        style: TextStyle(
+                          color: Colors.amber,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+              ],
+            ),
           ),
         ),
       ),

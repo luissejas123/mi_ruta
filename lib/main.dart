@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'escanear_foto_page.dart';
+import 'enviar_imagen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -79,7 +81,7 @@ class EscanearFotoPage extends StatelessWidget {
               // Botón enviar
               Center(
                 child: SizedBox(
-                  width: 130,
+                  width: 200,
                   height: 45,
 
                   child: ElevatedButton(
@@ -90,7 +92,7 @@ class EscanearFotoPage extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) =>
-                              const RecargaExitosaPage(),
+                              const EnviarImagenPage(),
                         ),
                       );
                     },
@@ -104,11 +106,11 @@ class EscanearFotoPage extends StatelessWidget {
                     ),
 
                     child: const Text(
-                      'Enviar',
+                      'Subir Imagen',
                       style: TextStyle(
                         color: Colors.amber,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        fontSize: 18,
                       ),
                     ),
                   ),

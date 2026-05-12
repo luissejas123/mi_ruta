@@ -176,10 +176,45 @@ class _EscanearFotoPageState
                               ),
                             ),
                           );
-
                           return;
                         }
 
+                        if (_imageBytes!.lengthInBytes > 5 * 1024 * 1024) {
+
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                  'La imagen no puede superar los 5MB',
+                                ),
+                              ),
+                            );
+
+                          return;
+                          
+                        }
+                        //imagen solo en png o jpg
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(
+                          const SnackBar(
+                              content: Text(
+                                'Imagen válida, subiendo...',
+                              ),
+                            ),
+                          );
+                          //mensaje si la imagen no es valida "La imagen debe ser JPG o PNG"
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                  'La imagen debe ser JPG o PNG',
+                                ),
+                              ),
+                            );
+
+                          // si todo esta bien, ir a  pantalla de éxito
+                            
+                          
                         Navigator.push(
                           context,
                           MaterialPageRoute(

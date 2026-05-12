@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/test_widgets_screen.dart';
 import 'services/firebase_service.dart';
 
@@ -36,7 +39,7 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: .fromSeed(seedColor: Colors.deepPurple),
       ),
-      //Pueden comentar home: const TestWidgetsScreen y descomentar el otro home para que la pagina siga funcionando como antes     
+      //Pueden comentar home: const TestWidgetsScreen y descomentar el otro home para que la pagina siga funcionando como antes
       //home: const MyHomePage(title: 'Flutter Demo Home Page'),
       home: const TestWidgetsScreen(),
     );

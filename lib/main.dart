@@ -6,12 +6,20 @@ import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/pages/register_page.dart';
+import 'package:mi_ruta/features/payment/presentation/pages/payment_home_page.dart';
+import 'package:mi_ruta/features/payment/presentation/pages/recharge_balance_page.dart';
+import 'package:mi_ruta/features/payment/presentation/pages/payment_success_page.dart';
 import 'services/firebase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  setupDependencies();
+
+  try {
+    await Firebase.initializeApp();
+    setupDependencies();
+  } catch (e) {
+    debugPrint('Error durante inicialización: $e');
+  }
 
   runApp(const MyApp());
 }
@@ -30,9 +38,16 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         title: 'MiRuta',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.amber),
+          useMaterial3: true,
         ),
-        home: const RegisterPage(),
+        home: const PaymentHomePage(),
+        routes: {
+          '/payment/home': (context) => const PaymentHomePage(),
+          '/payment/recharge': (context) => const RechargeBalancePage(),
+          '/payment/success': (context) => const PaymentSuccessPage(),
+          '/auth/register': (context) => const RegisterPage(),
+        },
       ),
     );
   }

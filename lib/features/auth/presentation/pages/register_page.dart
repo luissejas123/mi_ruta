@@ -3,9 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
-
-import '../widgets/custom_textfield.dart';
-import '../widgets/register_button.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/custom_textfield.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/register_button.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});

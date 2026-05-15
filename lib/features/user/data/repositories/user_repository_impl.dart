@@ -25,7 +25,7 @@ class UserRepositoryImpl implements UserRepository {
     try {
       final user = await remoteDataSource.getUserById(uid);
       return Right(user);
-    } on Exception catch (e) {
+    } on Exception {
       return Left(ServerFailure(message: 'Error obteniendo usuario: $uid'));
     }
   }
@@ -37,7 +37,7 @@ class UserRepositoryImpl implements UserRepository {
     try {
       final users = await remoteDataSource.getUsersByIds(uids);
       return Right(users);
-    } on Exception catch (e) {
+    } on Exception {
       return Left(
         ServerFailure(message: 'Error obteniendo múltiples usuarios'),
       );
@@ -52,7 +52,7 @@ class UserRepositoryImpl implements UserRepository {
     try {
       await remoteDataSource.updateUser(uid, data);
       return const Right(null);
-    } on Exception catch (e) {
+    } on Exception {
       return Left(ServerFailure(message: 'Error actualizando usuario'));
     }
   }
@@ -62,7 +62,7 @@ class UserRepositoryImpl implements UserRepository {
     try {
       final rating = await remoteDataSource.getUserRating(uid);
       return Right(rating);
-    } on Exception catch (e) {
+    } on Exception {
       return Left(ServerFailure(message: 'Error obteniendo calificación'));
     }
   }

@@ -7,6 +7,10 @@
 .buildlog/
 .history
 
+# Archivos de configuración con secretos (NO subir a GitHub)
+.env
+android/local.properties
+
 
 
 # Flutter repo-specific

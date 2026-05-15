@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
-
-// Tus imports existentes
-import 'menu_title.dart';
-import 'switch_title.dart';
-import 'custom_bottom_nav.dart';
-
-// Los nuevos imports
-import 'profile_header.dart';
-import 'logout_button.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/menu_title.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/switch_title.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart';
 
 class TestWidgetsScreen extends StatefulWidget {
   const TestWidgetsScreen({super.key});
@@ -30,7 +26,7 @@ class _TestWidgetsScreenState extends State<TestWidgetsScreen> {
             children: [
               // 1. EL ENCABEZADO (Foto y Nombre)
               const ProfileHeader(),
-              
+
               const SizedBox(height: 10),
 
               // 2. TUS WIDGETS DE MENÚ
@@ -77,7 +73,7 @@ class _TestWidgetsScreenState extends State<TestWidgetsScreen> {
 
               // 4. EL BOTÓN DE CIERRE
               const LogoutButton(),
-              
+
               const SizedBox(height: 20),
             ],
           ),

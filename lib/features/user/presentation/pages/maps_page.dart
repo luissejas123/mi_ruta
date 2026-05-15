@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:mi_ruta/features/user/presentation/pages/test_widgets_screen.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
 class MapsPage extends StatefulWidget {
   const MapsPage({super.key});
@@ -10,8 +12,8 @@ class MapsPage extends StatefulWidget {
 
 class _MapsPageState extends State<MapsPage> {
   late GoogleMapController mapController;
+  int _currentNavIndex = 0;
 
-  // Ubicación inicial: Cochabamba, Bolivia
   static const LatLng _initialPosition = LatLng(-17.3895, -66.1568);
 
   final Set<Marker> _markers = {
@@ -27,52 +29,57 @@ class _MapsPageState extends State<MapsPage> {
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
-    print('✅ GoogleMap creado correctamente');
+  }
+
+  void _onNavTap(int index) {
+    if (index == 3) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TestWidgetsScreen()),
+      );
+      return;
+    }
+    setState(() => _currentNavIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Prueba de Google Maps'),
-        centerTitle: true,
-        backgroundColor: Colors.blue,
-      ),
-      body: GoogleMap(
-        onMapCreated: _onMapCreated,
-        initialCameraPosition: const CameraPosition(
-          target: _initialPosition,
-          zoom: 12.0,
-        ),
-        markers: _markers,
-        myLocationEnabled: true,
-        myLocationButtonEnabled: true,
-        zoomControlsEnabled: true,
-      ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
+      body: Stack(
         children: [
-          FloatingActionButton(
-            onPressed: () {
-              mapController.animateCamera(
-                CameraUpdate.newCameraPosition(
-                  const CameraPosition(target: _initialPosition, zoom: 15.0),
-                ),
-              );
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Cámara centrada en La Paz')),
-              );
-            },
-            tooltip: 'Centrar mapa',
-            child: const Icon(Icons.location_on),
+          GoogleMap(
+            onMapCreated: _onMapCreated,
+            initialCameraPosition: const CameraPosition(
+              target: _initialPosition,
+              zoom: 12.0,
+            ),
+            markers: _markers,
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
           ),
-          const SizedBox(height: 16),
-          FloatingActionButton(
-            onPressed: () => Navigator.pop(context),
-            tooltip: 'Volver atrás',
-            child: const Icon(Icons.arrow_back),
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: FloatingActionButton.small(
+              heroTag: 'center',
+              backgroundColor: const Color(0xFFFFC107),
+              foregroundColor: Colors.black,
+              onPressed: () {
+                mapController.animateCamera(
+                  CameraUpdate.newCameraPosition(
+                    const CameraPosition(target: _initialPosition, zoom: 15.0),
+                  ),
+                );
+              },
+              child: const Icon(Icons.my_location),
+            ),
           ),
         ],
+      ),
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: _currentNavIndex,
+        onTap: _onNavTap,
       ),
     );
   }

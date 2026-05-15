@@ -26,6 +26,17 @@ class AuthModel extends AuthEntity {
        );
 
   factory AuthModel.fromJson(Map<String, dynamic> json) {
+    // Firestore puede devolver Timestamp o String para created_at
+    DateTime parseCreatedAt(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is String) return DateTime.parse(value);
+      // Firestore Timestamp tiene .toDate()
+      try {
+        return (value as dynamic).toDate() as DateTime;
+      } catch (_) {}
+      return DateTime.now();
+    }
+
     return AuthModel(
       uid: json['uid'] as String? ?? '',
       fullName: json['full_name'] as String? ?? '',
@@ -34,9 +45,7 @@ class AuthModel extends AuthEntity {
       phoneNumber: json['phone_number'] as String? ?? '',
       profilePictureUrl: json['profile_picture_url'] as String?,
       role: json['role'] as String? ?? 'user',
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
-          : DateTime.now(),
+      createdAt: parseCreatedAt(json['created_at']),
       wallet: json['wallet'] as Map<String, dynamic>?,
       settings: json['settings'] as Map<String, dynamic>?,
     );

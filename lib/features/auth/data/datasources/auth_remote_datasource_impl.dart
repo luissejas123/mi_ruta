@@ -70,14 +70,35 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final userDoc = await _firestore.collection('users').doc(uid).get();
 
       if (!userDoc.exists) {
-        throw Exception('Usuario no encontrado');
+        throw Exception('No se encontró el perfil del usuario.');
       }
 
       return AuthModel.fromJson(userDoc.data() as Map<String, dynamic>);
     } on FirebaseAuthException catch (e) {
-      throw Exception('Error en login: ${e.message}');
+      throw Exception(_mensajeError(e.code));
     } catch (e) {
-      throw Exception('Error general: $e');
+      throw Exception('$e');
+    }
+  }
+
+  String _mensajeError(String code) {
+    switch (code) {
+      case 'user-not-found':
+        return 'No existe una cuenta con ese correo.';
+      case 'wrong-password':
+        return 'Contraseña incorrecta.';
+      case 'invalid-credential':
+        return 'Correo o contraseña incorrectos.';
+      case 'invalid-email':
+        return 'El correo no tiene un formato válido.';
+      case 'user-disabled':
+        return 'Esta cuenta ha sido deshabilitada.';
+      case 'too-many-requests':
+        return 'Demasiados intentos. Intenta más tarde.';
+      case 'network-request-failed':
+        return 'Sin conexión a internet.';
+      default:
+        return 'Error al iniciar sesión. Intenta de nuevo.';
     }
   }
 

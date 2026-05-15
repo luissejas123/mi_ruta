@@ -1,34 +1,52 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// Tests de widgets que NO dependen de Firebase ni BLoC.
+// InsertarCorreoPage requiere AuthBloc, por lo que se omite aquí.
+// Para tests de integración con Firebase, usar integration_test/.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mi_ruta/main.dart';
+import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
+import 'package:mi_ruta/features/auth/presentation/widgets/boton_amarillo.dart';
+import 'package:mi_ruta/features/auth/presentation/widgets/input_con_sombra.dart';
 
 void main() {
-  testWidgets('Register page loads correctly', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('IniciarSesionPage muestra título y botones', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: IniciarSesionPage()));
 
-    // Verify that the app title is displayed
-    expect(find.text('MiRuta'), findsWidgets);
+    expect(find.text('MiRuta'), findsOneWidget);
+    expect(find.text('Tu ruta, tu viaje,\ntu pago.'), findsOneWidget);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
+    expect(find.text('Registrarte'), findsOneWidget);
+  });
 
-    // Verify that the register heading is displayed
-    expect(find.text('Crear cuenta'), findsOneWidget);
+  testWidgets('BotonAmarillo ejecuta callback al presionar', (
+    WidgetTester tester,
+  ) async {
+    bool presionado = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BotonAmarillo(
+            texto: 'Prueba',
+            alPresionar: () => presionado = true,
+          ),
+        ),
+      ),
+    );
 
-    // Verify that the register button is displayed
-    expect(find.text('Registrarse'), findsOneWidget);
+    await tester.tap(find.text('Prueba'));
+    expect(presionado, isTrue);
+  });
 
-    // Verify that all input fields are present
-    expect(find.byIcon(Icons.alternate_email), findsOneWidget);
-    expect(find.byIcon(Icons.badge_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.phone_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.email_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.lock_outline), findsOneWidget);
+  testWidgets('InputConSombra muestra hint text', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: InputConSombra(hint: 'Test hint')),
+      ),
+    );
+
+    expect(find.widgetWithText(TextField, 'Test hint'), findsOneWidget);
   });
 }

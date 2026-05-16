@@ -4,7 +4,7 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/widgets/input_con_sombra.dart';
-import 'package:mi_ruta/features/user/presentation/pages/maps_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
 
 class InsertarCorreoPage extends StatefulWidget {
   const InsertarCorreoPage({super.key});
@@ -45,7 +45,7 @@ class _InsertarCorreoPageState extends State<InsertarCorreoPage> {
         if (state is AuthLoaded) {
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (_) => const MapsPage()),
+            MaterialPageRoute(builder: (_) => const MiRutaScreen()),
             (_) => false,
           );
         } else if (state is AuthError) {

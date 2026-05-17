@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 
 class MapSearchHeader extends StatelessWidget {
   final VoidCallback onSearchTap;
+  final String? searchText;
 
-  const MapSearchHeader({super.key, required this.onSearchTap});
+  const MapSearchHeader({
+    super.key,
+    required this.onSearchTap,
+    this.searchText,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -36,20 +41,25 @@ class MapSearchHeader extends StatelessWidget {
                 color: const Color(0xFFFBC02D),
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.search, color: Colors.black87),
-                  SizedBox(width: 10),
+                  const Icon(Icons.search, color: Colors.black87),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      '¿A dónde vamos ...?',
+                      searchText ?? '¿A dónde vamos ...?',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: searchText != null
+                            ? Colors.black87
+                            : Colors.black54,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (searchText != null)
+                    const Icon(Icons.close, color: Colors.black54, size: 18),
                 ],
               ),
             ),

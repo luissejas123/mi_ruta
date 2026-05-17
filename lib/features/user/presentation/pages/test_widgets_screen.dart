@@ -41,7 +41,13 @@ class _TestWidgetsScreenState extends State<TestWidgetsScreen> {
             child: Column(
               children: [
                 // 1. EL ENCABEZADO (Foto y Nombre)
-                const ProfileHeader(),
+                BlocBuilder<AuthBloc, AuthState>(
+                  builder: (context, state) {
+                    final name = state is AuthLoaded ? state.user.fullName : '';
+                    final email = state is AuthLoaded ? state.user.email : '';
+                    return ProfileHeader(name: name, email: email);
+                  },
+                ),
 
                 const SizedBox(height: 10),
 
@@ -52,7 +58,9 @@ class _TestWidgetsScreenState extends State<TestWidgetsScreen> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const RutasInicioPage()),
+                      MaterialPageRoute(
+                        builder: (_) => const RutasInicioPage(),
+                      ),
                     );
                   },
                 ),
@@ -72,7 +80,9 @@ class _TestWidgetsScreenState extends State<TestWidgetsScreen> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const RutasInicioPage()),
+                      MaterialPageRoute(
+                        builder: (_) => const RutasInicioPage(),
+                      ),
                     );
                   },
                 ),

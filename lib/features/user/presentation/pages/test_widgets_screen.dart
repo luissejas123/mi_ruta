@@ -4,6 +4,8 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/rutas_inicio_page.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/menu_title.dart';
@@ -47,7 +49,12 @@ class _TestWidgetsScreenState extends State<TestWidgetsScreen> {
                 MenuTile(
                   title: "Rutas frecuentes",
                   icon: Icons.map_outlined,
-                  onTap: () => print("Click en rutas"),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RutasInicioPage()),
+                    );
+                  },
                 ),
                 MenuTile(
                   title: "Historial de Viajes",
@@ -62,7 +69,12 @@ class _TestWidgetsScreenState extends State<TestWidgetsScreen> {
                 MenuTile(
                   title: "Planificar ruta",
                   icon: Icons.map,
-                  onTap: () => print("Click en planificar"),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RutasInicioPage()),
+                    );
+                  },
                 ),
 
                 // 3. TUS SWITCHES
@@ -100,9 +112,7 @@ class _TestWidgetsScreenState extends State<TestWidgetsScreen> {
         // 5. TU BARRA DE NAVEGACIÓN
         bottomNavigationBar: CustomBottomNav(
           currentIndex: 3,
-          onTap: (index) {
-            if (index != 3) Navigator.pop(context);
-          },
+          onTap: (index) => navigateBottomNav(context, index),
         ),
       ),
     );

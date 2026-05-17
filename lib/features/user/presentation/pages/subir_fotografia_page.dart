@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/user/presentation/pages/confirmacion_beneficio_page.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
 class SubirFotografiaPage extends StatefulWidget {
@@ -20,9 +21,7 @@ class _SubirFotografiaPageState extends State<SubirFotografiaPage> {
   }
 
   void _onNavTap(int index) {
-    setState(() {
-      _currentNavIndex = index;
-    });
+    navigateBottomNav(context, index);
   }
 
   void _validateAndSend() {

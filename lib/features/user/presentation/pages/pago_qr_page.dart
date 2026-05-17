@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/user/presentation/pages/confirmacion_recarga_page.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
 class PagoQRPage extends StatefulWidget {
@@ -14,9 +15,7 @@ class _PagoQRPageState extends State<PagoQRPage> {
   String? _scanResult;
 
   void _onNavTap(int index) {
-    setState(() {
-      _currentNavIndex = index;
-    });
+    navigateBottomNav(context, index);
   }
 
   Future<void> _scanQr() async {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
 class ConfirmacionBeneficioPage extends StatefulWidget {
@@ -12,9 +13,7 @@ class _ConfirmacionBeneficioPageState extends State<ConfirmacionBeneficioPage> {
   int _currentNavIndex = 1;
 
   void _onNavTap(int index) {
-    setState(() {
-      _currentNavIndex = index;
-    });
+    navigateBottomNav(context, index);
   }
 
   @override

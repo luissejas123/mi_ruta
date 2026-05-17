@@ -3,6 +3,7 @@ import 'package:mi_ruta/features/user/presentation/pages/movimientos_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/pago_qr_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recarga_saldo_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_page.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
 class WalletPage extends StatefulWidget {
@@ -16,9 +17,7 @@ class _WalletPageState extends State<WalletPage> {
   int _currentNavIndex = 1;
 
   void _onNavTap(int index) {
-    setState(() {
-      _currentNavIndex = index;
-    });
+    navigateBottomNav(context, index);
   }
 
   Widget _actionButton(String label, VoidCallback onPressed) {

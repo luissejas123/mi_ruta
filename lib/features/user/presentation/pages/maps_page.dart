@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:mi_ruta/features/user/presentation/pages/test_widgets_screen.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
 class MapsPage extends StatefulWidget {
@@ -32,14 +32,7 @@ class _MapsPageState extends State<MapsPage> {
   }
 
   void _onNavTap(int index) {
-    if (index == 3) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const TestWidgetsScreen()),
-      );
-      return;
-    }
-    setState(() => _currentNavIndex = index);
+    navigateBottomNav(context, index);
   }
 
   @override

@@ -7,6 +7,10 @@
 .buildlog/
 .history
 
+# Archivos de configuración con secretos (NO subir a GitHub)
+.env
+android/local.properties
+
 
 
 # Flutter repo-specific
@@ -117,3 +121,87 @@ app.*.symbols
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
+
+# Firebase Configuration Files (SENSIBLE DATA)
+google-services.json
+GoogleService-Info.plist
+firebase_options.dart
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Certificates and Keys (SECURITY)
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*.mobileprovision
+
+# IDE and System Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Build and Dependencies
+.dart_tool/
+build/
+.pub-cache/
+.pub/
+pubspec.lock
+
+# Generated Files
+*.g.dart
+*.config.dart
+lib/generated/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE specific files
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Local development
+local.properties
+debug.keystore
+
+# Third-party
+.gradle/
+*.gradle
+local.properties
+
+# Additional Security Protections
+# Secrets and credentials
+*.secret
+*.token
+*.credential
+.credentials
+secrets/
+credentials/
+
+# Local overrides
+*.local.env
+local_override.properties
+
+# Backup files
+*.backup
+*.bak
+*.tmp
+
+# Node modules (for web development)
+node_modules/
+npm-debug.log

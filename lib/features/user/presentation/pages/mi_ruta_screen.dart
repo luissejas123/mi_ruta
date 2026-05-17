@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/pages/test_widgets_screen.dart';
+import 'package:mi_ruta/features/user/presentation/pages/wallet_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/map_search_header.dart';
 
@@ -93,6 +94,14 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
   }
 
   void _onNavTap(int index) {
+    if (index == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const WalletPage()),
+      );
+      return;
+    }
+
     if (index == 3) {
       final authBloc = context.read<AuthBloc>();
       Navigator.push(

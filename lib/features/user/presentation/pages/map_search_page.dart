@@ -3,9 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/features/user/data/datasources/places_datasource.dart';
-import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/place_prediction_tile.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/search_bar_field.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/search_error_banner.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/search_results_body.dart';
 
 export 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 
@@ -112,76 +112,14 @@ class _MapSearchPageState extends State<MapSearchPage> {
               color: Color(0xFFFBC02D),
               backgroundColor: Color(0xFFF1F3F4),
             ),
-          if (_error != null) _SearchErrorBanner(message: _error!),
-          Expanded(child: _buildBody()),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_predictions.isEmpty && !_isLoading) {
-      return _controller.text.isEmpty
-          ? const _SearchEmptyHint()
-          : const Center(
-              child: Text(
-                'Sin resultados',
-                style: TextStyle(color: Colors.black54),
-              ),
-            );
-    }
-    return ListView.separated(
-      itemCount: _predictions.length,
-      separatorBuilder: (_, __) => const Divider(height: 1, indent: 64),
-      itemBuilder: (_, i) => PlacePredictionTile(
-        prediction: _predictions[i],
-        onTap: () => _onPredictionTap(_predictions[i]),
-      ),
-    );
-  }
-}
-
-// ── Widgets privados ─────────────────────────────────────────────────────────
-
-class _SearchErrorBanner extends StatelessWidget {
-  final String message;
-
-  const _SearchErrorBanner({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline, color: Colors.red, size: 18),
-          const SizedBox(width: 8),
+          if (_error != null) SearchErrorBanner(message: _error!),
           Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(color: Colors.red, fontSize: 13),
+            child: SearchResultsBody(
+              predictions: _predictions,
+              isLoading: _isLoading,
+              hasText: _controller.text.isNotEmpty,
+              onTap: _onPredictionTap,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SearchEmptyHint extends StatelessWidget {
-  const _SearchEmptyHint();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.search, size: 64, color: Color(0xFFDDDDDD)),
-          SizedBox(height: 12),
-          Text(
-            'Escribe una dirección o lugar',
-            style: TextStyle(color: Colors.black45, fontSize: 15),
           ),
         ],
       ),

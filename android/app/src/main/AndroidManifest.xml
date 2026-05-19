@@ -4,6 +4,11 @@
     <!-- Permisos de ubicación para Google Maps -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Permisos para acceder a la galería (image_picker) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <!-- Permisos para la cámara (mobile_scanner) -->
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <application
         android:label="mi_ruta"

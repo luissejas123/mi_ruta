@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:mi_ruta/features/user/domain/entities/osm_route.dart';
+import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/route_info_card.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/route_map_view.dart';
 
 class RutaAbordajePage extends StatelessWidget {
-  const RutaAbordajePage({super.key});
+  final OsmRoute? route;
+  final PlaceResult? destination;
+
+  const RutaAbordajePage({super.key, this.route, this.destination});
 
   @override
   Widget build(BuildContext context) {
+    final routeName = route?.name ?? 'Línea seleccionada';
+    final destName = destination?.name ?? 'Destino';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F3F4),
       appBar: AppBar(
@@ -21,37 +30,39 @@ class RutaAbordajePage extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             children: [
-              const RouteMapView(title: 'Abordaje'),
+              if (destination != null)
+                RouteMapView(
+                  title: destName,
+                  initialPosition: destination!.latLng,
+                )
+              else
+                const RouteMapView(title: 'Abordaje'),
               const SizedBox(height: 20),
-              Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text('Línea 133', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                      SizedBox(height: 12),
-                      Text('Parada: Plaza 14 de septiembre', style: TextStyle(fontSize: 14)),
-                      SizedBox(height: 8),
-                      Text('Tiempo estimado de llegada: 3 min', style: TextStyle(fontSize: 14)),
-                      SizedBox(height: 8),
-                      Text('Estado: Abordaje en curso', style: TextStyle(fontSize: 14)),
-                    ],
-                  ),
-                ),
+              RouteInfoCard(
+                routeName: routeName,
+                destination: destName,
+                eta: '3 min',
+                status: 'Abordaje en curso',
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 40),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Finalizar ruta',
+                    style: TextStyle(fontSize: 16, color: Colors.white),
+                  ),
                 ),
-                child: const Text('Finalizar ruta', style: TextStyle(fontSize: 16)),
               ),
             ],
           ),

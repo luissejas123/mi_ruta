@@ -37,6 +37,7 @@ dependencies:
   firebase_core: ^4.7.0
   firebase_auth: ^6.4.0
   cloud_firestore: ^6.3.0
+  firebase_storage: ^13.4.1
   flutter_bloc: ^9.1.1
   dartz: ^0.10.1
   get_it: ^9.2.1
@@ -46,6 +47,9 @@ dependencies:
   geolocator: ^14.0.2
   geocoding: ^3.0.0
   http: ^1.4.0
+  image_picker: ^1.0.4
+  path_provider: ^2.1.5
+  mobile_scanner: ^5.0.0
 
 dev_dependencies:
   flutter_test:
@@ -71,6 +75,7 @@ flutter:
 
   assets:
     - .env
+    - assets/transport_poi.geojson
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:mi_ruta/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:mi_ruta/features/auth/data/datasources/auth_remote_datasource_impl.dart';
@@ -9,10 +10,25 @@ import 'package:mi_ruta/features/auth/domain/usecases/auth_usecases.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/user/data/datasources/user_remote_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/user_remote_datasource_impl.dart';
+import 'package:mi_ruta/features/user/data/datasources/wallet_datasource.dart';
+import 'package:mi_ruta/features/user/data/datasources/recharge_datasource.dart';
+import 'package:mi_ruta/features/user/data/datasources/benefit_request_datasource.dart';
 import 'package:mi_ruta/features/user/data/repositories/user_repository_impl.dart';
 import 'package:mi_ruta/features/user/domain/repositories/user_repository.dart';
+import 'package:mi_ruta/features/user/domain/services/wallet_service.dart';
+import 'package:mi_ruta/features/user/domain/services/recharge_service.dart';
+import 'package:mi_ruta/features/user/domain/services/storage_service.dart';
+import 'package:mi_ruta/features/user/domain/services/trip_payment_service.dart';
+import 'package:mi_ruta/features/user/domain/services/benefit_request_service.dart';
 import 'package:mi_ruta/features/user/domain/usecases/user_usecases.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_bloc.dart';
+import 'package:mi_ruta/features/routes/data/datasources/route_datasource.dart';
+import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
+import 'package:mi_ruta/features/routes/domain/services/route_migration_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -25,6 +41,8 @@ void setupDependencies() {
   getIt.registerSingleton<FirebaseFirestore>(FirebaseFirestore.instance);
 
   getIt.registerSingleton<FirebaseAuth>(FirebaseAuth.instance);
+
+  getIt.registerSingleton<FirebaseStorage>(FirebaseStorage.instance);
 
   // ============================================
   // AUTH FEATURE - DATA LAYER
@@ -124,5 +142,114 @@ void setupDependencies() {
       getUserRatingUseCase: getIt<GetUserRatingUseCase>(),
       getUserStreamUseCase: getIt<GetUserStreamUseCase>(),
     ),
+  );
+
+  // ============================================
+  // WALLET FEATURE - DATA LAYER
+  // ============================================
+  getIt.registerSingleton<WalletDatasource>(
+    WalletDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  // ============================================
+  // WALLET FEATURE - DOMAIN LAYER (Services)
+  // ============================================
+  getIt.registerSingleton<WalletService>(
+    WalletService(datasource: getIt<WalletDatasource>()),
+  );
+
+  // ============================================
+  // WALLET FEATURE - PRESENTATION LAYER (BLoC)
+  // ============================================
+  getIt.registerSingleton<WalletBloc>(
+    WalletBloc(walletService: getIt<WalletService>()),
+  );
+
+  // ============================================
+  // STORAGE SERVICE - DOMAIN LAYER
+  // ============================================
+  getIt.registerSingleton<StorageService>(
+    StorageService(storage: getIt<FirebaseStorage>()),
+  );
+
+  // ============================================
+  // RECHARGE FEATURE - DATA LAYER
+  // ============================================
+  getIt.registerSingleton<RecargeDatasource>(
+    RecargeDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  // ============================================
+  // RECHARGE FEATURE - DOMAIN LAYER (Services)
+  // ============================================
+  getIt.registerSingleton<RechargeService>(
+    RechargeService(
+      datasource: getIt<RecargeDatasource>(),
+      walletService: getIt<WalletService>(),
+      storageService: getIt<StorageService>(),
+    ),
+  );
+
+  // ============================================
+  // RECHARGE FEATURE - PRESENTATION LAYER (BLoC)
+  // ============================================
+  getIt.registerSingleton<RechargeBloC>(
+    RechargeBloC(rechargeService: getIt<RechargeService>()),
+  );
+
+  // ============================================
+  // TRIP PAYMENT FEATURE - DOMAIN LAYER (Services)
+  // ============================================
+  getIt.registerSingleton<TripPaymentService>(
+    TripPaymentService(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  // ============================================
+  // TRIP PAYMENT FEATURE - PRESENTATION LAYER (BLoC)
+  // ============================================
+  getIt.registerSingleton<TripPaymentBLoC>(
+    TripPaymentBLoC(tripPaymentService: getIt<TripPaymentService>()),
+  );
+
+  // ============================================
+  // BENEFIT REQUEST FEATURE - DATA LAYER
+  // ============================================
+  getIt.registerSingleton<BenefitRequestDatasource>(
+    BenefitRequestDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  // ============================================
+  // BENEFIT REQUEST FEATURE - DOMAIN LAYER (Services)
+  // ============================================
+  getIt.registerSingleton<BenefitRequestService>(
+    BenefitRequestService(
+      datasource: getIt<BenefitRequestDatasource>(),
+      storageService: getIt<StorageService>(),
+    ),
+  );
+
+  // ============================================
+  // BENEFIT REQUEST FEATURE - PRESENTATION LAYER (BLoC)
+  // ============================================
+  getIt.registerSingleton<BenefitRequestBLoC>(
+    BenefitRequestBLoC(benefitRequestService: getIt<BenefitRequestService>()),
+  );
+
+  // ============================================
+  // ROUTES FEATURE - DATA LAYER
+  // ============================================
+  getIt.registerSingleton<RouteDatasource>(
+    RouteDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  // ============================================
+  // ROUTES FEATURE - DOMAIN LAYER (Services)
+  // ============================================
+  getIt.registerSingleton<RouteService>(
+    RouteService(datasource: getIt<RouteDatasource>()),
+  );
+
+  getIt.registerSingleton<RouteMigrationService>(
+    RouteMigrationService(datasource: getIt<RouteDatasource>()),
   );
 }

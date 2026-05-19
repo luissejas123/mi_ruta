@@ -8,6 +8,10 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
 
 void main() async {
@@ -31,6 +35,14 @@ class MyApp extends StatelessWidget {
               getIt<AuthBloc>()..add(const GetCurrentUserEvent()),
         ),
         BlocProvider<UserBloc>(create: (context) => getIt<UserBloc>()),
+        BlocProvider<WalletBloc>(create: (context) => getIt<WalletBloc>()),
+        BlocProvider<RechargeBloC>(create: (context) => getIt<RechargeBloC>()),
+        BlocProvider<TripPaymentBLoC>(
+          create: (context) => getIt<TripPaymentBLoC>(),
+        ),
+        BlocProvider<BenefitRequestBLoC>(
+          create: (context) => getIt<BenefitRequestBLoC>(),
+        ),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

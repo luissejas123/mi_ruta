@@ -3,6 +3,7 @@ import 'package:mi_ruta/features/user/presentation/pages/rutas_seleccion_page.da
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/route_map_view.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/suggestion_card.dart';
 
 class RutasSugerenciasPage extends StatelessWidget {
   const RutasSugerenciasPage({super.key});
@@ -27,33 +28,39 @@ class RutasSugerenciasPage extends StatelessWidget {
               Expanded(
                 child: ListView(
                   children: [
-                    _SuggestionCard(
+                    SuggestionCard(
                       title: 'Plaza 14 de septiembre',
                       subtitle: 'Destino reciente',
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const RutasSeleccionPage()),
+                          MaterialPageRoute(
+                            builder: (_) => const RutasSeleccionPage(),
+                          ),
                         );
                       },
                     ),
-                    _SuggestionCard(
+                    SuggestionCard(
                       title: 'Calle Los Bugambilias',
                       subtitle: 'Lugar guardado',
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const RutasSeleccionPage()),
+                          MaterialPageRoute(
+                            builder: (_) => const RutasSeleccionPage(),
+                          ),
                         );
                       },
                     ),
-                    _SuggestionCard(
+                    SuggestionCard(
                       title: 'Pedro de Toledo',
                       subtitle: 'Punto frecuente',
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const RutasSeleccionPage()),
+                          MaterialPageRoute(
+                            builder: (_) => const RutasSeleccionPage(),
+                          ),
                         );
                       },
                     ),
@@ -67,32 +74,6 @@ class RutasSugerenciasPage extends StatelessWidget {
       bottomNavigationBar: CustomBottomNav(
         currentIndex: 2,
         onTap: (index) => navigateBottomNav(context, index),
-      ),
-    );
-  }
-}
-
-class _SuggestionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _SuggestionCard({
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ListTile(
-        onTap: onTap,
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 18),
       ),
     );
   }

@@ -7,13 +7,11 @@ import 'package:mi_ruta/features/user/data/datasources/geocoding_datasource.dart
 import 'package:mi_ruta/features/user/data/datasources/gtfs_routes_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/location_datasource.dart';
 import 'package:mi_ruta/features/user/domain/entities/osm_route.dart';
-import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 import 'package:mi_ruta/features/user/domain/services/route_finder_service.dart';
 import 'package:mi_ruta/features/user/presentation/pages/map_search_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/rutas_inicio_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/test_widgets_screen.dart';
 import 'package:mi_ruta/features/user/presentation/pages/wallet_page.dart';
-import 'package:mi_ruta/features/routes/presentation/pages/routes_migration_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/map_action_fabs.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/map_pin_confirm_panel.dart';
@@ -319,26 +317,6 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
                       bottom: 80,
                       child: MapStatusCard(message: _statusText!),
                     ),
-
-                  // Botón de migración de rutas
-                  Positioned(
-                    top: 16,
-                    right: 16,
-                    child: FloatingActionButton.small(
-                      heroTag: 'migration',
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const RoutesMigrationPage(),
-                          ),
-                        );
-                      },
-                      child: const Icon(Icons.cloud_upload_outlined),
-                    ),
-                  ),
                 ],
               ),
             ),

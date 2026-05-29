@@ -94,7 +94,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
   }
 
   PreferredSizeWidget _buildAppBar() => AppBar(
-    backgroundColor: const Color(0xFFF5C210),
+    backgroundColor: Colors.white,
     elevation: 0,
     leading: IconButton(
       icon: const Icon(Icons.arrow_back, color: Colors.black),

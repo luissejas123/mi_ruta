@@ -43,27 +43,19 @@ class TripSegmentService {
       if (seg.length < 2) continue;
 
       final n = seg.length;
-      final step = n > 500
-          ? 3
-          : 1; // Para optimizar si la ruta tiene miles de puntos
+      final step = n > 500 ? 3 : 1;
 
       for (int i = 0; i < n; i += step) {
-        // Costo de caminar origen -> parada
         final walkDistOrig = _fastDistSq(seg[i], origin);
-        // Descartar rápido si está demasiado lejos (ej. peor que la mejor opción actual multiplicada por un factor, pero usamos un límite razonable)
         if (walkDistOrig > 0.003) continue; // aprox 5km en grados^2
 
-        for (int j = 0; j < n; j += step) {
-          // Costo de caminar parada -> destino
+        for (int j = i + 1; j < n; j += step) {
+          // j > i SIEMPRE: el destino debe estar después del origen en el polyline
+          // Esto garantiza que el trazado avanza en la dirección del recorrido
           final walkDistDest = _fastDistSq(seg[j], destination);
 
-          if (walkDistOrig + walkDistDest >= bestCost) continue;
-
-          // Distancia en bus (índices). Si j < i, significa que da la vuelta (ruta circular)
-          final busStops = j >= i ? (j - i) : (n - i + j);
-
-          // Penalización suave por distancia en bus para evitar bucles gigantes
-          // 0.0000001 por cada punto de bus (aprox equivalente a unos metros de caminata extra)
+          // Penalización suave por distancia en bus
+          final busStops = j - i;
           final cost = walkDistOrig + walkDistDest + (busStops * 0.00000005);
 
           if (cost < bestCost) {
@@ -80,6 +72,12 @@ class TripSegmentService {
     if (bestBoard != -1 && bestAlight != -1) {
       bestBoard = _refineIndex(bestSeg, bestBoard, origin);
       bestAlight = _refineIndex(bestSeg, bestAlight, destination);
+      // Asegurarse de que board <= alight después del refinamiento
+      if (bestBoard > bestAlight) {
+        final tmp = bestBoard;
+        bestBoard = bestAlight;
+        bestAlight = tmp;
+      }
     }
 
     if (bestBoard == -1 || bestSeg.isEmpty) {
@@ -90,16 +88,7 @@ class TripSegmentService {
       );
     }
 
-    List<LatLng> transitPoints;
-    if (bestBoard <= bestAlight) {
-      transitPoints = bestSeg.sublist(bestBoard, bestAlight + 1);
-    } else {
-      // Loop around the circular route
-      transitPoints = [
-        ...bestSeg.sublist(bestBoard),
-        ...bestSeg.sublist(0, bestAlight + 1),
-      ];
-    }
+    final transitPoints = bestSeg.sublist(bestBoard, bestAlight + 1);
 
     return TripSegment(
       boardingStop: bestSeg[bestBoard],

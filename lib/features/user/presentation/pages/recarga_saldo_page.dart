@@ -17,7 +17,7 @@ class RecargaSaldoPage extends StatefulWidget {
 }
 
 class _RecargaSaldoPageState extends State<RecargaSaldoPage> {
-  int _currentNavIndex = 1;
+  final int _currentNavIndex = 1;
   late String _userId;
 
   @override

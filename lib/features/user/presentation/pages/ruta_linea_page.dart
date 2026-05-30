@@ -235,8 +235,8 @@ class _RutaLineaPageState extends State<RutaLineaPage> {
           ? DistanceUtils.formatMeters(walkStartDist)
           : 'Desde tu ubicación',
       busLabel: widget.route.ref.isNotEmpty
-          ? 'Línea ${widget.route.ref}  •  ${widget.route.name}'
-          : widget.route.name,
+          ? 'Línea ${widget.route.ref}  •  ${widget.route.displayName}'
+          : widget.route.displayName,
       walkEndSublabel: DistanceUtils.formatMeters(walkEndDist),
       destinationName: widget.destination.name,
     );

@@ -49,6 +49,7 @@ class RouteEntityConverter {
       id: index,
       name: entity.name,
       ref: entity.ref,
+      directionId: entity.directionId,
       segments: segments.isEmpty
           ? [
               [

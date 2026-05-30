@@ -27,8 +27,12 @@ import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_bloc.dart';
 import 'package:mi_ruta/features/routes/data/datasources/route_datasource.dart';
+import 'package:mi_ruta/features/routes/data/datasources/gtfs_datasource.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_migration_service.dart';
+import 'package:mi_ruta/features/routes/domain/services/route_migration_bbox_service.dart';
+import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
+import 'package:mi_ruta/core/local_db/route_local_database.dart';
 
 final getIt = GetIt.instance;
 
@@ -251,5 +255,24 @@ void setupDependencies() {
 
   getIt.registerSingleton<RouteMigrationService>(
     RouteMigrationService(datasource: getIt<RouteDatasource>()),
+  );
+
+  getIt.registerSingleton<RouteMigrationBboxService>(
+    RouteMigrationBboxService(datasource: getIt<RouteDatasource>()),
+  );
+
+  // ============================================
+  // ROUTES FEATURE - LOCAL DB + GTFS + SYNC
+  // ============================================
+  getIt.registerSingleton<RouteLocalDatabase>(RouteLocalDatabase());
+
+  getIt.registerSingleton<GtfsDatasource>(GtfsDatasource());
+
+  getIt.registerSingleton<RouteDataSyncService>(
+    RouteDataSyncService(
+      localDb: getIt<RouteLocalDatabase>(),
+      gtfsDatasource: getIt<GtfsDatasource>(),
+      firestore: getIt<FirebaseFirestore>(),
+    ),
   );
 }

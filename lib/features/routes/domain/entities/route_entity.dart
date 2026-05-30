@@ -12,6 +12,13 @@ class RouteEntity extends Equatable {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final bool active;
+  final String? directionId; // 0=ida, 1=vuelta (GTFS)
+
+  // Bounding box para búsqueda geoespacial eficiente
+  final double? latMin; // latitud mínima
+  final double? latMax; // latitud máxima
+  final double? lngMin; // longitud mínima
+  final double? lngMax; // longitud máxima
 
   const RouteEntity({
     required this.id,
@@ -24,6 +31,11 @@ class RouteEntity extends Equatable {
     this.createdAt,
     this.updatedAt,
     this.active = true,
+    this.directionId,
+    this.latMin,
+    this.latMax,
+    this.lngMin,
+    this.lngMax,
   });
 
   RouteEntity copyWith({
@@ -37,6 +49,11 @@ class RouteEntity extends Equatable {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? active,
+    String? directionId,
+    double? latMin,
+    double? latMax,
+    double? lngMin,
+    double? lngMax,
   }) {
     return RouteEntity(
       id: id ?? this.id,
@@ -49,6 +66,11 @@ class RouteEntity extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       active: active ?? this.active,
+      directionId: directionId ?? this.directionId,
+      latMin: latMin ?? this.latMin,
+      latMax: latMax ?? this.latMax,
+      lngMin: lngMin ?? this.lngMin,
+      lngMax: lngMax ?? this.lngMax,
     );
   }
 
@@ -64,5 +86,10 @@ class RouteEntity extends Equatable {
     createdAt,
     updatedAt,
     active,
+    directionId,
+    latMin,
+    latMax,
+    lngMin,
+    lngMax,
   ];
 }

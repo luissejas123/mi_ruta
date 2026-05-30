@@ -90,9 +90,9 @@ class RutasSeleccionBody extends StatelessWidget {
           itemBuilder: (ctx, i) {
             final match = matches[i];
             final dist = DistanceUtils.formatMeters(match.distanceMeters);
-            final etaMin = (match.distanceMeters / 83.3).ceil().clamp(1, 999);
+            final etaMin = match.totalMinutes.ceil().clamp(1, 999);
             return RouteCard(
-              routeName: match.route.name,
+              routeName: match.route.displayName,
               routeRef: match.route.ref.isNotEmpty
                   ? 'Línea ${match.route.ref}'
                   : '',

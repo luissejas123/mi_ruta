@@ -6,11 +6,12 @@ class ConfirmacionRecargaPage extends StatefulWidget {
   const ConfirmacionRecargaPage({super.key});
 
   @override
-  State<ConfirmacionRecargaPage> createState() => _ConfirmacionRecargaPageState();
+  State<ConfirmacionRecargaPage> createState() =>
+      _ConfirmacionRecargaPageState();
 }
 
 class _ConfirmacionRecargaPageState extends State<ConfirmacionRecargaPage> {
-  int _currentNavIndex = 1;
+  final int _currentNavIndex = 1;
 
   void _onNavTap(int index) {
     navigateBottomNav(context, index);
@@ -34,11 +35,7 @@ class _ConfirmacionRecargaPageState extends State<ConfirmacionRecargaPage> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 18),
-            const Icon(
-              Icons.check_circle,
-              size: 110,
-              color: Color(0xFF1EBE4F),
-            ),
+            const Icon(Icons.check_circle, size: 110, color: Color(0xFF1EBE4F)),
             const SizedBox(height: 30),
             const Text(
               '¡Abonaste saldo de manera exitosa!',

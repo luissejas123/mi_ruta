@@ -26,8 +26,9 @@ class TripPhaseService {
         if (_dist(position, boardingStop) < threshold) return TripPhase.onBus;
         break;
       case TripPhase.onBus:
-        if (_dist(position, alightingStop) < threshold)
+        if (_dist(position, alightingStop) < threshold) {
           return TripPhase.walkEnd;
+        }
         break;
       case TripPhase.walkEnd:
         if (_dist(position, destination) < threshold) return TripPhase.arrived;

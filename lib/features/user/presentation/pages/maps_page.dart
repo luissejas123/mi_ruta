@@ -12,7 +12,7 @@ class MapsPage extends StatefulWidget {
 
 class _MapsPageState extends State<MapsPage> {
   late GoogleMapController mapController;
-  int _currentNavIndex = 0;
+  final int _currentNavIndex = 0;
 
   static const LatLng _initialPosition = LatLng(-17.3895, -66.1568);
 
@@ -47,7 +47,7 @@ class _MapsPageState extends State<MapsPage> {
               zoom: 12.0,
             ),
             markers: _markers,
-            myLocationEnabled: true,
+            myLocationEnabled: false,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
           ),

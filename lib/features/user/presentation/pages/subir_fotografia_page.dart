@@ -11,13 +11,15 @@ class SubirFotografiaPage extends StatefulWidget {
 }
 
 class _SubirFotografiaPageState extends State<SubirFotografiaPage> {
-  int _currentNavIndex = 1;
+  final int _currentNavIndex = 1;
   final TextEditingController _fileNameController = TextEditingController();
   String? _errorText;
 
   bool get _isValidFile {
     final text = _fileNameController.text.trim().toLowerCase();
-    return text.endsWith('.png') || text.endsWith('.jpg') || text.endsWith('.jpeg');
+    return text.endsWith('.png') ||
+        text.endsWith('.jpg') ||
+        text.endsWith('.jpeg');
   }
 
   void _onNavTap(int index) {
@@ -46,9 +48,7 @@ class _SubirFotografiaPageState extends State<SubirFotografiaPage> {
 
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const ConfirmacionBeneficioPage(),
-      ),
+      MaterialPageRoute(builder: (_) => const ConfirmacionBeneficioPage()),
     );
   }
 

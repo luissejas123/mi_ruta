@@ -4,11 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/user/data/datasources/geocoding_datasource.dart';
-import 'package:mi_ruta/features/user/data/datasources/gtfs_routes_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/location_datasource.dart';
-import 'package:mi_ruta/features/user/domain/entities/osm_route.dart';
-import 'package:mi_ruta/features/user/domain/services/route_finder_service.dart';
-import 'package:mi_ruta/features/user/presentation/pages/map_search_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/rutas_inicio_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/test_widgets_screen.dart';
 import 'package:mi_ruta/features/user/presentation/pages/wallet_page.dart';
@@ -18,7 +14,6 @@ import 'package:mi_ruta/features/user/presentation/widgets/map_pin_confirm_panel
 import 'package:mi_ruta/features/user/presentation/widgets/map_pin_overlay.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/map_search_header.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/map_status_card.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/route_suggestions_sheet.dart';
 
 class MiRutaScreen extends StatefulWidget {
   const MiRutaScreen({super.key});
@@ -42,11 +37,9 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
   bool _isCameraMoving = false;
   LatLng? _cameraCenter;
 
-  final _gtfsRoutes = GtfsRoutesDatasource();
   final _locationDatasource = LocationDatasource();
   final _geocodingDatasource = GeocodingDatasource();
-  List<OsmRoute> _osmRoutes = [];
-  bool _isLoadingRoutes = false;
+
   // ── Ciclo de vida ─────────────────────────────────────────────────────────
 
   @override
@@ -84,55 +77,10 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
   // ── Búsqueda de direcciones ───────────────────────────────────────────────
 
   Future<void> _onSearchTap() async {
-    final result = await Navigator.of(context).push<PlaceResult>(
-      MaterialPageRoute(
-        builder: (_) => MapSearchPage(currentLocation: _myLocationLatLng),
-      ),
-    );
-    if (!mounted || result == null) return;
-    setState(() {
-      _destinationLatLng = result.latLng;
-      _searchText = result.name;
-    });
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLngZoom(result.latLng, 16),
-    );
-    // Mostrar rutas cercanas al destino buscado
-    _showNearbyRoutesSheet(result);
-  }
-
-  Future<void> _showNearbyRoutesSheet(PlaceResult destination) async {
-    // Si no hay rutas cargadas, las cargamos en background
-    if (_osmRoutes.isEmpty && !_isLoadingRoutes) {
-      setState(() => _isLoadingRoutes = true);
-      try {
-        final routes = await _gtfsRoutes.fetchRoutes();
-        if (!mounted) return;
-        setState(() {
-          _osmRoutes = routes;
-          _isLoadingRoutes = false;
-        });
-      } catch (_) {
-        if (mounted) setState(() => _isLoadingRoutes = false);
-        return;
-      }
-    }
-    if (!mounted) return;
-    final allNearDest = RouteFinderService.findNearbyForTrip(
-      destination: destination.latLng,
-      routes: _osmRoutes,
-      userLocation: _myLocationLatLng,
-    );
-    if (!mounted || allNearDest.isEmpty) return;
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) =>
-          RouteSuggestionsSheet(destination: destination, matches: allNearDest),
-    );
+    // Navegar a la vista de rutas
+    await Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute(builder: (_) => const RutasInicioPage()));
   }
 
   void _clearSearch() {
@@ -219,6 +167,9 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
         Marker(
           markerId: const MarkerId('mi_ubicacion'),
           position: _myLocationLatLng!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          ),
           infoWindow: const InfoWindow(title: 'Mi ubicación'),
         ),
       if (_destinationLatLng != null)
@@ -260,7 +211,7 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
           _reverseGeocode();
         }
       },
-      myLocationEnabled: true,
+      myLocationEnabled: false,
       myLocationButtonEnabled: false,
       markers: _isPinMode ? {} : _markers,
       zoomControlsEnabled: false,

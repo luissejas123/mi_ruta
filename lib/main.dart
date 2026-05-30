@@ -12,6 +12,8 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_bloc.dart';
+import 'dart:async';
+import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
 
 void main() async {
@@ -19,6 +21,10 @@ void main() async {
   await dotenv.load(fileName: '.env');
   await Firebase.initializeApp();
   setupDependencies();
+
+  // Iniciar seed GTFS en background desde el arranque de la app.
+  // Así cuando el usuario navegue a rutas, los datos ya estarán listos.
+  unawaited(getIt<RouteDataSyncService>().ensureDataReady());
 
   runApp(const MyApp());
 }

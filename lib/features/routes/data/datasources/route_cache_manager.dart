@@ -5,9 +5,11 @@ import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
 
 /// Gestor de caché local para rutas
 /// Descarga todas las rutas de Firestore UNA SOLA VEZ y las guarda localmente
+/// Usa patrón stale-while-revalidate: sirve caché aunque esté expirado y
+/// refresca en background para no bloquear la UI al usuario.
 class RouteCacheManager {
   static const String _cacheFileName = 'routes_cache_v2.json';
-  static const Duration _cacheExpiration = Duration(days: 1);
+  static const Duration _cacheExpiration = Duration(days: 7);
 
   /// Guarda rutas en caché local
   static Future<void> saveRoutesToCache(List<RouteEntity> routes) async {
@@ -41,7 +43,7 @@ class RouteCacheManager {
     }
   }
 
-  /// Carga rutas desde caché local
+  /// Carga rutas desde caché local (respeta expiración de 7 días)
   static Future<List<RouteEntity>> loadRoutesFromCache() async {
     try {
       final dir = await getApplicationDocumentsDirectory();
@@ -52,17 +54,17 @@ class RouteCacheManager {
       }
 
       final content = await file.readAsString();
-      final json = jsonDecode(content) as Map<String, dynamic>;
+      final data = jsonDecode(content) as Map<String, dynamic>;
 
       // Verificar expiración
-      final timestamp = DateTime.parse(json['timestamp'] as String);
+      final timestamp = DateTime.parse(data['timestamp'] as String);
       if (DateTime.now().difference(timestamp) > _cacheExpiration) {
-        print('⚠️ Caché expirado');
+        print('⚠️ Caché expirado (>${_cacheExpiration.inDays} días)');
         return [];
       }
 
       // Parsear rutas
-      final routesList = (json['routes'] as List).cast<Map<String, dynamic>>();
+      final routesList = (data['routes'] as List).cast<Map<String, dynamic>>();
       final routes = routesList.map((r) => _parseRoute(r)).toList();
 
       print('✅ ${routes.length} rutas cargadas desde caché local');
@@ -70,6 +72,43 @@ class RouteCacheManager {
     } catch (e) {
       print('❌ Error cargando rutas del caché: $e');
       return [];
+    }
+  }
+
+  /// Carga rutas desde caché aunque esté expirado (stale-while-revalidate).
+  /// Retorna una tupla: (routes, isExpired).
+  /// - routes: lista de rutas (puede ser vacía si no hay caché)
+  /// - isExpired: true si el caché existe pero está expirado
+  static Future<({List<RouteEntity> routes, bool isExpired})>
+  loadCacheWithStaleness() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/$_cacheFileName');
+
+      if (!file.existsSync()) {
+        return (routes: <RouteEntity>[], isExpired: false);
+      }
+
+      final content = await file.readAsString();
+      final data = jsonDecode(content) as Map<String, dynamic>;
+
+      final timestamp = DateTime.parse(data['timestamp'] as String);
+      final isExpired = DateTime.now().difference(timestamp) > _cacheExpiration;
+
+      final routesList = (data['routes'] as List).cast<Map<String, dynamic>>();
+      final routes = routesList.map((r) => _parseRoute(r)).toList();
+
+      if (isExpired) {
+        print(
+          '⚠️ Caché expirado, sirviendo datos stale (${routes.length} rutas)',
+        );
+      } else {
+        print('✅ ${routes.length} rutas cargadas desde caché local (vigente)');
+      }
+      return (routes: routes, isExpired: isExpired);
+    } catch (e) {
+      print('❌ Error cargando caché con staleness: $e');
+      return (routes: <RouteEntity>[], isExpired: false);
     }
   }
 

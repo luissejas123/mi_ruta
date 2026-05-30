@@ -20,7 +20,7 @@ class SolicitudBeneficioPage extends StatefulWidget {
 }
 
 class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
-  int _currentNavIndex = 1;
+  final int _currentNavIndex = 1;
   String? _selectedBenefitType;
   final List<File> _selectedDocuments = [];
   final TextEditingController _descriptionController = TextEditingController();

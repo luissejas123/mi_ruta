@@ -6,11 +6,12 @@ class ConfirmacionBeneficioPage extends StatefulWidget {
   const ConfirmacionBeneficioPage({super.key});
 
   @override
-  State<ConfirmacionBeneficioPage> createState() => _ConfirmacionBeneficioPageState();
+  State<ConfirmacionBeneficioPage> createState() =>
+      _ConfirmacionBeneficioPageState();
 }
 
 class _ConfirmacionBeneficioPageState extends State<ConfirmacionBeneficioPage> {
-  int _currentNavIndex = 1;
+  final int _currentNavIndex = 1;
 
   void _onNavTap(int index) {
     navigateBottomNav(context, index);
@@ -102,11 +103,7 @@ class _ConfirmacionBeneficioPageState extends State<ConfirmacionBeneficioPage> {
                       ],
                     ),
                   ),
-                  const Icon(
-                    Icons.check_circle,
-                    color: Colors.green,
-                    size: 32,
-                  ),
+                  const Icon(Icons.check_circle, color: Colors.green, size: 32),
                 ],
               ),
             ),
@@ -127,10 +124,7 @@ class _ConfirmacionBeneficioPageState extends State<ConfirmacionBeneficioPage> {
                 ),
                 child: const Text(
                   'Volver al Inicio',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
             ),

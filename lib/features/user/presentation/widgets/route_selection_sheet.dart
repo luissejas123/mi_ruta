@@ -81,12 +81,13 @@ class RouteSelectionSheet extends StatelessWidget {
                       final dist = DistanceUtils.formatMeters(
                         match.distanceMeters,
                       );
-                      final etaMin = (match.distanceMeters / 83.3).ceil().clamp(
+                      // Solo caminata hasta la parada de abordaje (80 m/min)
+                      final etaMin = (match.distanceMeters / 80).ceil().clamp(
                         1,
                         999,
                       );
                       return RouteCard(
-                        routeName: match.route.name,
+                        routeName: match.route.displayName,
                         routeRef: match.route.ref.isNotEmpty
                             ? 'Línea ${match.route.ref}'
                             : '',

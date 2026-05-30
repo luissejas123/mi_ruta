@@ -78,7 +78,7 @@ class RouteSuggestionsSheet extends StatelessWidget {
                 ),
               ),
               title: Text(
-                m.route.name,
+                m.route.displayName,
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               subtitle: m.route.ref.isNotEmpty

@@ -50,6 +50,8 @@ dependencies:
   image_picker: ^1.0.4
   path_provider: ^2.1.5
   mobile_scanner: ^5.0.0
+  sqflite: ^2.4.2
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:
@@ -75,7 +77,9 @@ flutter:
 
   assets:
     - .env
-    - assets/transport_poi.geojson
+    - assets/cochabamba_gtfs/routes.txt
+    - assets/cochabamba_gtfs/trips.txt
+    - assets/cochabamba_gtfs/shapes.txt
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

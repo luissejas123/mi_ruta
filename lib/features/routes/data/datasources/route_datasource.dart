@@ -55,6 +55,57 @@ class RouteDatasource {
     }
   }
 
+  /// Obtiene rutas activas para migración (en lotes para evitar OOM)
+  /// Carga datos de FIRESTORE en LOTES de 20 rutas a la vez
+  Future<List<RouteEntity>> getAllActiveRoutesForMigration() async {
+    try {
+      const batchSize = 20;
+      final allRoutes = <RouteEntity>[];
+      DocumentSnapshot? lastDoc;
+      bool hasMore = true;
+
+      print(
+        '📦 Iniciando carga de rutas para migración (lotes de $batchSize)...',
+      );
+
+      while (hasMore) {
+        Query query = _firestore
+            .collection('routes')
+            .where('active', isEqualTo: true)
+            .limit(batchSize);
+
+        if (lastDoc != null) {
+          query = query.startAfterDocument(lastDoc);
+        }
+
+        final snapshot = await query.get();
+
+        if (snapshot.docs.isEmpty) {
+          hasMore = false;
+          continue;
+        }
+
+        // Mapear rutas del lote CON polyline/stops para calcular bbox
+        for (final doc in snapshot.docs) {
+          final entity = _mapToRouteEntity(doc);
+          allRoutes.add(entity);
+        }
+
+        print(
+          '⏳ Cargadas ${allRoutes.length} rutas... (último lote: ${snapshot.docs.length})',
+        );
+
+        lastDoc = snapshot.docs.last;
+      }
+
+      print('✅ Carga completada: ${allRoutes.length} rutas en total');
+      return allRoutes;
+    } catch (e, st) {
+      print('❌ Error cargando rutas para migración: $e\n$st');
+      throw Exception('Error al obtener rutas para migración: $e');
+    }
+  }
+
   /// Obtiene N rutas activas (para búsqueda con paginación)
   Future<List<RouteEntity>> getActiveRoutesLimit(int limit) async {
     try {
@@ -202,6 +253,160 @@ class RouteDatasource {
     }
   }
 
+  /// Obtiene rutas cuyo bounding box contiene el punto dado.
+  /// ESTRATEGIA ANTI-OOM: usa colección ligera `routes_bbox` para filtrar
+  /// (sin polylines), luego carga solo los documentos coincidentes completos.
+  Future<List<RouteEntity>> getRoutesNearPoint({
+    required double latitude,
+    required double longitude,
+  }) async {
+    try {
+      print('📍 Buscando rutas cerca de ($latitude, $longitude)...');
+
+      // PASO 1: Consultar colección LIGERA routes_bbox (solo metadatos, sin polylines)
+      print('📥 Consultando routes_bbox (colección ligera)...');
+      final bboxSnapshot = await _firestore
+          .collection('routes_bbox')
+          .where('active', isEqualTo: true)
+          .get();
+
+      print('📦 Documentos en routes_bbox: ${bboxSnapshot.docs.length}');
+
+      if (bboxSnapshot.docs.isEmpty) {
+        print(
+          '⚠️ routes_bbox vacía. La migración aún no generó esta colección.',
+        );
+        return [];
+      }
+
+      // PASO 2: Filtrar por bbox en memoria (documentos son solo ~100 bytes c/u)
+      final matchingIds = <String>[];
+
+      for (final doc in bboxSnapshot.docs) {
+        final data = doc.data();
+        final latMin = data['lat_min'] as double?;
+        final latMax = data['lat_max'] as double?;
+        final lngMin = data['lng_min'] as double?;
+        final lngMax = data['lng_max'] as double?;
+
+        if (latMin != null &&
+            latMax != null &&
+            lngMin != null &&
+            lngMax != null &&
+            latitude >= latMin &&
+            latitude <= latMax &&
+            longitude >= lngMin &&
+            longitude <= lngMax) {
+          matchingIds.add(doc.id);
+          print('  ✓ ${data['name'] ?? doc.id}');
+        }
+      }
+
+      print('📊 Rutas que coinciden con bbox: ${matchingIds.length}');
+
+      if (matchingIds.isEmpty) {
+        print('❌ Ninguna ruta pasa por esa zona');
+        return [];
+      }
+
+      // PASO 3: Cargar datos COMPLETOS solo de rutas coincidentes (pocos documentos)
+      print('📥 Cargando polylines de ${matchingIds.length} rutas...');
+      final routes = <RouteEntity>[];
+
+      for (final id in matchingIds) {
+        try {
+          final doc = await _firestore.collection('routes').doc(id).get();
+          if (doc.exists) {
+            routes.add(_mapToRouteEntity(doc));
+          }
+        } catch (e) {
+          print('  ⚠️ Error cargando $id: $e');
+        }
+      }
+
+      print('✅ ${routes.length} rutas cargadas con éxito');
+      return routes;
+    } catch (e, st) {
+      print('❌ Error en getRoutesNearPoint: $e\n$st');
+      rethrow;
+    }
+  }
+
+  /// Actualiza los bounding boxes de todas las rutas.
+  /// Se usa una sola vez para migrar datos existentes.
+  /// Recibe un map de routeId -> {lat_min, lat_max, lng_min, lng_max}
+  Future<void> updateBoundingBoxes(
+    Map<String, Map<String, double>> boundingBoxes,
+  ) async {
+    try {
+      final batch = _firestore.batch();
+      int updated = 0;
+
+      boundingBoxes.forEach((routeId, bbox) {
+        final docRef = _firestore.collection('routes').doc(routeId);
+        batch.update(docRef, {
+          'lat_min': bbox['lat_min'],
+          'lat_max': bbox['lat_max'],
+          'lng_min': bbox['lng_min'],
+          'lng_max': bbox['lng_max'],
+          'updated_at': FieldValue.serverTimestamp(),
+        });
+        updated++;
+      });
+
+      await batch.commit();
+      print('✅ Actualizados $updated bounding boxes en Firestore');
+    } catch (e) {
+      throw Exception('Error actualizando bounding boxes: $e');
+    }
+  }
+
+  /// Crea/actualiza la colección ligera `routes_bbox` que solo contiene metadatos.
+  /// Esta colección NO incluye polylines ni stops, por lo que es muy liviana.
+  /// Se usa para filtrar rutas por bounding box sin OOM.
+  Future<void> populateRoutesBboxCollection(
+    Map<String, Map<String, dynamic>> bboxMeta,
+  ) async {
+    try {
+      print(
+        '📤 Creando colección routes_bbox con ${bboxMeta.length} entradas...',
+      );
+      // Firestore batch: max 500 operaciones por batch
+      const maxBatch = 400;
+      final entries = bboxMeta.entries.toList();
+
+      for (int i = 0; i < entries.length; i += maxBatch) {
+        final batch = _firestore.batch();
+        final chunk = entries.skip(i).take(maxBatch);
+
+        for (final entry in chunk) {
+          final docRef = _firestore.collection('routes_bbox').doc(entry.key);
+          batch.set(docRef, entry.value);
+        }
+
+        await batch.commit();
+        print(
+          '  ⏳ Subidas ${(i + maxBatch).clamp(0, entries.length)}/${entries.length}...',
+        );
+      }
+
+      print('✅ Colección routes_bbox creada correctamente');
+    } catch (e, st) {
+      print('❌ Error creando routes_bbox: $e\n$st');
+      throw Exception('Error creando routes_bbox: $e');
+    }
+  }
+
+  /// Verifica si la colección routes_bbox ya existe y tiene datos.
+  Future<bool> isRoutesBboxCollectionPopulated() async {
+    try {
+      final snap = await _firestore.collection('routes_bbox').limit(1).get();
+      return snap.docs.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
+  }
+
   RouteEntity _mapToRouteEntity(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
 
@@ -244,6 +449,10 @@ class RouteDatasource {
       createdAt: (data['created_at'] as Timestamp?)?.toDate(),
       updatedAt: (data['updated_at'] as Timestamp?)?.toDate(),
       active: data['active'] ?? true,
+      latMin: (data['lat_min'] as num?)?.toDouble(),
+      latMax: (data['lat_max'] as num?)?.toDouble(),
+      lngMin: (data['lng_min'] as num?)?.toDouble(),
+      lngMax: (data['lng_max'] as num?)?.toDouble(),
     );
   }
 }

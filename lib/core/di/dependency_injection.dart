@@ -33,6 +33,13 @@ import 'package:mi_ruta/features/routes/domain/services/route_migration_service.
 import 'package:mi_ruta/features/routes/domain/services/route_migration_bbox_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/core/local_db/route_local_database.dart';
+import 'package:mi_ruta/features/user/data/datasources/location_datasource.dart';
+import 'package:mi_ruta/features/user/data/datasources/geocoding_datasource.dart';
+import 'package:mi_ruta/features/user/domain/repositories/location_repository.dart';
+import 'package:mi_ruta/features/user/data/repositories/location_repository_impl.dart';
+import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
+import 'package:mi_ruta/features/user/domain/usecases/reverse_geocode_usecase.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -99,6 +106,16 @@ void setupDependencies() {
   // ============================================
   // USER FEATURE - DATA LAYER
   // ============================================
+  getIt.registerSingleton<LocationDatasource>(LocationDatasource());
+  getIt.registerSingleton<GeocodingDatasource>(GeocodingDatasource());
+
+  getIt.registerSingleton<LocationRepository>(
+    LocationRepositoryImpl(
+      locationDatasource: getIt<LocationDatasource>(),
+      geocodingDatasource: getIt<GeocodingDatasource>(),
+    ),
+  );
+
   getIt.registerSingleton<UserRemoteDataSource>(
     UserRemoteDataSourceImpl(firestore: getIt<FirebaseFirestore>()),
   );
@@ -110,6 +127,14 @@ void setupDependencies() {
   // ============================================
   // USER FEATURE - DOMAIN LAYER (UseCases)
   // ============================================
+  getIt.registerSingleton<GetCurrentLocationUseCase>(
+    GetCurrentLocationUseCase(repository: getIt<LocationRepository>()),
+  );
+
+  getIt.registerSingleton<ReverseGeocodeUseCase>(
+    ReverseGeocodeUseCase(repository: getIt<LocationRepository>()),
+  );
+
   getIt.registerSingleton<GetCurrentUserUseCase>(
     GetCurrentUserUseCase(repository: getIt<UserRepository>()),
   );
@@ -137,6 +162,13 @@ void setupDependencies() {
   // ============================================
   // USER FEATURE - PRESENTATION LAYER (BLoC)
   // ============================================
+  getIt.registerSingleton<MiRutaBloc>(
+    MiRutaBloc(
+      getCurrentLocationUseCase: getIt<GetCurrentLocationUseCase>(),
+      reverseGeocodeUseCase: getIt<ReverseGeocodeUseCase>(),
+    ),
+  );
+
   getIt.registerSingleton<UserBloc>(
     UserBloc(
       getCurrentUserUseCase: getIt<GetCurrentUserUseCase>(),

@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/core/utils/distance_utils.dart';
-import 'package:mi_ruta/features/user/data/datasources/walking_routes_datasource.dart';
 import 'package:mi_ruta/features/user/domain/entities/osm_route.dart';
 import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
-import 'package:mi_ruta/features/user/domain/services/trip_segment_service.dart';
+import 'package:mi_ruta/features/user/domain/services/trip_route_map_builder_service.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/trip_line_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/trip_line_event.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/trip_line_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/ruta_navegacion_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/trip_route_map.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/trip_summary_view.dart';
 
-class RutaLineaPage extends StatefulWidget {
+class RutaLineaPage extends StatelessWidget {
   final OsmRoute route;
   final PlaceResult destination;
   final LatLng? origin;
@@ -24,84 +27,52 @@ class RutaLineaPage extends StatefulWidget {
   });
 
   @override
-  State<RutaLineaPage> createState() => _RutaLineaPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => TripLineBloc()
+        ..add(
+          TripLineInitialized(
+            route: route,
+            destination: destination,
+            origin: origin,
+          ),
+        ),
+      child: _RutaLineaView(
+        route: route,
+        destination: destination,
+        origin: origin,
+      ),
+    );
+  }
 }
 
-class _RutaLineaPageState extends State<RutaLineaPage> {
-  // ─────────────────────────────────────────────────────────────────────
-  // Constantes
-  // ─────────────────────────────────────────────────────────────────────
+class _RutaLineaView extends StatefulWidget {
+  final OsmRoute route;
+  final PlaceResult destination;
+  final LatLng? origin;
 
+  const _RutaLineaView({
+    required this.route,
+    required this.destination,
+    this.origin,
+  });
+
+  @override
+  State<_RutaLineaView> createState() => _RutaLineaViewState();
+}
+
+class _RutaLineaViewState extends State<_RutaLineaView> {
   static const _navIndexRoutes = 2;
   static const _transitColor = Color(0xFFFBC02D);
   static const _bgColor = Color(0xFFF1F3F4);
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Estado
-  // ─────────────────────────────────────────────────────────────────────
-
-  late final LatLng _boardingStop;
-  late final LatLng _alightingStop;
-  late final List<LatLng> _transitSegment;
-
-  List<LatLng> _walkStartPoints = [];
-  List<LatLng> _walkEndPoints = [];
-
-  final _walkingDatasource = WalkingRoutesDatasource();
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Lifecycle
-  // ─────────────────────────────────────────────────────────────────────
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeSegment();
-    _loadWalkingRoutes();
-  }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Métodos Privados - Inicialización
-  // ─────────────────────────────────────────────────────────────────────
-
-  void _initializeSegment() {
-    final origin = widget.origin ?? widget.destination.latLng;
-    final segment = TripSegmentService.compute(
-      route: widget.route,
-      origin: origin,
-      destination: widget.destination.latLng,
-    );
-    _boardingStop = segment.boardingStop;
-    _alightingStop = segment.alightingStop;
-    _transitSegment = segment.transitPoints;
-  }
-
-  Future<void> _loadWalkingRoutes() async {
-    final futures = <Future<List<LatLng>>>[];
-    if (widget.origin != null) {
-      futures.add(_walkingDatasource.fetchRoute(widget.origin!, _boardingStop));
-    }
-    futures.add(
-      _walkingDatasource.fetchRoute(_alightingStop, widget.destination.latLng),
-    );
-
-    final results = await Future.wait(futures);
-    if (!mounted) return;
-    setState(() {
-      if (widget.origin != null) {
-        _walkStartPoints = results[0];
-        _walkEndPoints = results[1];
-      } else {
-        _walkEndPoints = results[0];
-      }
-    });
-  }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Métodos Privados - Navegación
-  // ─────────────────────────────────────────────────────────────────────
-
-  void _navigateToNavegacion() {
+  void _navigateToNavegacion({
+    required LatLng boardingStop,
+    required LatLng alightingStop,
+    required List<LatLng> transitSegment,
+    required List<LatLng> walkStartPoints,
+    required List<LatLng> walkEndPoints,
+  }) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -109,111 +80,15 @@ class _RutaLineaPageState extends State<RutaLineaPage> {
           route: widget.route,
           destination: widget.destination,
           origin: widget.origin,
-          boardingStop: _boardingStop,
-          alightingStop: _alightingStop,
-          transitSegment: _transitSegment,
-          walkStartPoints: _walkStartPoints,
-          walkEndPoints: _walkEndPoints,
+          boardingStop: boardingStop,
+          alightingStop: alightingStop,
+          transitSegment: transitSegment,
+          walkStartPoints: walkStartPoints,
+          walkEndPoints: walkEndPoints,
         ),
       ),
     );
   }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Métodos Privados - Polylines y Markers
-  // ─────────────────────────────────────────────────────────────────────
-
-  Set<Polyline> _buildPolylines() {
-    final polylines = <Polyline>{};
-
-    if (_transitSegment.length >= 2) {
-      polylines.add(
-        Polyline(
-          polylineId: const PolylineId('transit'),
-          points: _transitSegment,
-          color: _transitColor,
-          width: 6,
-        ),
-      );
-    }
-
-    if (widget.origin != null) {
-      final pts = _walkStartPoints.isNotEmpty
-          ? _walkStartPoints
-          : [widget.origin!, _boardingStop];
-      polylines.add(
-        Polyline(
-          polylineId: const PolylineId('walk_start'),
-          points: pts,
-          color: Colors.grey.shade700,
-          width: 4,
-          patterns: [PatternItem.dash(16), PatternItem.gap(12)],
-        ),
-      );
-    }
-
-    final walkEndPts = _walkEndPoints.isNotEmpty
-        ? _walkEndPoints
-        : [_alightingStop, widget.destination.latLng];
-    polylines.add(
-      Polyline(
-        polylineId: const PolylineId('walk_end'),
-        points: walkEndPts,
-        color: Colors.grey.shade700,
-        width: 4,
-        patterns: [PatternItem.dash(16), PatternItem.gap(12)],
-      ),
-    );
-
-    return polylines;
-  }
-
-  Set<Marker> _buildMarkers() {
-    final markers = <Marker>{};
-
-    if (widget.origin != null) {
-      markers.add(
-        Marker(
-          markerId: const MarkerId('origen'),
-          position: widget.origin!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueGreen,
-          ),
-          infoWindow: const InfoWindow(title: '📍 Punto de partida'),
-        ),
-      );
-    }
-    markers.add(
-      Marker(
-        markerId: const MarkerId('boarding'),
-        position: _boardingStop,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
-        infoWindow: const InfoWindow(title: '🚌 Subir aquí'),
-      ),
-    );
-    markers.add(
-      Marker(
-        markerId: const MarkerId('alighting'),
-        position: _alightingStop,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-        infoWindow: const InfoWindow(title: '🔔 Bajar aquí'),
-      ),
-    );
-    markers.add(
-      Marker(
-        markerId: const MarkerId('destino'),
-        position: widget.destination.latLng,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        infoWindow: InfoWindow(title: '🏁 ${widget.destination.name}'),
-      ),
-    );
-
-    return markers;
-  }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Métodos Privados - Construcción de Widgets
-  // ─────────────────────────────────────────────────────────────────────
 
   PreferredSizeWidget _buildAppBar() => AppBar(
     backgroundColor: Colors.white,
@@ -222,12 +97,15 @@ class _RutaLineaPageState extends State<RutaLineaPage> {
     title: Text(widget.route.name, style: const TextStyle(color: Colors.black)),
   );
 
-  Widget _buildSummary() {
+  Widget _buildSummary({
+    required LatLng boardingStop,
+    required LatLng alightingStop,
+  }) {
     final walkStartDist = widget.origin != null
-        ? DistanceUtils.metersApprox(widget.origin!, _boardingStop)
+        ? DistanceUtils.metersApprox(widget.origin!, boardingStop)
         : 0.0;
     final walkEndDist = DistanceUtils.metersApprox(
-      _alightingStop,
+      alightingStop,
       widget.destination.latLng,
     );
     return TripSummaryView(
@@ -242,10 +120,22 @@ class _RutaLineaPageState extends State<RutaLineaPage> {
     );
   }
 
-  Widget _buildBoardButton() => SizedBox(
+  Widget _buildBoardButton({
+    required LatLng boardingStop,
+    required LatLng alightingStop,
+    required List<LatLng> transitSegment,
+    required List<LatLng> walkStartPoints,
+    required List<LatLng> walkEndPoints,
+  }) => SizedBox(
     width: double.infinity,
     child: ElevatedButton(
-      onPressed: _navigateToNavegacion,
+      onPressed: () => _navigateToNavegacion(
+        boardingStop: boardingStop,
+        alightingStop: alightingStop,
+        transitSegment: transitSegment,
+        walkStartPoints: walkStartPoints,
+        walkEndPoints: walkEndPoints,
+      ),
       style: ElevatedButton.styleFrom(
         backgroundColor: _transitColor,
         foregroundColor: Colors.black,
@@ -259,42 +149,100 @@ class _RutaLineaPageState extends State<RutaLineaPage> {
     ),
   );
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Build
-  // ─────────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bgColor,
-      appBar: _buildAppBar(),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            children: [
-              TripRouteMap(
-                initialTarget: _boardingStop,
-                polylines: _buildPolylines(),
-                markers: _buildMarkers(),
-                boundsPoints: [
-                  if (widget.origin != null) widget.origin!,
-                  ..._transitSegment,
-                  widget.destination.latLng,
-                ],
+    return BlocBuilder<TripLineBloc, TripLineState>(
+      builder: (context, state) {
+        if (state is TripLineLoading) {
+          return Scaffold(
+            backgroundColor: _bgColor,
+            appBar: _buildAppBar(),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (state is TripLineError) {
+          return Scaffold(
+            backgroundColor: _bgColor,
+            appBar: _buildAppBar(),
+            body: Center(
+              child: Text(
+                state.message,
+                style: const TextStyle(color: Colors.red),
               ),
-              const SizedBox(height: 16),
-              _buildSummary(),
-              const Spacer(),
-              _buildBoardButton(),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: _navIndexRoutes,
-        onTap: (index) => navigateBottomNav(context, index),
-      ),
+            ),
+          );
+        }
+
+        if (state is TripLineLoaded) {
+          final polylines = TripRouteMapBuilderService.buildPolylines(
+            tripSegment: state.tripSegment,
+            walkingPaths: state.walkingPaths,
+            route: widget.route,
+            destination: widget.destination,
+            origin: widget.origin,
+          );
+
+          final markers = TripRouteMapBuilderService.buildMarkers(
+            tripSegment: state.tripSegment,
+            route: widget.route,
+            destination: widget.destination,
+            origin: widget.origin,
+          );
+
+          final boundsPoints = TripRouteMapBuilderService.getBoundsPoints(
+            tripSegment: state.tripSegment,
+            destination: widget.destination,
+            origin: widget.origin,
+          );
+
+          return Scaffold(
+            backgroundColor: _bgColor,
+            appBar: _buildAppBar(),
+            body: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+                child: Column(
+                  children: [
+                    TripRouteMap(
+                      initialTarget: state.tripSegment.boardingStop,
+                      polylines: polylines,
+                      markers: markers,
+                      boundsPoints: boundsPoints,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSummary(
+                      boardingStop: state.tripSegment.boardingStop,
+                      alightingStop: state.tripSegment.alightingStop,
+                    ),
+                    const Spacer(),
+                    _buildBoardButton(
+                      boardingStop: state.tripSegment.boardingStop,
+                      alightingStop: state.tripSegment.alightingStop,
+                      transitSegment: state.tripSegment.transitPoints,
+                      walkStartPoints: state.walkingPaths.startWalkPath,
+                      walkEndPoints: state.walkingPaths.endWalkPath,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            bottomNavigationBar: CustomBottomNav(
+              currentIndex: _navIndexRoutes,
+              onTap: (index) => navigateBottomNav(context, index),
+            ),
+          );
+        }
+
+        return Scaffold(
+          backgroundColor: _bgColor,
+          appBar: _buildAppBar(),
+          body: const Center(child: CircularProgressIndicator()),
+        );
+      },
     );
   }
 }

@@ -15,6 +15,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_bloc.dar
 import 'dart:async';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,6 +49,9 @@ class MyApp extends StatelessWidget {
         ),
         BlocProvider<BenefitRequestBLoC>(
           create: (context) => getIt<BenefitRequestBLoC>(),
+        ),
+        BlocProvider<MiRutaBloc>(
+          create: (context) => getIt<MiRutaBloc>(),
         ),
       ],
       child: MaterialApp(

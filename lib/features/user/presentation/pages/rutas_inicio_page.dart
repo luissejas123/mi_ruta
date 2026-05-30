@@ -1,14 +1,17 @@
 ﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
-import 'package:mi_ruta/features/routes/domain/services/route_entity_converter.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/data/datasources/geocoding_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/location_datasource.dart';
-import 'package:mi_ruta/features/user/domain/entities/osm_route.dart';
+import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 import 'package:mi_ruta/features/user/domain/services/route_finder_service.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/route_search_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/route_search_event.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/route_search_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/map_search_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/ruta_linea_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
@@ -20,42 +23,37 @@ import 'package:mi_ruta/features/user/presentation/widgets/rutas_inicio_top_bar.
 
 enum _PinFor { origin, destination }
 
-class RutasInicioPage extends StatefulWidget {
+class RutasInicioPage extends StatelessWidget {
   const RutasInicioPage({super.key});
 
   @override
-  State<RutasInicioPage> createState() => _RutasInicioPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) =>
+          RouteSearchBloc(syncService: getIt<RouteDataSyncService>()),
+      child: const _RutasInicioView(),
+    );
+  }
 }
 
-class _RutasInicioPageState extends State<RutasInicioPage> {
-  // ─────────────────────────────────────────────────────────────────────
-  // Constantes
-  // ─────────────────────────────────────────────────────────────────────
+class _RutasInicioView extends StatefulWidget {
+  const _RutasInicioView();
 
+  @override
+  State<_RutasInicioView> createState() => _RutasInicioViewState();
+}
+
+class _RutasInicioViewState extends State<_RutasInicioView> {
   static const _navIndexRoutes = 2;
-  static const _routeMatchDistance = 3000.0;
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Estado - Datasources y Services
-  // ─────────────────────────────────────────────────────────────────────
 
   final _locationDatasource = LocationDatasource();
   final _geocodingDatasource = GeocodingDatasource();
   late final RouteDataSyncService _syncService = getIt<RouteDataSyncService>();
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Estado - Mapa y Ubicaciones
-  // ─────────────────────────────────────────────────────────────────────
-
   GoogleMapController? _mapController;
   LatLng? _userLocation;
   PlaceResult? _origin;
   PlaceResult? _destination;
-  List<RouteMatch> _matches = [];
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Estado - Pin Mode
-  // ─────────────────────────────────────────────────────────────────────
 
   bool _isPinMode = false;
   _PinFor _pinFor = _PinFor.destination;
@@ -63,23 +61,17 @@ class _RutasInicioPageState extends State<RutasInicioPage> {
   String? _pinAddress;
   bool _isCameraMoving = false;
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Estado - Rutas
-  // ─────────────────────────────────────────────────────────────────────
-
-  final Map<String, List<RouteMatch>> _routeCache = {};
   late Future<void> _dataReadyFuture;
   bool _isDataLoading = false;
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Lifecycle
-  // ─────────────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
+    _initializeData();
+  }
+
+  void _initializeData() {
     _getLocation();
-    // Reusar el future del servicio (ya arrancó desde main.dart)
     _dataReadyFuture = _syncService.ensureDataReady();
     _dataReadyFuture.then((_) {
       if (mounted) setState(() => _isDataLoading = false);
@@ -94,13 +86,11 @@ class _RutasInicioPageState extends State<RutasInicioPage> {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Métodos Privados - Migración de Bounding Boxes
-  // ─────────────────────────────────────────────────────────────────────
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Métodos Privados - Búsqueda de Rutas
-  // ─────────────────────────────────────────────────────────────────────
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    super.dispose();
+  }
 
   Future<void> _findRoutes() async {
     if (_destination == null) return;
@@ -115,127 +105,28 @@ class _RutasInicioPageState extends State<RutasInicioPage> {
       return;
     }
 
-    if (!mounted) return;
-
-    final cacheKey =
-        '${originLatLng.latitude},${originLatLng.longitude}-'
-        '${_destination!.latLng.latitude},${_destination!.latLng.longitude}';
-
-    // Comprobar caché local de búsquedas
-    if (_routeCache.containsKey(cacheKey)) {
-      _matches = _routeCache[cacheKey]!;
-      if (mounted) _showRoutesSheet();
-      return;
-    }
-
-    // Flag para controlar si mostrar diálogo
-    bool dialogShown = false;
-    Timer? loadingTimer;
-
-    // Mostrar diálogo solo si la búsqueda tarda > 300ms
-    loadingTimer = Timer(const Duration(milliseconds: 300), () {
-      if (mounted && !dialogShown) {
-        dialogShown = true;
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => const AlertDialog(
-            title: Row(
-              children: [
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                SizedBox(width: 16),
-                Expanded(child: Text('Buscando rutas')),
-              ],
-            ),
-            content: Text('Buscando rutas cercanas...'),
-          ),
-        );
-      }
-    });
-
-    try {
-      // Esperar que los datos locales estén listos (GTFS seed o sync)
-      await _dataReadyFuture;
-
-      // Buscar rutas que pasen cerca del ORIGEN (usuario) y del DESTINO, unir sin duplicados
-      final nearOriginRows = await _syncService.getRoutesNearPoint(
-        latitude: originLatLng.latitude,
-        longitude: originLatLng.longitude,
-      );
-      final nearDestRows = await _syncService.getRoutesNearPoint(
-        latitude: _destination!.latLng.latitude,
-        longitude: _destination!.latLng.longitude,
-      );
-      final allById = <String, dynamic>{};
-      for (final r in nearOriginRows) allById[r.id] = r;
-      for (final r in nearDestRows) allById.putIfAbsent(r.id, () => r);
-      final nearbyRoutes = allById.values.toList();
-
-      loadingTimer.cancel();
-
-      if (!mounted) return;
-
-      if (nearbyRoutes.isEmpty) {
-        if (dialogShown) Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No hay rutas en esa zona. Verifica tu ubicación.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
-          ),
-        );
-        return;
-      }
-
-      // Convertir RouteEntity → OsmRoute y filtrar por proximidad
-      final candidates = <OsmRoute>[];
-      for (int i = 0; i < nearbyRoutes.length; i++) {
-        candidates.add(RouteEntityConverter.toOsmRoute(nearbyRoutes[i], i));
-      }
-
-      final matches = RouteFinderService.findForTrip(
-        origin: originLatLng,
-        destination: _destination!.latLng,
-        routes: candidates,
-        // maxDistanceMeters usa el default de 800m (~10 min caminando)
-      );
-
-      if (!mounted) return;
-      if (dialogShown) Navigator.pop(context);
-
-      if (matches.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No hay rutas que pasen por esa zona'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
-      }
-
-      _routeCache[cacheKey] = matches;
-      _matches = matches;
-      if (mounted) _showRoutesSheet();
-    } catch (e, st) {
-      loadingTimer.cancel();
-      print('❌ Error buscando rutas: $e\n$st');
-      if (!mounted) return;
-      if (dialogShown) {
-        try {
-          Navigator.pop(context);
-        } catch (_) {}
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+    if (mounted) {
+      context.read<RouteSearchBloc>().add(
+        SearchRoutesRequested(origin: originLatLng, destination: _destination!),
       );
     }
   }
 
-  void _showRoutesSheet() {
+  void _onRouteSelected(RouteMatch match) {
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RutaLineaPage(
+          route: match.route,
+          destination: _destination!,
+          origin: _origin?.latLng ?? _userLocation,
+        ),
+      ),
+    );
+  }
+
+  void _showRoutesSheet(List<RouteMatch> matches) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -248,7 +139,7 @@ class _RutasInicioPageState extends State<RutasInicioPage> {
         maxChildSize: 0.9,
         expand: false,
         builder: (_, controller) => RouteSelectionSheet(
-          matches: _matches,
+          matches: matches,
           destination: _destination!,
           onRouteSelected: _onRouteSelected,
           scrollController: controller,
@@ -256,10 +147,6 @@ class _RutasInicioPageState extends State<RutasInicioPage> {
       ),
     );
   }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Métodos Privados - Navegación
-  // ─────────────────────────────────────────────────────────────────────
 
   Future<void> _onOriginTap() async {
     final result = await Navigator.push<PlaceResult>(
@@ -288,29 +175,10 @@ class _RutasInicioPageState extends State<RutasInicioPage> {
       CameraUpdate.newLatLngZoom(result.latLng, 15),
     );
     if (mounted) {
-      // Pequeño delay para asegurar que el state se actualice
       await Future.delayed(const Duration(milliseconds: 100));
       if (mounted) await _findRoutes();
     }
   }
-
-  void _onRouteSelected(RouteMatch match) {
-    Navigator.pop(context);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => RutaLineaPage(
-          route: match.route,
-          destination: _destination!,
-          origin: _origin?.latLng ?? _userLocation,
-        ),
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Métodos Privados - Pin Mode
-  // ─────────────────────────────────────────────────────────────────────
 
   Future<void> _getLocation() async {
     final result = await _locationDatasource.getCurrentLocation();
@@ -357,15 +225,10 @@ class _RutasInicioPageState extends State<RutasInicioPage> {
       }
     });
     if (_pinFor == _PinFor.destination && mounted) {
-      // Pequeño delay para asegurar que el state se actualice
       await Future.delayed(const Duration(milliseconds: 100));
       if (mounted) await _findRoutes();
     }
   }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Build
-  // ─────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -437,47 +300,45 @@ class _RutasInicioPageState extends State<RutasInicioPage> {
               ),
             ),
           if (_isPinMode) MapPinOverlay(isCameraMoving: _isCameraMoving),
-          if (_isPinMode)
-            // Banner de carga primera vez
-            if (_isDataLoading)
-              Positioned(
-                bottom: 110,
-                left: 16,
-                right: 16,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 10,
-                    horizontal: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFBC02D),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black26, blurRadius: 4),
-                    ],
-                  ),
-                  child: const Row(
-                    children: [
-                      SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.black87,
-                        ),
+          if (_isPinMode && _isDataLoading)
+            Positioned(
+              bottom: 110,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 16,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFBC02D),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 4),
+                  ],
+                ),
+                child: const Row(
+                  children: [
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.black87,
                       ),
-                      SizedBox(width: 12),
-                      Text(
-                        'Preparando rutas por primera vez...',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
+                    ),
+                    SizedBox(width: 12),
+                    Text(
+                      'Preparando rutas por primera vez...',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
+            ),
           if (_isPinMode)
             Positioned(
               left: 0,
@@ -495,6 +356,29 @@ class _RutasInicioPageState extends State<RutasInicioPage> {
                     : _confirmPin,
               ),
             ),
+          BlocListener<RouteSearchBloc, RouteSearchState>(
+            listener: (context, state) {
+              if (state is RouteSearchSuccess) {
+                _showRoutesSheet(state.matches);
+              } else if (state is RouteSearchEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    backgroundColor: Colors.orange,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              } else if (state is RouteSearchError) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const SizedBox.shrink(),
+          ),
         ],
       ),
       bottomNavigationBar: CustomBottomNav(

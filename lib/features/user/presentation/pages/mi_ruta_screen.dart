@@ -1,10 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mi_ruta/features/user/data/datasources/geocoding_datasource.dart';
-import 'package:mi_ruta/features/user/data/datasources/location_datasource.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_event.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/rutas_inicio_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/test_widgets_screen.dart';
 import 'package:mi_ruta/features/user/presentation/pages/wallet_page.dart';
@@ -23,107 +24,51 @@ class MiRutaScreen extends StatefulWidget {
 }
 
 class _MiRutaScreenState extends State<MiRutaScreen> {
-  // ── Estado del mapa ───────────────────────────────────────────────────────
+  // ── Controlador de Mapa (Recurso UI local) ────────────────────────────────
   GoogleMapController? _mapController;
-  LatLng? _myLocationLatLng;
-  LatLng? _destinationLatLng;
-  String? _searchText;
-  String? _statusText;
-  int _selectedIndex = 0;
-
-  // ── Estado del pin arrastrable ────────────────────────────────────────────
-  bool _isPinMode = false;
-  String? _pinAddress;
-  bool _isCameraMoving = false;
-  LatLng? _cameraCenter;
-
-  final _locationDatasource = LocationDatasource();
-  final _geocodingDatasource = GeocodingDatasource();
 
   // ── Ciclo de vida ─────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
-    _requestLocation();
+    // Solicitar ubicación al iniciar la pantalla
+    context.read<MiRutaBloc>().add(const MiRutaLocationRequested());
+  }
+
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    super.dispose();
   }
 
   // ── Geolocalización ───────────────────────────────────────────────────────
 
-  Future<void> _requestLocation() async {
-    final result = await _locationDatasource.getCurrentLocation();
-    if (!mounted) return;
-    setState(() {
-      _myLocationLatLng = result.location;
-      _statusText = result.error;
-    });
-    if (!result.hasError) {
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(result.location, 15),
-      );
-    }
-  }
-
-  Future<void> _goToMyLocation() async {
-    if (_myLocationLatLng != null) {
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(_myLocationLatLng!, 15),
-      );
-    } else {
-      await _requestLocation();
-    }
+  void _goToMyLocation() {
+    context.read<MiRutaBloc>().add(const MiRutaGoToMyLocationRequested());
   }
 
   // ── Búsqueda de direcciones ───────────────────────────────────────────────
 
   Future<void> _onSearchTap() async {
     // Navegar a la vista de rutas
-    await Navigator.of(
-      context,
-    ).push<void>(MaterialPageRoute(builder: (_) => const RutasInicioPage()));
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => const RutasInicioPage()),
+    );
   }
 
   void _clearSearch() {
-    setState(() {
-      _destinationLatLng = null;
-      _searchText = null;
-    });
-    if (_myLocationLatLng != null) {
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(_myLocationLatLng!, 15),
-      );
-    }
+    context.read<MiRutaBloc>().add(const MiRutaClearSearch());
   }
 
   // ── Pin arrastrable ───────────────────────────────────────────────────────
 
   void _togglePinMode() {
-    setState(() {
-      _isPinMode = !_isPinMode;
-      if (_isPinMode) {
-        _cameraCenter ??= _myLocationLatLng;
-        _pinAddress = null;
-      } else {
-        _pinAddress = null;
-      }
-    });
-    if (_isPinMode) _reverseGeocode();
-  }
-
-  Future<void> _reverseGeocode() async {
-    if (_cameraCenter == null) return;
-    final address = await _geocodingDatasource.reverseGeocode(_cameraCenter!);
-    if (!mounted) return;
-    setState(() => _pinAddress = address ?? 'Dirección no disponible');
+    context.read<MiRutaBloc>().add(const MiRutaPinModeToggled());
   }
 
   void _confirmPinDestination() {
-    if (_cameraCenter == null) return;
-    setState(() {
-      _destinationLatLng = _cameraCenter;
-      _searchText = _pinAddress ?? 'Destino';
-      _isPinMode = false;
-    });
+    context.read<MiRutaBloc>().add(const MiRutaPinDestinationConfirmed());
   }
 
   // ── Navegación inferior ───────────────────────────────────────────────────
@@ -156,64 +101,57 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
       );
       return;
     }
-    setState(() => _selectedIndex = index);
+    context.read<MiRutaBloc>().add(MiRutaNavTabSelected(index));
   }
 
   // ── Marcadores ────────────────────────────────────────────────────────────
 
-  Set<Marker> get _markers {
+  Set<Marker> _buildMarkers(MiRutaState state) {
     return {
-      if (_myLocationLatLng != null)
+      if (state.myLocationLatLng != null)
         Marker(
           markerId: const MarkerId('mi_ubicacion'),
-          position: _myLocationLatLng!,
+          position: state.myLocationLatLng!,
           icon: BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueAzure,
           ),
           infoWindow: const InfoWindow(title: 'Mi ubicación'),
         ),
-      if (_destinationLatLng != null)
+      if (state.destinationLatLng != null)
         Marker(
           markerId: const MarkerId('destino'),
-          position: _destinationLatLng!,
+          position: state.destinationLatLng!,
           icon: BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueAzure,
           ),
-          infoWindow: InfoWindow(title: _searchText ?? 'Destino'),
+          infoWindow: InfoWindow(title: state.searchText ?? 'Destino'),
         ),
     };
   }
 
   // ── Helpers de build ──────────────────────────────────────────────────────
 
-  Widget _buildMap() {
-    if (_myLocationLatLng == null) {
+  Widget _buildMap(MiRutaState state) {
+    if (state.myLocationLatLng == null) {
       return const Center(child: CircularProgressIndicator());
     }
     return GoogleMap(
       initialCameraPosition: CameraPosition(
-        target: _myLocationLatLng!,
+        target: state.myLocationLatLng!,
         zoom: 15,
       ),
       onMapCreated: (controller) {
         _mapController = controller;
-        _cameraCenter = _myLocationLatLng;
       },
       onCameraMove: (pos) {
-        _cameraCenter = pos.target;
-        if (_isPinMode && !_isCameraMoving) {
-          setState(() => _isCameraMoving = true);
-        }
+        context.read<MiRutaBloc>().add(MiRutaCameraMoved(pos.target));
       },
       onCameraIdle: () {
-        if (_isPinMode) {
-          setState(() => _isCameraMoving = false);
-          _reverseGeocode();
-        }
+        context.read<MiRutaBloc>().add(const MiRutaCameraIdle());
       },
       myLocationEnabled: false,
       myLocationButtonEnabled: false,
-      markers: _isPinMode ? {} : _markers,
+      markers: state.isPinMode ? const <Marker>{} : _buildMarkers(state),
       zoomControlsEnabled: false,
     );
   }
@@ -222,61 +160,80 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF1F3F4),
-      body: SafeArea(
-        child: Column(
-          children: [
-            MapSearchHeader(onSearchTap: _onSearchTap, searchText: _searchText),
-            Expanded(
-              child: Stack(
+    return BlocListener<MiRutaBloc, MiRutaState>(
+      listenWhen: (previous, current) =>
+          previous.cameraTriggerCount != current.cameraTriggerCount,
+      listener: (context, state) {
+        if (state.cameraUpdateLocation != null && _mapController != null) {
+          _mapController!.animateCamera(
+            CameraUpdate.newLatLngZoom(state.cameraUpdateLocation!, 15),
+          );
+        }
+      },
+      child: BlocBuilder<MiRutaBloc, MiRutaState>(
+        builder: (context, state) {
+          return Scaffold(
+            backgroundColor: const Color(0xFFF1F3F4),
+            body: SafeArea(
+              child: Column(
                 children: [
-                  Positioned.fill(child: _buildMap()),
+                  MapSearchHeader(
+                    onSearchTap: _onSearchTap,
+                    searchText: state.searchText,
+                  ),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(child: _buildMap(state)),
 
-                  if (_isPinMode)
-                    MapPinOverlay(isCameraMoving: _isCameraMoving),
+                        if (state.isPinMode)
+                          MapPinOverlay(isCameraMoving: state.isCameraMoving),
 
-                  if (!_isPinMode)
-                    Positioned.fill(
-                      child: MapActionFabs(
-                        hasDestination: _destinationLatLng != null,
-                        onMyLocation: _goToMyLocation,
-                        onTogglePin: _togglePinMode,
-                        onClearSearch: _clearSearch,
-                      ),
+                        if (!state.isPinMode)
+                          Positioned.fill(
+                            child: MapActionFabs(
+                              hasDestination: state.destinationLatLng != null,
+                              onMyLocation: _goToMyLocation,
+                              onTogglePin: _togglePinMode,
+                              onClearSearch: _clearSearch,
+                            ),
+                          ),
+
+                        if (state.isPinMode)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: MapPinConfirmPanel(
+                              isCameraMoving: state.isCameraMoving,
+                              address: state.pinAddress,
+                              onCancel: _togglePinMode,
+                              onConfirm: (state.isCameraMoving ||
+                                      state.pinAddress == null)
+                                  ? null
+                                  : _confirmPinDestination,
+                            ),
+                          ),
+
+                        if (state.statusText != null)
+                          Positioned(
+                            left: 16,
+                            right: 16,
+                            bottom: 80,
+                            child: MapStatusCard(message: state.statusText!),
+                          ),
+                      ],
                     ),
-
-                  if (_isPinMode)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: MapPinConfirmPanel(
-                        isCameraMoving: _isCameraMoving,
-                        address: _pinAddress,
-                        onCancel: _togglePinMode,
-                        onConfirm: (_isCameraMoving || _pinAddress == null)
-                            ? null
-                            : _confirmPinDestination,
-                      ),
-                    ),
-
-                  if (_statusText != null)
-                    Positioned(
-                      left: 16,
-                      right: 16,
-                      bottom: 80,
-                      child: MapStatusCard(message: _statusText!),
-                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: _selectedIndex,
-        onTap: _onNavTap,
+            bottomNavigationBar: CustomBottomNav(
+              currentIndex: state.selectedIndex,
+              onTap: _onNavTap,
+            ),
+          );
+        },
       ),
     );
   }

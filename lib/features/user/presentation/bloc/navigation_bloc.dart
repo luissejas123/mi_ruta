@@ -15,7 +15,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
   late final LatLng _destination;
 
   StreamSubscription<Position>? _positionSubscription;
-  Timer? _timer;
+  StreamSubscription<void>? _timerSubscription;
   late final DateTime _startTime;
 
   NavigationBloc()
@@ -23,7 +23,10 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     on<NavigationStarted>(_onNavigationStarted);
     on<PositionUpdated>(_onPositionUpdated);
     on<TrackingError>(_onTrackingError);
+    on<NavigationPaused>(_onNavigationPaused);
+    on<NavigationResumed>(_onNavigationResumed);
     on<NavigationStopped>(_onNavigationStopped);
+    on<TimerTick>(_onTimerTick);
   }
 
   /// Inicia el tracking GPS y el timer
@@ -42,7 +45,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
 
     emit(state.copyWith(phase: initialPhase, isTracking: true));
 
-    _startTimer(emit);
+    _startTimer();
     await _startGpsTracking();
   }
 
@@ -71,7 +74,36 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     emit(state.copyWith(error: event.message, isTracking: false));
   }
 
-  /// Detiene el tracking
+  /// Pausa el tracking cuando la app entra en background
+  Future<void> _onNavigationPaused(
+    NavigationPaused event,
+    Emitter<NavigationState> emit,
+  ) async {
+    // Pausar el timer pero mantener el estado actual
+    await _timerSubscription?.cancel();
+    emit(state.copyWith(isPaused: true));
+  }
+
+  /// Reanuda el tracking cuando la app vuelve a foreground
+  Future<void> _onNavigationResumed(
+    NavigationResumed event,
+    Emitter<NavigationState> emit,
+  ) async {
+    // Solo reanudar si el viaje está en progreso
+    if (!state.isTracking) {
+      emit(state.copyWith(isPaused: false));
+      return;
+    }
+
+    // Cancelar timer anterior si existe
+    await _timerSubscription?.cancel();
+
+    // Reiniciar el timer
+    _startTimer();
+    emit(state.copyWith(isPaused: false));
+  }
+
+  /// Detiene el tracking (solo cuando se finaliza el viaje)
   Future<void> _onNavigationStopped(
     NavigationStopped event,
     Emitter<NavigationState> emit,
@@ -80,11 +112,21 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     emit(state.copyWith(isTracking: false));
   }
 
-  /// Inicia el timer que actualiza elapsed cada segundo
-  void _startTimer(Emitter<NavigationState> emit) {
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      final elapsed = DateTime.now().difference(_startTime);
-      emit(state.copyWith(elapsed: elapsed));
+  /// Handler del tick periódico del temporizador
+  Future<void> _onTimerTick(
+    TimerTick event,
+    Emitter<NavigationState> emit,
+  ) async {
+    final elapsed = DateTime.now().difference(_startTime);
+    emit(state.copyWith(elapsed: elapsed));
+  }
+
+  /// Inicia el stream que despacha TimerTick cada segundo
+  void _startTimer() {
+    _timerSubscription = Stream.periodic(const Duration(seconds: 1)).listen((
+      _,
+    ) {
+      add(const TimerTick());
     });
   }
 
@@ -144,7 +186,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
   /// Limpia recursos (streams, timers)
   Future<void> _cleanup() async {
     await _positionSubscription?.cancel();
-    _timer?.cancel();
+    await _timerSubscription?.cancel();
   }
 
   @override

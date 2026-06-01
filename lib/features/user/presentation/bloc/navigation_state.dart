@@ -7,6 +7,7 @@ class NavigationState extends Equatable {
   final LatLng? currentPosition;
   final Duration elapsed;
   final bool isTracking;
+  final bool isPaused;
   final String? error;
 
   const NavigationState({
@@ -14,6 +15,7 @@ class NavigationState extends Equatable {
     this.currentPosition,
     this.elapsed = Duration.zero,
     this.isTracking = false,
+    this.isPaused = false,
     this.error,
   });
 
@@ -22,6 +24,7 @@ class NavigationState extends Equatable {
     LatLng? currentPosition,
     Duration? elapsed,
     bool? isTracking,
+    bool? isPaused,
     String? error,
   }) {
     return NavigationState(
@@ -29,6 +32,7 @@ class NavigationState extends Equatable {
       currentPosition: currentPosition ?? this.currentPosition,
       elapsed: elapsed ?? this.elapsed,
       isTracking: isTracking ?? this.isTracking,
+      isPaused: isPaused ?? this.isPaused,
       error: error ?? this.error,
     );
   }
@@ -39,6 +43,7 @@ class NavigationState extends Equatable {
     currentPosition,
     elapsed,
     isTracking,
+    isPaused,
     error,
   ];
 }

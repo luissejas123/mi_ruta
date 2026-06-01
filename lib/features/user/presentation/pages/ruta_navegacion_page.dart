@@ -90,7 +90,8 @@ class _RutaNavegacionView extends StatefulWidget {
   State<_RutaNavegacionView> createState() => _RutaNavegacionViewState();
 }
 
-class _RutaNavegacionViewState extends State<_RutaNavegacionView> {
+class _RutaNavegacionViewState extends State<_RutaNavegacionView>
+    with WidgetsBindingObserver {
   static const _navIndexRoutes = 2;
 
   GoogleMapController? _mapController;
@@ -101,6 +102,7 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView> {
   void initState() {
     super.initState();
     _navBloc = context.read<NavigationBloc>();
+    WidgetsBinding.instance.addObserver(this);
     LocationIconPainter.build().then((icon) {
       if (mounted && icon != null) setState(() => _locationIcon = icon);
     });
@@ -108,9 +110,34 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _mapController?.dispose();
-    _navBloc.add(const NavigationStopped());
+    // NO llamar a NavigationStopped aquí - solo pausamos
+    // El viaje continúa si el usuario minimiza la app
     super.dispose();
+  }
+
+  /// Detecta cambios en el ciclo de vida de la app
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        // App entra en background o se cierra
+        _navBloc.add(const NavigationPaused());
+        break;
+      case AppLifecycleState.resumed:
+        // App vuelve a foreground
+        _navBloc.add(const NavigationResumed());
+        break;
+      case AppLifecycleState.hidden:
+        // iOS 13.2+: app pasa a background
+        _navBloc.add(const NavigationPaused());
+        break;
+      case AppLifecycleState.inactive:
+        // Transición - no hacer nada
+        break;
+    }
   }
 
   void _onMapCreated(GoogleMapController controller) {
@@ -129,6 +156,12 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView> {
     }
   }
 
+  /// Maneja el botón de regreso - detiene el tracking antes de navegar
+  void _onBackPressed() {
+    _navBloc.add(const NavigationStopped());
+    Navigator.of(context).pop();
+  }
+
   void _showSummarySheet(Duration elapsed) {
     if (!mounted) return;
     showModalBottomSheet(
@@ -144,6 +177,8 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView> {
         elapsed: elapsed,
         onClose: () {
           Navigator.of(ctx).pop();
+          // Detener el tracking cuando el usuario cierra el resumen
+          _navBloc.add(const NavigationStopped());
           Navigator.of(context).popUntil((r) => r.isFirst);
         },
       ),
@@ -212,7 +247,7 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView> {
                 NavTopBar(
                   routeName: widget.route.name,
                   elapsed: DistanceUtils.formatDuration(state.elapsed),
-                  onBack: () => Navigator.of(context).pop(),
+                  onBack: _onBackPressed,
                 ),
                 NavBottomPanel(
                   phase: state.phase,

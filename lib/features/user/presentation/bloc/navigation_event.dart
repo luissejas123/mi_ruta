@@ -46,7 +46,22 @@ class TrackingError extends NavigationEvent {
   List<Object?> get props => [message];
 }
 
-/// Detiene el tracking (cleanup)
+/// Pausa el tracking cuando la app entra en background
+class NavigationPaused extends NavigationEvent {
+  const NavigationPaused();
+}
+
+/// Reanuda el tracking cuando la app vuelve a foreground
+class NavigationResumed extends NavigationEvent {
+  const NavigationResumed();
+}
+
+/// Detiene el tracking (cleanup final - solo cuando termina el viaje)
 class NavigationStopped extends NavigationEvent {
   const NavigationStopped();
+}
+
+/// Tick periódico del temporizador de viaje
+class TimerTick extends NavigationEvent {
+  const TimerTick();
 }

@@ -46,3 +46,32 @@ class AuthError extends AuthState {
 class AuthUnauthenticated extends AuthState {
   const AuthUnauthenticated();
 }
+
+/// Estado que contiene errores de validación por campo
+/// Útil para mostrar errores en tiempo real debajo de cada campo
+class AuthValidationError extends AuthState {
+  final Map<String, String> fieldErrors;
+  final bool isFormValid;
+
+  const AuthValidationError({
+    required this.fieldErrors,
+    this.isFormValid = false,
+  });
+
+  @override
+  List<Object?> get props => [fieldErrors, isFormValid];
+}
+
+/// Estado específico para validación de login
+class LoginValidationError extends AuthState {
+  final Map<String, String> fieldErrors;
+  final bool isFormValid;
+
+  const LoginValidationError({
+    required this.fieldErrors,
+    this.isFormValid = false,
+  });
+
+  @override
+  List<Object?> get props => [fieldErrors, isFormValid];
+}

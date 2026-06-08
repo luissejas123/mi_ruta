@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
+import 'package:mi_ruta/features/notifications/domain/usecases/notification_usecases.dart';
+import 'package:mi_ruta/features/notifications/presentation/pages/notification_demo_screens.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_textfield.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/register_button.dart';
 
@@ -45,14 +48,11 @@ class _RegisterPageState extends State<RegisterPage> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthLoaded) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('¡Bienvenido ${state.user.fullName}!'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
+          _handleSuccessfulRegistration(
+            context,
+            uid: state.user.uid,
+            fullName: state.user.fullName,
           );
-          // TODO: Navegar a HomePage o siguiente pantalla
         } else if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -173,6 +173,25 @@ class _RegisterPageState extends State<RegisterPage> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Future<void> _handleSuccessfulRegistration(
+    BuildContext context, {
+    required String uid,
+    required String fullName,
+  }) async {
+    final initializeNotificationsUseCase =
+        GetIt.instance<InitializeUserNotificationsUseCase>();
+
+    await initializeNotificationsUseCase.call(uid);
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => const RegistroCompletadoScreen(),
       ),
     );
   }

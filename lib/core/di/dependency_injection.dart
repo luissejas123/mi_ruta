@@ -13,6 +13,11 @@ import 'package:mi_ruta/features/user/data/repositories/user_repository_impl.dar
 import 'package:mi_ruta/features/user/domain/repositories/user_repository.dart';
 import 'package:mi_ruta/features/user/domain/usecases/user_usecases.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
+import 'package:mi_ruta/features/notifications/data/datasources/notification_remote_datasource.dart';
+import 'package:mi_ruta/features/notifications/data/datasources/notification_remote_datasource_impl.dart';
+import 'package:mi_ruta/features/notifications/data/repositories/notification_repository_impl.dart';
+import 'package:mi_ruta/features/notifications/domain/repositories/notification_repository.dart';
+import 'package:mi_ruta/features/notifications/domain/usecases/notification_usecases.dart';
 
 final getIt = GetIt.instance;
 
@@ -110,6 +115,48 @@ void setupDependencies() {
 
   getIt.registerSingleton<GetUserStreamUseCase>(
     GetUserStreamUseCase(repository: getIt<UserRepository>()),
+  );
+
+  // ============================================
+  // NOTIFICATIONS FEATURE - DATA LAYER
+  // ============================================
+  getIt.registerSingleton<NotificationRemoteDataSource>(
+    NotificationRemoteDataSourceImpl(
+      firestore: getIt<FirebaseFirestore>(),
+    ),
+  );
+
+  getIt.registerSingleton<NotificationRepository>(
+    NotificationRepositoryImpl(
+      remoteDataSource: getIt<NotificationRemoteDataSource>(),
+    ),
+  );
+
+  // ============================================
+  // NOTIFICATIONS FEATURE - DOMAIN LAYER (UseCases)
+  // ============================================
+  getIt.registerSingleton<GetUserNotificationsUseCase>(
+    GetUserNotificationsUseCase(getIt<NotificationRepository>()),
+  );
+
+  getIt.registerSingleton<SubscribeToNotificationsUseCase>(
+    SubscribeToNotificationsUseCase(getIt<NotificationRepository>()),
+  );
+
+  getIt.registerSingleton<MarkNotificationAsReadUseCase>(
+    MarkNotificationAsReadUseCase(getIt<NotificationRepository>()),
+  );
+
+  getIt.registerSingleton<DeleteNotificationUseCase>(
+    DeleteNotificationUseCase(getIt<NotificationRepository>()),
+  );
+
+  getIt.registerSingleton<CreateNotificationUseCase>(
+    CreateNotificationUseCase(getIt<NotificationRepository>()),
+  );
+
+  getIt.registerSingleton<InitializeUserNotificationsUseCase>(
+    InitializeUserNotificationsUseCase(getIt<NotificationRepository>()),
   );
 
   // ============================================

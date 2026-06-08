@@ -40,7 +40,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
 
     result.fold(
-      (failure) => emit(AuthError(message: failure.toString())),
+      (failure) => emit(AuthError(message: failure.message)),
       (user) => emit(AuthLoaded(user: user)),
     );
   }
@@ -54,7 +54,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
 
     result.fold(
-      (failure) => emit(AuthError(message: failure.toString())),
+      (failure) => emit(AuthError(message: failure.message)),
       (user) => emit(AuthLoaded(user: user)),
     );
   }
@@ -68,7 +68,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final result = await logoutUseCase.call();
 
     result.fold(
-      (failure) => emit(AuthError(message: failure.toString())),
+      (failure) => emit(AuthError(message: failure.message)),
       (_) => emit(const AuthUnauthenticated()),
     );
   }
@@ -82,7 +82,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final result = await getCurrentUserUseCase.call();
 
     result.fold(
-      (failure) => emit(AuthError(message: failure.toString())),
+      (failure) => emit(AuthError(message: failure.message)),
       (user) => emit(AuthLoaded(user: user)),
     );
   }
@@ -96,7 +96,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final result = await resetPasswordUseCase.call(event.email);
 
     result.fold(
-      (failure) => emit(AuthError(message: failure.toString())),
+      (failure) => emit(AuthError(message: failure.message)),
       (_) => emit(
         const AuthSuccess(
           message: 'Verifica tu email para resetear la contraseña',

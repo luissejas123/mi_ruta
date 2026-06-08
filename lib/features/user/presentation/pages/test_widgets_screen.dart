@@ -55,11 +55,6 @@ class _TestWidgetsScreenState extends State<TestWidgetsScreen> {
                   onTap: () => print("Click en historial"),
                 ),
                 MenuTile(
-                  title: "Notificaciones",
-                  icon: Icons.notifications_none,
-                  onTap: () => print("Click en notificaciones"),
-                ),
-                MenuTile(
                   title: "Planificar ruta",
                   icon: Icons.map,
                   onTap: () => print("Click en planificar"),

@@ -28,7 +28,7 @@ class SwitchTile extends StatelessWidget {
         trailing: Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: Colors.black,
+          activeThumbColor: Colors.black,
           activeTrackColor: Colors.white60,
         ),
       ),

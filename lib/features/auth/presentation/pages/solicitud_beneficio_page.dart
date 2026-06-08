@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:mi_ruta/features/auth/presentation/pages/pago_qr_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -12,7 +11,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'MiRuta',
+      title: 'Solicitud de Beneficio',
       theme: ThemeData.dark(),
       home: const SolicitudBeneficioPage(),
     );
@@ -50,24 +49,13 @@ class SolicitudBeneficioPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            beneficioButton(
-              context,
-              "Estudiante",
-            ),
-
+            beneficioButton("Estudiante"),
             const SizedBox(height: 35),
 
-            beneficioButton(
-              context,
-              "Universitario",
-            ),
-
+            beneficioButton("Universitario"),
             const SizedBox(height: 35),
 
-            beneficioButton(
-              context,
-              "Adulto mayor",
-            ),
+            beneficioButton("Adulto mayor"),
           ],
         ),
       ),
@@ -100,21 +88,13 @@ class SolicitudBeneficioPage extends StatelessWidget {
     );
   }
 
-  Widget beneficioButton(
-    BuildContext context,
-    String texto,
-  ) {
+  Widget beneficioButton(String texto) {
     return SizedBox(
       width: 180,
       height: 65,
       child: ElevatedButton(
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const PagoQr(),
-            ),
-          );
+          debugPrint("Seleccionado: $texto");
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFF4C430),
@@ -134,4 +114,4 @@ class SolicitudBeneficioPage extends StatelessWidget {
       ),
     );
   }
-} 
+}

@@ -34,8 +34,13 @@ class _ConfirmacionRecargaPageState extends State<ConfirmacionRecargaPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const SizedBox(height: 18),
-            const Icon(Icons.check_circle, size: 110, color: Color(0xFF1EBE4F)),
+            const SizedBox(height: 40),
+            // ✅ Ícono de éxito verde
+            const Icon(
+              Icons.check_circle,
+              size: 120,
+              color: Color(0xFF1EBE4F),
+            ),
             const SizedBox(height: 30),
             const Text(
               '¡Abonaste saldo de manera exitosa!',
@@ -46,7 +51,17 @@ class _ConfirmacionRecargaPageState extends State<ConfirmacionRecargaPage> {
                 color: Colors.black,
               ),
             ),
+            const SizedBox(height: 16),
+            const Text(
+              'Tu saldo ha sido actualizado correctamente.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.black54,
+              ),
+            ),
             const Spacer(),
+            // ✅ Botón amarillo consistente
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -55,9 +70,10 @@ class _ConfirmacionRecargaPageState extends State<ConfirmacionRecargaPage> {
                   Navigator.of(context).popUntil((route) => route.isFirst);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
+                  backgroundColor: const Color(0xFFFFC12F),
+                  elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
                 child: const Text(
@@ -65,7 +81,7 @@ class _ConfirmacionRecargaPageState extends State<ConfirmacionRecargaPage> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: Colors.black,
                   ),
                 ),
               ),

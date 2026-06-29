@@ -23,17 +23,13 @@ class _RecargaSaldoPageState extends State<RecargaSaldoPage> {
   @override
   void initState() {
     super.initState();
-    // Obtener userId del AuthBloc
     final authState = context.read<AuthBloc>().state;
     if (authState is AuthLoaded) {
       _userId = authState.user.uid;
     } else {
-      // Fallback si AuthBloc no tiene usuario cargado
       _userId = 'user_demo';
     }
 
-    // El WalletBloc ya debe estar cargado desde wallet_page
-    // pero nos aseguramos de tener datos frescos
     if (context.read<WalletBloc>().state is! WalletLoaded) {
       context.read<WalletBloc>().add(LoadWalletEvent(_userId));
     }
@@ -57,31 +53,40 @@ class _RecargaSaldoPageState extends State<RecargaSaldoPage> {
         ),
         title: const Text(
           'Recargar saldo',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
       body: BlocBuilder<WalletBloc, WalletState>(
         builder: (context, state) {
           final wallet = state is WalletLoaded ? state.wallet : null;
           final displayBalance = wallet != null
-              ? '${wallet.currency}. ${wallet.currentBalance.toStringAsFixed(2)}'
-              : 'BS. 0.00';
+              ? '${wallet.currency} ${wallet.currentBalance.toStringAsFixed(2)}'
+              : 'Bs. 0.00';
 
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: Column(
               children: [
+                // ✅ Tarjeta de saldo
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  padding: const EdgeInsets.symmetric(vertical: 28),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF5C210),
-                    borderRadius: BorderRadius.circular(18),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFC12F), Color(0xFFE6A800)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                        // ✅ withValues en vez de withOpacity deprecado
+                        color: Colors.black.withValues(alpha: 0.10),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
@@ -90,9 +95,10 @@ class _RecargaSaldoPageState extends State<RecargaSaldoPage> {
                       const Text(
                         'SALDO DISPONIBLE',
                         style: TextStyle(
-                          color: Colors.black87,
-                          fontSize: 16,
+                          color: Colors.black54,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -108,6 +114,7 @@ class _RecargaSaldoPageState extends State<RecargaSaldoPage> {
                   ),
                 ),
                 const SizedBox(height: 40),
+                // ✅ Botón amarillo consistente
                 SizedBox(
                   width: double.infinity,
                   height: 56,
@@ -121,15 +128,16 @@ class _RecargaSaldoPageState extends State<RecargaSaldoPage> {
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
+                      backgroundColor: const Color(0xFFFFC12F),
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                     child: const Text(
                       'RECARGA CON QR',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: Colors.black,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),

@@ -20,12 +20,19 @@ class SolicitudBeneficioPage extends StatefulWidget {
 }
 
 class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
+  static const _amarillo = Color(0xFFFFC12F);
   final int _currentNavIndex = 1;
   String? _selectedBenefitType;
   final List<File> _selectedDocuments = [];
   final TextEditingController _descriptionController = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
   bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
 
   void _onNavTap(int index) {
     navigateBottomNav(context, index);
@@ -38,25 +45,53 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
         imageQuality: 85,
       );
 
-      if (result != null) {
-        setState(() {
-          _selectedDocuments.add(File(result.path));
-        });
+      if (result == null) return;
 
+      final file = File(result.path);
+
+      // ✅ Validar formato y tamaño
+      final validationError = DocumentUploadSection.validateFile(file);
+      if (validationError != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(validationError)),
+                ],
+              ),
+              backgroundColor: Colors.red.shade700,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+        return;
+      }
+
+      setState(() {
+        _selectedDocuments.add(file);
+      });
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Documento agregado: ${result.name}'),
+            content: Text('✅ Documento agregado: ${result.name}'),
+            backgroundColor: Colors.green.shade700,
             duration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al seleccionar documento: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al seleccionar documento: $e'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
     }
   }
 
@@ -64,7 +99,6 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
     setState(() {
       _selectedDocuments.removeAt(index);
     });
-
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Documento removido'),
@@ -76,24 +110,29 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
   Future<void> _submitBenefitRequest() async {
     if (_selectedBenefitType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor selecciona un tipo de beneficio'),
+        SnackBar(
+          content: const Text('Por favor selecciona un tipo de beneficio'),
+          backgroundColor: Colors.red.shade700,
         ),
       );
       return;
     }
 
-    if (_descriptionController.text.isEmpty) {
+    if (_descriptionController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor ingresa una descripción')),
+        SnackBar(
+          content: const Text('Por favor ingresa una descripción'),
+          backgroundColor: Colors.red.shade700,
+        ),
       );
       return;
     }
 
     if (_selectedDocuments.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor selecciona al menos un documento'),
+        SnackBar(
+          content: const Text('Por favor selecciona al menos un documento'),
+          backgroundColor: Colors.red.shade700,
         ),
       );
       return;
@@ -102,20 +141,21 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
     final userId = _getUserIdFromContext();
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo obtener tu información')),
+        SnackBar(
+          content: const Text('No se pudo obtener tu información'),
+          backgroundColor: Colors.red.shade700,
+        ),
       );
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    setState(() => _isSubmitting = true);
 
     context.read<BenefitRequestBLoC>().add(
       SubmitBenefitRequestEvent(
         userId: userId,
         benefitType: _selectedBenefitType!,
-        description: _descriptionController.text,
+        description: _descriptionController.text.trim(),
         documentFiles: _selectedDocuments,
       ),
     );
@@ -123,9 +163,7 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
 
   String? _getUserIdFromContext() {
     final authState = context.read<AuthBloc>().state;
-    if (authState is AuthLoaded) {
-      return authState.user.uid;
-    }
+    if (authState is AuthLoaded) return authState.user.uid;
     return null;
   }
 
@@ -155,26 +193,20 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.green,
+                backgroundColor: Colors.green.shade700,
               ),
             );
-
             Future.delayed(const Duration(seconds: 2), () {
-              if (mounted) {
-                Navigator.of(context).pop();
-              }
+              if (mounted) Navigator.of(context).pop();
             });
           } else if (state is BenefitRequestError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: Colors.red,
+                backgroundColor: Colors.red.shade700,
               ),
             );
-
-            setState(() {
-              _isSubmitting = false;
-            });
+            setState(() => _isSubmitting = false);
           }
         },
         child: SingleChildScrollView(
@@ -183,42 +215,44 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Tipo de beneficio
+                // ── Tipo de beneficio ──
                 const Text(
                   'Tipo de Beneficio',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 12),
-                Column(
-                  children: [
-                    BenefitTypeButton(
-                      label: 'Estudiante',
-                      isSelected: _selectedBenefitType == 'student',
-                      onTap: () =>
-                          setState(() => _selectedBenefitType = 'student'),
-                    ),
-                    const SizedBox(height: 12),
-                    BenefitTypeButton(
-                      label: 'Universitario',
-                      isSelected: _selectedBenefitType == 'university',
-                      onTap: () =>
-                          setState(() => _selectedBenefitType = 'university'),
-                    ),
-                    const SizedBox(height: 12),
-                    BenefitTypeButton(
-                      label: 'Adulto mayor',
-                      isSelected: _selectedBenefitType == 'senior',
-                      onTap: () =>
-                          setState(() => _selectedBenefitType = 'senior'),
-                    ),
-                  ],
+                BenefitTypeButton(
+                  label: 'Estudiante',
+                  isSelected: _selectedBenefitType == 'student',
+                  onTap: () =>
+                      setState(() => _selectedBenefitType = 'student'),
+                ),
+                const SizedBox(height: 12),
+                BenefitTypeButton(
+                  label: 'Universitario',
+                  isSelected: _selectedBenefitType == 'university',
+                  onTap: () =>
+                      setState(() => _selectedBenefitType = 'university'),
+                ),
+                const SizedBox(height: 12),
+                BenefitTypeButton(
+                  label: 'Adulto mayor',
+                  isSelected: _selectedBenefitType == 'senior',
+                  onTap: () =>
+                      setState(() => _selectedBenefitType = 'senior'),
                 ),
                 const SizedBox(height: 32),
 
-                // Descripción
+                // ── Descripción ──
                 const Text(
                   'Descripción de tu solicitud',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -233,7 +267,7 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: Colors.black,
+                        color: _amarillo,
                         width: 2,
                       ),
                     ),
@@ -241,10 +275,22 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
                 ),
                 const SizedBox(height: 32),
 
-                // Documentos
+                // ── Documentos ──
                 const Text(
                   'Documentos adjuntos',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // ✅ Indicador de formato permitido
+                Text(
+                  'Solo JPG o PNG • Máximo 5 MB por archivo',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade500,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 DocumentUploadSection(
@@ -255,21 +301,21 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
                 ),
                 const SizedBox(height: 32),
 
-                // Botón enviar
+                // ── Botón enviar ──
                 BlocBuilder<BenefitRequestBLoC, BenefitRequestState>(
                   builder: (context, state) {
                     final isLoading = state is BenefitRequestLoading;
-
                     return SizedBox(
                       width: double.infinity,
                       height: 56,
                       child: ElevatedButton(
                         onPressed: isLoading ? null : _submitBenefitRequest,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          disabledBackgroundColor: Colors.grey,
+                          backgroundColor: _amarillo,
+                          disabledBackgroundColor: Colors.grey.shade300,
+                          elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         child: Text(
@@ -277,7 +323,7 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
                               ? 'Enviando solicitud...'
                               : 'Enviar solicitud',
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: Colors.black,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -297,11 +343,5 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
         onTap: _onNavTap,
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _descriptionController.dispose();
-    super.dispose();
   }
 }

@@ -41,53 +41,60 @@ class _ConfirmacionBeneficioPageState extends State<ConfirmacionBeneficioPage> {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: Column(
           children: [
+            // ✅ Banner de éxito
             Container(
               width: double.infinity,
-              height: 100,
+              padding: const EdgeInsets.symmetric(vertical: 24),
               decoration: BoxDecoration(
-                color: const Color(0xFFF5C210),
+                color: const Color(0xFFFFC12F),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: const Center(
-                child: Text(
-                  '¡Carnet subido exitosamente!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+              child: const Column(
+                children: [
+                  Icon(Icons.check_circle, color: Color(0xFF1EBE4F), size: 48),
+                  SizedBox(height: 12),
+                  Text(
+                    '¡Carnet subido exitosamente!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
+            // ✅ Tarjeta de documento válido
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFFF5C210),
+                color: const Color(0xFFFFC12F),
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Row(
                 children: [
+                  // ✅ Ícono con fondo amarillo oscuro
                   Container(
                     width: 60,
                     height: 60,
                     decoration: BoxDecoration(
-                      color: Colors.black,
+                      color: Colors.black.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(
                       Icons.badge_outlined,
                       size: 34,
-                      color: Colors.white,
+                      color: Colors.black,
                     ),
                   ),
                   const SizedBox(width: 16),
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text(
                           'Documento válido',
                           style: TextStyle(
@@ -98,16 +105,24 @@ class _ConfirmacionBeneficioPageState extends State<ConfirmacionBeneficioPage> {
                         SizedBox(height: 6),
                         Text(
                           'Tu carnet ha sido validado correctamente',
-                          style: TextStyle(fontSize: 14, color: Colors.black54),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.black54,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.check_circle, color: Colors.green, size: 32),
+                  const Icon(
+                    Icons.check_circle,
+                    color: Color(0xFF1EBE4F),
+                    size: 32,
+                  ),
                 ],
               ),
             ),
             const Spacer(),
+            // ✅ Botón amarillo consistente
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -116,15 +131,19 @@ class _ConfirmacionBeneficioPageState extends State<ConfirmacionBeneficioPage> {
                   Navigator.of(context).popUntil((route) => route.isFirst);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF5C210),
-                  foregroundColor: Colors.black,
+                  backgroundColor: const Color(0xFFFFC12F),
+                  elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
                 child: const Text(
                   'Volver al Inicio',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
                 ),
               ),
             ),

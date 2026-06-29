@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
@@ -67,12 +68,12 @@ class _TestWidgetsScreenState extends State<TestWidgetsScreen> {
                 MenuTile(
                   title: "Historial de Viajes",
                   icon: Icons.history,
-                  onTap: () => print("Click en historial"),
+                  onTap: () => debugPrint("Click en historial"),
                 ),
                 MenuTile(
                   title: "Notificaciones",
                   icon: Icons.notifications_none,
-                  onTap: () => print("Click en notificaciones"),
+                  onTap: () => debugPrint("Click en notificaciones"),
                 ),
                 MenuTile(
                   title: "Planificar ruta",

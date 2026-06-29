@@ -8,6 +8,7 @@ import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 import 'package:mi_ruta/features/user/domain/services/navigation_marker_builder_service.dart';
 import 'package:mi_ruta/features/user/domain/services/navigation_polyline_builder_service.dart';
 import 'package:mi_ruta/features/user/domain/services/navigation_utils_service.dart';
+import 'package:mi_ruta/features/user/domain/services/trip_phase_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_state.dart';
@@ -112,30 +113,21 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _mapController?.dispose();
-    // NO llamar a NavigationStopped aquí - solo pausamos
-    // El viaje continúa si el usuario minimiza la app
     super.dispose();
   }
 
-  /// Detecta cambios en el ciclo de vida de la app
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
-        // App entra en background o se cierra
+      case AppLifecycleState.hidden:
         _navBloc.add(const NavigationPaused());
         break;
       case AppLifecycleState.resumed:
-        // App vuelve a foreground
         _navBloc.add(const NavigationResumed());
         break;
-      case AppLifecycleState.hidden:
-        // iOS 13.2+: app pasa a background
-        _navBloc.add(const NavigationPaused());
-        break;
       case AppLifecycleState.inactive:
-        // Transición - no hacer nada
         break;
     }
   }
@@ -150,13 +142,6 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
     }
   }
 
-  void _onCameraMove(LatLng newPosition) {
-    if (_mapController != null) {
-      _mapController!.animateCamera(CameraUpdate.newLatLng(newPosition));
-    }
-  }
-
-  /// Maneja el botón de regreso - detiene el tracking antes de navegar
   void _onBackPressed() {
     _navBloc.add(const NavigationStopped());
     Navigator.of(context).pop();
@@ -177,7 +162,6 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
         elapsed: elapsed,
         onClose: () {
           Navigator.of(ctx).pop();
-          // Detener el tracking cuando el usuario cierra el resumen
           _navBloc.add(const NavigationStopped());
           Navigator.of(context).popUntil((r) => r.isFirst);
         },
@@ -189,21 +173,21 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
   Widget build(BuildContext context) {
     return BlocListener<NavigationBloc, NavigationState>(
       listener: (context, state) {
-        // Animar cámara cuando la posición cambia
         if (state.currentPosition != null && _mapController != null) {
           _mapController!.animateCamera(
             CameraUpdate.newLatLng(state.currentPosition!),
           );
         }
-        // Mostrar resumen cuando llega al destino
-        if (state.phase.toString() == 'TripPhase.arrived') {
+        // ✅ Comparación directa con enum en vez de toString()
+        if (state.phase == TripPhase.arrived) {
           _showSummarySheet(state.elapsed);
         }
       },
       child: Scaffold(
         body: BlocBuilder<NavigationBloc, NavigationState>(
           builder: (context, state) {
-            final polylines = NavigationPolylineBuilderService.buildPolylines(
+            final polylines =
+                NavigationPolylineBuilderService.buildPolylines(
               phase: state.phase,
               currentPosition: state.currentPosition,
               walkStartPoints: widget.walkStartPoints,
@@ -223,12 +207,12 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
 
             final remainingMeters =
                 NavigationUtilsService.calculateRemainingMeters(
-                  phase: state.phase,
-                  currentPosition: state.currentPosition,
-                  boardingStop: widget.boardingStop,
-                  alightingStop: widget.alightingStop,
-                  destination: widget.destination.latLng,
-                );
+              phase: state.phase,
+              currentPosition: state.currentPosition,
+              boardingStop: widget.boardingStop,
+              alightingStop: widget.alightingStop,
+              destination: widget.destination.latLng,
+            );
 
             return Stack(
               children: [

@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/domain/services/pago_qr_utils_service.dart';
@@ -26,6 +28,11 @@ class _PagoQRView extends StatefulWidget {
 
 class _PagoQRViewState extends State<_PagoQRView> {
   static const _navIndexWallet = 1;
+  static const _amarillo = Color(0xFFFFC12F);
+  static const _maxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
+
+  File? _selectedQRImage;
+  final ImagePicker _picker = ImagePicker();
 
   String? _getUserId() {
     final authState = context.read<AuthBloc>().state;
@@ -34,6 +41,7 @@ class _PagoQRViewState extends State<_PagoQRView> {
 
   void _onNavTap(int index) => navigateBottomNav(context, index);
 
+  // ── Escanear QR con cámara ──────────────────────────────────────
   Future<void> _scanQr() async {
     final userId = _getUserId();
     if (userId == null) {
@@ -54,141 +62,109 @@ class _PagoQRViewState extends State<_PagoQRView> {
     }
   }
 
+  // ── Seleccionar QR desde galería ────────────────────────────────
+  Future<void> _pickQRFromGallery() async {
+    try {
+      final picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 100,
+      );
+
+      if (picked == null) return;
+
+      final file = File(picked.path);
+      final fileSize = await file.length();
+
+      // ✅ Validar peso máximo 5 MB
+      if (fileSize > _maxFileSizeBytes) {
+        if (mounted) {
+          _showError(
+            'El archivo supera el límite de 5 MB. '
+            'Tamaño actual: ${(fileSize / 1024 / 1024).toStringAsFixed(1)} MB',
+          );
+        }
+        return;
+      }
+
+      setState(() => _selectedQRImage = file);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'QR cargado (${(fileSize / 1024).toStringAsFixed(0)} KB)',
+            ),
+            backgroundColor: Colors.green.shade700,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      _showError('Error al seleccionar imagen: $e');
+    }
+  }
+
+  // ── Procesar QR desde imagen ────────────────────────────────────
+  void _processQRFromImage() {
+    if (_selectedQRImage == null) {
+      _showError('Por favor selecciona una imagen del QR primero');
+      return;
+    }
+
+    final userId = _getUserId();
+    if (userId == null) {
+      _showError('No se pudo obtener tu información');
+      return;
+    }
+
+    // Enviar ruta del archivo como qrData para procesamiento
+    context.read<TripPaymentBLoC>().add(
+      ProcessPaymentEvent(
+        userId: userId,
+        qrData: _selectedQRImage!.path,
+      ),
+    );
+  }
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade700,
+        duration: const Duration(seconds: 4),
+      ),
     );
   }
 
   void _showSuccess(TripPaymentSuccess state) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(state.message), backgroundColor: Colors.green),
+      SnackBar(
+        content: Text(state.message),
+        backgroundColor: Colors.green.shade700,
+      ),
     );
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) Navigator.of(context).pop();
     });
   }
 
-  AppBar _buildAppBar() => AppBar(
-    backgroundColor: Colors.white,
-    elevation: 0,
-    leading: IconButton(
-      icon: const Icon(Icons.arrow_back, color: Colors.black),
-      onPressed: () => Navigator.of(context).pop(),
-    ),
-    title: const Text(
-      'PAGO CON QR',
-      style: TextStyle(
-        color: Colors.black,
-        fontWeight: FontWeight.bold,
-        fontSize: 20,
-      ),
-    ),
-  );
-
-  Widget _buildHeaderText() => const Text(
-    'Escanee el código QR del chofer',
-    style: TextStyle(color: Colors.black54, fontSize: 16),
-  );
-
-  Widget _buildScannerBox(bool isLoading) => InkWell(
-    onTap: isLoading ? null : _scanQr,
-    child: Container(
-      width: double.infinity,
-      height: 170,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: Colors.white,
-        border: Border.all(color: Colors.black, width: 2),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.qr_code_scanner, size: 60, color: Colors.black),
-          const SizedBox(height: 12),
-          Text(
-            isLoading ? 'Procesando...' : 'Toca para escanear',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _buildQRFrame() => Container(
-    width: double.infinity,
-    height: 220,
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(24),
-      border: Border.all(color: Colors.black, width: 4),
-      color: Colors.white,
-    ),
-    child: Stack(
-      alignment: Alignment.center,
-      children: [
-        Positioned(top: 12, left: 12, child: _buildQRCorner()),
-        Positioned(top: 12, right: 12, child: _buildQRCorner()),
-        Positioned(bottom: 12, left: 12, child: _buildQRCorner()),
-        Positioned(bottom: 12, right: 12, child: _buildQRCorner()),
-        Positioned(
-          left: 0,
-          right: 0,
-          child: Container(height: 2, color: Colors.red),
-        ),
-      ],
-    ),
-  );
-
-  Widget _buildQRCorner() => Container(
-    width: 24,
-    height: 24,
-    decoration: BoxDecoration(
-      border: Border.all(color: Colors.black, width: 4),
-    ),
-  );
-
-  Widget _buildScanButton(bool isLoading) => SizedBox(
-    width: double.infinity,
-    height: 56,
-    child: ElevatedButton(
-      onPressed: isLoading ? null : _scanQr,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.black,
-        disabledBackgroundColor: Colors.grey,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      child: Text(
-        isLoading ? 'Procesando pago...' : 'Escanear código',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    ),
-  );
-
   Widget _buildSuccessMessage(TripPaymentSuccess state) => Container(
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Colors.green[50],
+      color: Colors.green.shade50,
       borderRadius: BorderRadius.circular(16),
       border: Border.all(color: Colors.green, width: 2),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        const Row(
           children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 24),
-            const SizedBox(width: 8),
-            const Text(
-              'Pago exitoso',
+            Icon(Icons.check_circle, color: Colors.green, size: 24),
+            SizedBox(width: 8),
+            Text(
+              '¡Pago exitoso!',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -204,7 +180,7 @@ class _PagoQRViewState extends State<_PagoQRView> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Saldo: ${PagoQRUtilsService.formatAmount(state.newBalance)}',
+          'Nuevo saldo: ${PagoQRUtilsService.formatAmount(state.newBalance)}',
           style: const TextStyle(fontSize: 14),
         ),
       ],
@@ -215,28 +191,106 @@ class _PagoQRViewState extends State<_PagoQRView> {
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Colors.red[50],
+      color: Colors.red.shade50,
       borderRadius: BorderRadius.circular(16),
       border: Border.all(color: Colors.red, width: 2),
     ),
     child: Row(
       children: [
-        Icon(Icons.error_outline, color: Colors.red[700], size: 24),
+        Icon(Icons.error_outline, color: Colors.red.shade700, size: 24),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             state.message,
-            style: TextStyle(fontSize: 14, color: Colors.red[700]),
+            style: TextStyle(fontSize: 14, color: Colors.red.shade700),
           ),
         ),
       ],
     ),
   );
 
+  // ── Widget de imagen QR seleccionada ────────────────────────────
+  Widget _buildSelectedQRImage() => Column(
+    children: [
+      const SizedBox(height: 16),
+      Stack(
+        alignment: Alignment.topRight,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.file(
+              _selectedQRImage!,
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.contain,
+            ),
+          ),
+          // ✅ Botón para quitar imagen
+          GestureDetector(
+            onTap: () => setState(() => _selectedQRImage = null),
+            child: Container(
+              margin: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.black87,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      // ✅ Botón procesar QR desde imagen
+      SizedBox(
+        width: double.infinity,
+        height: 56,
+        child: ElevatedButton.icon(
+          onPressed: _processQRFromImage,
+          icon: const Icon(Icons.payment, color: Colors.black),
+          label: const Text(
+            'Procesar pago',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _amarillo,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: const Color(0xFFF1F3F4),
-    appBar: _buildAppBar(),
+    backgroundColor: Colors.white,
+    appBar: AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: Colors.black),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      title: const Text(
+        'PAGO CON QR',
+        style: TextStyle(
+          color: Colors.black,
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
+        ),
+      ),
+    ),
     body: BlocListener<TripPaymentBLoC, TripPaymentState>(
       listener: (context, state) {
         if (state is TripPaymentSuccess) _showSuccess(state);
@@ -245,27 +299,156 @@ class _PagoQRViewState extends State<_PagoQRView> {
       child: BlocBuilder<TripPaymentBLoC, TripPaymentState>(
         builder: (context, state) {
           final isLoading = state is TripPaymentLoading;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildHeaderText(),
-                  const SizedBox(height: 30),
-                  _buildScannerBox(isLoading),
-                  const SizedBox(height: 40),
-                  _buildQRFrame(),
-                  const SizedBox(height: 30),
-                  _buildScanButton(isLoading),
-                  if (state is TripPaymentSuccess) ...[
-                    const SizedBox(height: 24),
-                    _buildSuccessMessage(state),
-                  ] else if (state is TripPaymentError) ...[
-                    const SizedBox(height: 24),
-                    _buildErrorMessage(state),
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 32,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // ✅ Ícono principal
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: _amarillo.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.qr_code_scanner,
+                    size: 60,
+                    color: _amarillo,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Pago con QR',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Escanea o sube el QR del conductor',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // ── Opción 1: Escanear con cámara ──
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton.icon(
+                    onPressed: isLoading ? null : _scanQr,
+                    icon: isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.black,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.qr_code_scanner,
+                            color: Colors.black,
+                          ),
+                    label: Text(
+                      isLoading ? 'Procesando...' : 'Escanear con cámara',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _amarillo,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // ── Divisor ──
+                Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'O',
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const Expanded(child: Divider()),
                   ],
+                ),
+                const SizedBox(height: 16),
+
+                // ── Opción 2: Subir desde galería ──
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: OutlinedButton.icon(
+                    onPressed: isLoading ? null : _pickQRFromGallery,
+                    icon: const Icon(
+                      Icons.photo_library_outlined,
+                      color: Colors.black,
+                    ),
+                    label: const Text(
+                      'Subir QR desde galería',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(
+                        color: _amarillo,
+                        width: 2,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+                // ✅ Límite de tamaño visible
+                const SizedBox(height: 6),
+                Text(
+                  'Máximo 5 MB — PNG, JPG',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+
+                // ✅ Previsualización del QR seleccionado
+                if (_selectedQRImage != null) _buildSelectedQRImage(),
+
+                // ✅ Mensajes de resultado
+                if (state is TripPaymentSuccess) ...[
+                  const SizedBox(height: 24),
+                  _buildSuccessMessage(state),
+                ] else if (state is TripPaymentError) ...[
+                  const SizedBox(height: 24),
+                  _buildErrorMessage(state),
                 ],
-              ),
+                const SizedBox(height: 24),
+              ],
             ),
           );
         },

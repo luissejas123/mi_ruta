@@ -31,9 +31,7 @@ class _RutasSeleccionPageState extends State<RutasSeleccionPage> {
 
   Future<void> _loadRoutes() async {
     if (widget.destination == null) {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
       return;
     }
     setState(() {
@@ -65,7 +63,8 @@ class _RutasSeleccionPageState extends State<RutasSeleccionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F3F4),
+      // ✅ Fondo blanco consistente
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -76,11 +75,18 @@ class _RutasSeleccionPageState extends State<RutasSeleccionPage> {
           children: [
             const Text(
               'Rutas disponibles',
-              style: TextStyle(color: Colors.black, fontSize: 16),
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             Text(
               widget.destination?.name ?? 'Destino',
-              style: const TextStyle(color: Colors.black54, fontSize: 12),
+              style: const TextStyle(
+                color: Colors.black54,
+                fontSize: 12,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ],
@@ -91,10 +97,12 @@ class _RutasSeleccionPageState extends State<RutasSeleccionPage> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             children: [
-              RouteMapView(
-                title: widget.destination?.name ?? 'Destino',
-                initialPosition: widget.destination!.latLng,
-              ),
+              // ✅ Guard para destination null
+              if (widget.destination != null)
+                RouteMapView(
+                  title: widget.destination!.name,
+                  initialPosition: widget.destination!.latLng,
+                ),
               const SizedBox(height: 16),
               Expanded(
                 child: RutasSeleccionBody(

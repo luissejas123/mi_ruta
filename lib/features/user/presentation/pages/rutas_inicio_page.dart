@@ -45,6 +45,8 @@ class _RutasInicioView extends StatefulWidget {
 
 class _RutasInicioViewState extends State<_RutasInicioView> {
   static const _navIndexRoutes = 2;
+  // ✅ Color consistente
+  static const _amarillo = Color(0xFFFFC12F);
 
   final _locationDatasource = LocationDatasource();
   final _geocodingDatasource = GeocodingDatasource();
@@ -99,7 +101,9 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
     if (originLatLng == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Esperando ubicación GPS...')),
+          const SnackBar(
+            content: Text('Esperando ubicación GPS...'),
+          ),
         );
       }
       return;
@@ -107,7 +111,10 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
 
     if (mounted) {
       context.read<RouteSearchBloc>().add(
-        SearchRoutesRequested(origin: originLatLng, destination: _destination!),
+        SearchRoutesRequested(
+          origin: originLatLng,
+          destination: _destination!,
+        ),
       );
     }
   }
@@ -205,7 +212,8 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
 
   Future<void> _reverseGeocode() async {
     if (_cameraCenter == null) return;
-    final address = await _geocodingDatasource.reverseGeocode(_cameraCenter!);
+    final address =
+        await _geocodingDatasource.reverseGeocode(_cameraCenter!);
     if (!mounted) return;
     setState(() => _pinAddress = address ?? 'Dirección no disponible');
   }
@@ -242,7 +250,8 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
             ),
             onMapCreated: (controller) {
               _mapController = controller;
-              _cameraCenter = _userLocation ?? LocationDatasource.defaultCenter;
+              _cameraCenter =
+                  _userLocation ?? LocationDatasource.defaultCenter;
             },
             onCameraMove: (pos) {
               _cameraCenter = pos.target;
@@ -270,7 +279,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
                       ),
                     ),
                   },
-            polylines: <Polyline>{},
+            polylines: const <Polyline>{},
           ),
           Positioned(
             top: 0,
@@ -282,7 +291,8 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
               onOriginTap: _onOriginTap,
               onDestinationTap: _onDestinationTap,
               onOriginPinTap: () => _togglePinMode(_PinFor.origin),
-              onDestinationPinTap: () => _togglePinMode(_PinFor.destination),
+              onDestinationPinTap: () =>
+                  _togglePinMode(_PinFor.destination),
               onSearchTap: _findRoutes,
             ),
           ),
@@ -299,8 +309,10 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
                 child: const Icon(Icons.my_location),
               ),
             ),
-          if (_isPinMode) MapPinOverlay(isCameraMoving: _isCameraMoving),
-          if (_isPinMode && _isDataLoading)
+          if (_isPinMode)
+            MapPinOverlay(isCameraMoving: _isCameraMoving),
+          // ✅ Banner de carga con color consistente
+          if (_isDataLoading)
             Positioned(
               bottom: 110,
               left: 16,
@@ -311,7 +323,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
                   horizontal: 16,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFBC02D),
+                  color: _amarillo,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: const [
                     BoxShadow(color: Colors.black26, blurRadius: 4),
@@ -351,9 +363,10 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
                   _isPinMode = false;
                   _pinAddress = null;
                 }),
-                onConfirm: (_isCameraMoving || _pinAddress == null)
-                    ? null
-                    : _confirmPin,
+                onConfirm:
+                    (_isCameraMoving || _pinAddress == null)
+                        ? null
+                        : _confirmPin,
               ),
             ),
           BlocListener<RouteSearchBloc, RouteSearchState>(
@@ -372,7 +385,8 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(state.message),
-                    backgroundColor: Colors.red,
+                    // ✅ red.shade700
+                    backgroundColor: Colors.red.shade700,
                   ),
                 );
               }

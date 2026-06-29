@@ -14,6 +14,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
   static const _cornerSize = 30.0;
   static const _cornerRadius = 8.0;
   static const _borderWidth = 3.0;
+  // ✅ Color consistente
+  static const _amarillo = Color(0xFFFFC12F);
 
   final MobileScannerController _controller = MobileScannerController();
   bool _isTorchOn = false;
@@ -53,7 +55,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
       IconButton(
         icon: Icon(
           _isTorchOn ? Icons.flash_on : Icons.flash_off,
-          color: Colors.white,
+          color: _isTorchOn ? _amarillo : Colors.white,
         ),
         onPressed: _toggleTorch,
       ),
@@ -63,42 +65,46 @@ class _QRScannerPageState extends State<QRScannerPage> {
   Widget _buildQRCorner({
     required Alignment alignment,
     required BorderRadius radius,
-  }) => Positioned.fill(
-    child: Align(
-      alignment: alignment,
-      child: Container(
-        width: _cornerSize,
-        height: _cornerSize,
-        decoration: BoxDecoration(
-          border: _buildCornerBorder(alignment),
-          borderRadius: radius,
+  }) =>
+      Positioned.fill(
+        child: Align(
+          alignment: alignment,
+          child: Container(
+            width: _cornerSize,
+            height: _cornerSize,
+            decoration: BoxDecoration(
+              border: _buildCornerBorder(alignment),
+              borderRadius: radius,
+            ),
+          ),
         ),
-      ),
-    ),
-  );
+      );
 
   Border _buildCornerBorder(Alignment alignment) {
-    final color = Colors.yellow[700]!;
-    final width = 4.0;
+    // ✅ Color amarillo consistente
+    const color = _amarillo;
+    const width = 4.0;
 
     return switch (alignment) {
-      Alignment.topLeft => Border(
+      Alignment.topLeft => const Border(
         top: BorderSide(color: color, width: width),
         left: BorderSide(color: color, width: width),
       ),
-      Alignment.topRight => Border(
+      Alignment.topRight => const Border(
         top: BorderSide(color: color, width: width),
         right: BorderSide(color: color, width: width),
       ),
-      Alignment.bottomLeft => Border(
+      Alignment.bottomLeft => const Border(
         bottom: BorderSide(color: color, width: width),
         left: BorderSide(color: color, width: width),
       ),
-      Alignment.bottomRight => Border(
+      Alignment.bottomRight => const Border(
         bottom: BorderSide(color: color, width: width),
         right: BorderSide(color: color, width: width),
       ),
-      _ => Border.all(color: color, width: width),
+      _ => const Border.fromBorderSide(
+        BorderSide(color: color, width: width),
+      ),
     };
   }
 
@@ -106,7 +112,8 @@ class _QRScannerPageState extends State<QRScannerPage> {
     width: _frameSize,
     height: _frameSize,
     decoration: BoxDecoration(
-      border: Border.all(color: Colors.white, width: _borderWidth),
+      // ✅ Borde amarillo en frame
+      border: Border.all(color: _amarillo, width: _borderWidth),
       borderRadius: BorderRadius.circular(20),
     ),
     child: Stack(

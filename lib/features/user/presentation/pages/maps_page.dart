@@ -11,6 +11,9 @@ class MapsPage extends StatefulWidget {
 }
 
 class _MapsPageState extends State<MapsPage> {
+  // ✅ Color consistente
+  static const _amarillo = Color(0xFFFFC12F);
+
   late GoogleMapController mapController;
   final int _currentNavIndex = 0;
 
@@ -36,6 +39,12 @@ class _MapsPageState extends State<MapsPage> {
   }
 
   @override
+  void dispose() {
+    mapController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
@@ -56,12 +65,16 @@ class _MapsPageState extends State<MapsPage> {
             right: 16,
             child: FloatingActionButton.small(
               heroTag: 'center',
-              backgroundColor: const Color(0xFFFFC107),
+              // ✅ Color amarillo consistente
+              backgroundColor: _amarillo,
               foregroundColor: Colors.black,
               onPressed: () {
                 mapController.animateCamera(
                   CameraUpdate.newCameraPosition(
-                    const CameraPosition(target: _initialPosition, zoom: 15.0),
+                    const CameraPosition(
+                      target: _initialPosition,
+                      zoom: 15.0,
+                    ),
                   ),
                 );
               },
@@ -75,11 +88,5 @@ class _MapsPageState extends State<MapsPage> {
         onTap: _onNavTap,
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    mapController.dispose();
-    super.dispose();
   }
 }

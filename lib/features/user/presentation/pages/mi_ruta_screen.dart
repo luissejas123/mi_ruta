@@ -6,8 +6,8 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_state.dart';
+import 'package:mi_ruta/features/user/presentation/pages/perfil_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/rutas_inicio_page.dart';
-import 'package:mi_ruta/features/user/presentation/pages/test_widgets_screen.dart';
 import 'package:mi_ruta/features/user/presentation/pages/wallet_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/map_action_fabs.dart';
@@ -24,15 +24,11 @@ class MiRutaScreen extends StatefulWidget {
 }
 
 class _MiRutaScreenState extends State<MiRutaScreen> {
-  // ── Controlador de Mapa (Recurso UI local) ────────────────────────────────
   GoogleMapController? _mapController;
-
-  // ── Ciclo de vida ─────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
-    // Solicitar ubicación al iniciar la pantalla
     context.read<MiRutaBloc>().add(const MiRutaLocationRequested());
   }
 
@@ -42,16 +38,11 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
     super.dispose();
   }
 
-  // ── Geolocalización ───────────────────────────────────────────────────────
-
   void _goToMyLocation() {
     context.read<MiRutaBloc>().add(const MiRutaGoToMyLocationRequested());
   }
 
-  // ── Búsqueda de direcciones ───────────────────────────────────────────────
-
   Future<void> _onSearchTap() async {
-    // Navegar a la vista de rutas
     await Navigator.of(context).push<void>(
       MaterialPageRoute(builder: (_) => const RutasInicioPage()),
     );
@@ -61,8 +52,6 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
     context.read<MiRutaBloc>().add(const MiRutaClearSearch());
   }
 
-  // ── Pin arrastrable ───────────────────────────────────────────────────────
-
   void _togglePinMode() {
     context.read<MiRutaBloc>().add(const MiRutaPinModeToggled());
   }
@@ -70,8 +59,6 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
   void _confirmPinDestination() {
     context.read<MiRutaBloc>().add(const MiRutaPinDestinationConfirmed());
   }
-
-  // ── Navegación inferior ───────────────────────────────────────────────────
 
   void _onNavTap(int index) {
     if (index == 1) {
@@ -89,13 +76,13 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
       return;
     }
     if (index == 3) {
-      final authBloc = context.read<AuthBloc>();
+      // ✅ Navega al perfil real con AuthBloc disponible
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => BlocProvider.value(
-            value: authBloc,
-            child: const TestWidgetsScreen(),
+            value: context.read<AuthBloc>(),
+            child: const PerfilPage(),
           ),
         ),
       );
@@ -103,8 +90,6 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
     }
     context.read<MiRutaBloc>().add(MiRutaNavTabSelected(index));
   }
-
-  // ── Marcadores ────────────────────────────────────────────────────────────
 
   Set<Marker> _buildMarkers(MiRutaState state) {
     return {
@@ -129,11 +114,11 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
     };
   }
 
-  // ── Helpers de build ──────────────────────────────────────────────────────
-
   Widget _buildMap(MiRutaState state) {
     if (state.myLocationLatLng == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFFFC12F)),
+      );
     }
     return GoogleMap(
       initialCameraPosition: CameraPosition(
@@ -155,8 +140,6 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
       zoomControlsEnabled: false,
     );
   }
-
-  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -185,20 +168,20 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
                     child: Stack(
                       children: [
                         Positioned.fill(child: _buildMap(state)),
-
                         if (state.isPinMode)
-                          MapPinOverlay(isCameraMoving: state.isCameraMoving),
-
+                          MapPinOverlay(
+                            isCameraMoving: state.isCameraMoving,
+                          ),
                         if (!state.isPinMode)
                           Positioned.fill(
                             child: MapActionFabs(
-                              hasDestination: state.destinationLatLng != null,
+                              hasDestination:
+                                  state.destinationLatLng != null,
                               onMyLocation: _goToMyLocation,
                               onTogglePin: _togglePinMode,
                               onClearSearch: _clearSearch,
                             ),
                           ),
-
                         if (state.isPinMode)
                           Positioned(
                             left: 0,
@@ -214,13 +197,14 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
                                   : _confirmPinDestination,
                             ),
                           ),
-
                         if (state.statusText != null)
                           Positioned(
                             left: 16,
                             right: 16,
                             bottom: 80,
-                            child: MapStatusCard(message: state.statusText!),
+                            child: MapStatusCard(
+                              message: state.statusText!,
+                            ),
                           ),
                       ],
                     ),

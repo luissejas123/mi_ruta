@@ -19,6 +19,9 @@ class MapSearchPage extends StatefulWidget {
 }
 
 class _MapSearchPageState extends State<MapSearchPage> {
+  // ✅ Color consistente
+  static const _amarillo = Color(0xFFFFC12F);
+
   final _controller = TextEditingController();
   final _datasource = PlacesDatasource();
   List<Map<String, dynamic>> _predictions = [];
@@ -60,7 +63,6 @@ class _MapSearchPageState extends State<MapSearchPage> {
       _isLoading = true;
       _error = null;
     });
-
     try {
       final results = await _datasource.fetchPredictions(
         input: input,
@@ -75,14 +77,13 @@ class _MapSearchPageState extends State<MapSearchPage> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'Error: $e';
+        _error = 'Error al buscar: $e';
       });
     }
   }
 
   Future<void> _onPredictionTap(Map<String, dynamic> prediction) async {
     setState(() => _isLoading = true);
-
     try {
       final result = await _datasource.fetchPlaceDetail(prediction);
       if (!mounted) return;
@@ -91,7 +92,7 @@ class _MapSearchPageState extends State<MapSearchPage> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'Error: $e';
+        _error = 'Error al obtener detalle: $e';
       });
     }
   }
@@ -107,10 +108,11 @@ class _MapSearchPageState extends State<MapSearchPage> {
             onChanged: _onTextChanged,
             onClear: _onClear,
           ),
+          // ✅ Color amarillo consistente
           if (_isLoading)
             const LinearProgressIndicator(
-              color: Color(0xFFFBC02D),
-              backgroundColor: Color(0xFFF1F3F4),
+              color: _amarillo,
+              backgroundColor: Colors.white,
             ),
           if (_error != null) SearchErrorBanner(message: _error!),
           Expanded(

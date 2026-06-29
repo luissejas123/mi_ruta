@@ -18,12 +18,19 @@ class RutaAbordajePage extends StatelessWidget {
     final destName = destination?.name ?? 'Destino';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F3F4),
+      // ✅ Fondo blanco
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
-        title: const Text('Abordaje', style: TextStyle(color: Colors.black)),
+        title: const Text(
+          'Abordaje',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: SafeArea(
         child: Padding(
@@ -47,20 +54,26 @@ class RutaAbordajePage extends StatelessWidget {
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
+                height: 56,
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    // ✅ Botón amarillo
+                    backgroundColor: const Color(0xFFFFC12F),
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                   child: const Text(
                     'Finalizar ruta',
-                    style: TextStyle(fontSize: 16, color: Colors.white),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
                   ),
                 ),
               ),

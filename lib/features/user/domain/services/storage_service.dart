@@ -6,25 +6,36 @@ class StorageService {
 
   StorageService({required FirebaseStorage storage}) : _storage = storage;
 
+  /// Sube foto de perfil del usuario
+  Future<String> uploadProfileImage({
+    required String userId,
+    required File imageFile,
+  }) async {
+    try {
+      // ✅ Ruta: profiles/{userId}/profile.jpg
+      final ref = _storage.ref().child(
+        'profiles/$userId/profile_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      await ref.putFile(imageFile);
+      final downloadUrl = await ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      throw Exception('Error al subir foto de perfil: $e');
+    }
+  }
+
   /// Sube una imagen de comprobante a Firebase Storage
-  /// Retorna la URL pública de la imagen
   Future<String> uploadRechargeProof({
     required String userId,
     required String rechargeId,
     required File imageFile,
   }) async {
     try {
-      // Ruta: recharges/{userId}/{rechargeId}/proof.jpg
       final ref = _storage.ref().child(
         'recharges/$userId/$rechargeId/proof_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
-
-      // Subir archivo
       await ref.putFile(imageFile);
-
-      // Obtener URL de descarga
       final downloadUrl = await ref.getDownloadURL();
-
       return downloadUrl;
     } catch (e) {
       throw Exception('Error al subir comprobante: $e');
@@ -42,7 +53,6 @@ class StorageService {
   }
 
   /// Sube un documento de solicitud de beneficio
-  /// Retorna la URL pública del documento
   Future<String> uploadBenefitDocument({
     required String userId,
     required String requestId,
@@ -50,20 +60,13 @@ class StorageService {
     required int documentIndex,
   }) async {
     try {
-      // Ruta: benefits/{userId}/{requestId}/document_{index}.*
       final fileName = documentFile.path.split('/').last;
       final fileExtension = fileName.split('.').last;
-
       final ref = _storage.ref().child(
         'benefits/$userId/$requestId/document_$documentIndex.$fileExtension',
       );
-
-      // Subir archivo
       await ref.putFile(documentFile);
-
-      // Obtener URL de descarga
       final downloadUrl = await ref.getDownloadURL();
-
       return downloadUrl;
     } catch (e) {
       throw Exception('Error al subir documento: $e');

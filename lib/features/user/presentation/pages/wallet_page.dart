@@ -14,7 +14,6 @@ import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dar
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/wallet_primary_button.dart';
 
-/// Página que muestra la billetera/saldo del usuario.
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
 
@@ -23,23 +22,11 @@ class WalletPage extends StatefulWidget {
 }
 
 class _WalletPageState extends State<WalletPage> {
-  // ─────────────────────────────────────────────────────────────────────
-  // Constantes
-  // ─────────────────────────────────────────────────────────────────────
-
   static const _navIndexWallet = 1;
   static const _defaultUserId = 'user_demo';
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Estado
-  // ─────────────────────────────────────────────────────────────────────
-
   final int _currentNavIndex = _navIndexWallet;
   late String _userId;
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Lifecycle
-  // ─────────────────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -47,17 +34,11 @@ class _WalletPageState extends State<WalletPage> {
     _initializeWallet();
   }
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Métodos Privados - Inicialización
-  // ─────────────────────────────────────────────────────────────────────
-
-  /// Inicializa el userId y carga los datos de la billetera.
   void _initializeWallet() {
     _userId = _extractUserIdFromAuth();
     _loadWalletData();
   }
 
-  /// Extrae el ID del usuario del estado de AuthBloc.
   String _extractUserIdFromAuth() {
     final authState = context.read<AuthBloc>().state;
     if (authState is AuthLoaded) {
@@ -66,21 +47,14 @@ class _WalletPageState extends State<WalletPage> {
     return _defaultUserId;
   }
 
-  /// Carga los datos de la billetera del usuario.
   void _loadWalletData() {
     context.read<WalletBloc>().add(LoadWalletEvent(_userId));
   }
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Métodos Privados - Navegación
-  // ─────────────────────────────────────────────────────────────────────
-
-  /// Navega a través del bottom navigation.
   void _onNavTap(int index) {
     navigateBottomNav(context, index);
   }
 
-  /// Navega a la página de recarga de saldo.
   void _navigateToRecargaSaldo() {
     Navigator.push(
       context,
@@ -88,7 +62,6 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  /// Navega a la página de movimientos.
   void _navigateToMovimientos() {
     Navigator.push(
       context,
@@ -96,7 +69,6 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  /// Navega a la página de pago QR.
   void _navigateToPagoQR() {
     Navigator.push(
       context,
@@ -104,7 +76,6 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  /// Navega a la página de solicitud de beneficio.
   void _navigateToSolicitudBeneficio() {
     Navigator.push(
       context,
@@ -112,42 +83,52 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────
-  // Métodos Privados - Construcción de Widgets
-  // ─────────────────────────────────────────────────────────────────────
-
-  /// Construye el AppBar.
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
       centerTitle: true,
+      // ✅ Sin flecha atrás — es pantalla principal del nav
+      automaticallyImplyLeading: false,
       title: const Text(
-        'Visualización saldo',
-        style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        'Mi Billetera',
+        style: TextStyle(
+          color: Colors.black,
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
+        ),
       ),
-      iconTheme: const IconThemeData(color: Colors.black),
     );
   }
 
-  /// Construye el estado de carga.
   Widget _buildLoadingState() {
-    return const Center(child: CircularProgressIndicator());
+    return const Center(
+      child: CircularProgressIndicator(
+        color: Color(0xFFFFC12F),
+      ),
+    );
   }
 
-  /// Construye el estado de error.
   Widget _buildErrorState(WalletError error) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error, size: 60, color: Colors.red),
+          const Icon(Icons.error_outline, size: 60, color: Colors.red),
           const SizedBox(height: 16),
-          Text(error.message),
+          Text(
+            error.message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.black54),
+          ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () =>
                 context.read<WalletBloc>().add(LoadWalletEvent(_userId)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFFC12F),
+              foregroundColor: Colors.black,
+            ),
             child: const Text('Reintentar'),
           ),
         ],
@@ -155,42 +136,58 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  /// Construye la lista de acciones de billetera.
   Widget _buildActionsColumn() {
     return Column(
       children: [
-        WalletPrimaryButton(
+        // ✅ Botones con íconos para mejor UX
+        _ActionButton(
           label: 'RECARGAR SALDO',
+          icon: Icons.add_circle_outline,
           onPressed: _navigateToRecargaSaldo,
         ),
         const SizedBox(height: 12),
-        WalletPrimaryButton(
+        _ActionButton(
           label: 'MOVIMIENTOS',
+          icon: Icons.receipt_long_outlined,
           onPressed: _navigateToMovimientos,
         ),
         const SizedBox(height: 12),
-        WalletPrimaryButton(label: 'PAGAR VIAJE', onPressed: _navigateToPagoQR),
+        _ActionButton(
+          label: 'PAGAR VIAJE',
+          icon: Icons.qr_code_scanner,
+          onPressed: _navigateToPagoQR,
+        ),
         const SizedBox(height: 12),
-        WalletPrimaryButton(
+        _ActionButton(
           label: 'ACCEDER A BENEFICIOS',
+          icon: Icons.star_outline,
           onPressed: _navigateToSolicitudBeneficio,
         ),
       ],
     );
   }
 
-  /// Construye el contenido principal con saldo y acciones.
   Widget _buildMainContent(dynamic wallet) {
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             BalanceCard(
               balance: wallet.currentBalance,
               currency: wallet.currency,
             ),
             const SizedBox(height: 32),
+            const Text(
+              'Acciones',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 16),
             _buildActionsColumn(),
           ],
         ),
@@ -198,31 +195,25 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  /// Muestra el SnackBar de éxito.
   void _showSuccessMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.green,
+        backgroundColor: Colors.green.shade700,
         duration: const Duration(seconds: 2),
       ),
     );
   }
 
-  /// Muestra el SnackBar de error.
   void _showErrorMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.red.shade700,
         duration: const Duration(seconds: 3),
       ),
     );
   }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Build
-  // ─────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -238,22 +229,22 @@ class _WalletPageState extends State<WalletPage> {
           }
         },
         builder: (context, state) {
-          if (state is WalletLoading) {
-            return _buildLoadingState();
-          }
-
-          if (state is WalletError) {
-            return _buildErrorState(state);
-          }
+          if (state is WalletLoading) return _buildLoadingState();
+          if (state is WalletError) return _buildErrorState(state);
 
           final wallet = state is WalletLoaded
               ? state.wallet
               : state is TransactionHistoryLoaded
-              ? state.wallet
-              : null;
+                  ? state.wallet
+                  : null;
 
           if (wallet == null) {
-            return const Center(child: Text('No hay datos de billetera'));
+            return const Center(
+              child: Text(
+                'No hay datos de billetera',
+                style: TextStyle(color: Colors.black54),
+              ),
+            );
           }
 
           return _buildMainContent(wallet);
@@ -262,6 +253,48 @@ class _WalletPageState extends State<WalletPage> {
       bottomNavigationBar: CustomBottomNav(
         currentIndex: _currentNavIndex,
         onTap: _onNavTap,
+      ),
+    );
+  }
+}
+
+// ✅ Widget interno para botones de acción
+class _ActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  const _ActionButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, color: Colors.black),
+        label: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.black,
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFFC12F),
+          elevation: 0,
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
       ),
     );
   }

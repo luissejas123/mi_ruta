@@ -63,8 +63,8 @@ class _RutaLineaView extends StatefulWidget {
 
 class _RutaLineaViewState extends State<_RutaLineaView> {
   static const _navIndexRoutes = 2;
-  static const _transitColor = Color(0xFFFBC02D);
-  static const _bgColor = Color(0xFFF1F3F4);
+  // ✅ Colores consistentes
+  static const _amarillo = Color(0xFFFFC12F);
 
   void _navigateToNavegacion({
     required LatLng boardingStop,
@@ -94,7 +94,21 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
     backgroundColor: Colors.white,
     elevation: 0,
     iconTheme: const IconThemeData(color: Colors.black),
-    title: Text(widget.route.name, style: const TextStyle(color: Colors.black)),
+    title: Text(
+      widget.route.name,
+      style: const TextStyle(
+        color: Colors.black,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
+
+  Widget _buildLoadingScaffold() => Scaffold(
+    backgroundColor: Colors.white,
+    appBar: _buildAppBar(),
+    body: const Center(
+      child: CircularProgressIndicator(color: _amarillo),
+    ),
   );
 
   Widget _buildSummary({
@@ -126,49 +140,66 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
     required List<LatLng> transitSegment,
     required List<LatLng> walkStartPoints,
     required List<LatLng> walkEndPoints,
-  }) => SizedBox(
-    width: double.infinity,
-    child: ElevatedButton(
-      onPressed: () => _navigateToNavegacion(
-        boardingStop: boardingStop,
-        alightingStop: alightingStop,
-        transitSegment: transitSegment,
-        walkStartPoints: walkStartPoints,
-        walkEndPoints: walkEndPoints,
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _transitColor,
-        foregroundColor: Colors.black,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      child: const Text(
-        'Abordar línea',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-    ),
-  );
+  }) =>
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () => _navigateToNavegacion(
+            boardingStop: boardingStop,
+            alightingStop: alightingStop,
+            transitSegment: transitSegment,
+            walkStartPoints: walkStartPoints,
+            walkEndPoints: walkEndPoints,
+          ),
+          style: ElevatedButton.styleFrom(
+            // ✅ Color amarillo consistente
+            backgroundColor: _amarillo,
+            foregroundColor: Colors.black,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          child: const Text(
+            'Abordar línea',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<TripLineBloc, TripLineState>(
       builder: (context, state) {
         if (state is TripLineLoading) {
-          return Scaffold(
-            backgroundColor: _bgColor,
-            appBar: _buildAppBar(),
-            body: const Center(child: CircularProgressIndicator()),
-          );
+          return _buildLoadingScaffold();
         }
 
         if (state is TripLineError) {
           return Scaffold(
-            backgroundColor: _bgColor,
+            // ✅ Fondo blanco
+            backgroundColor: Colors.white,
             appBar: _buildAppBar(),
             body: Center(
-              child: Text(
-                state.message,
-                style: const TextStyle(color: Colors.red),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 60,
+                    color: Colors.red,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    state.message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                ],
               ),
             ),
           );
@@ -197,7 +228,8 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
           );
 
           return Scaffold(
-            backgroundColor: _bgColor,
+            // ✅ Fondo blanco consistente
+            backgroundColor: Colors.white,
             appBar: _buildAppBar(),
             body: SafeArea(
               child: Padding(
@@ -237,11 +269,7 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
           );
         }
 
-        return Scaffold(
-          backgroundColor: _bgColor,
-          appBar: _buildAppBar(),
-          body: const Center(child: CircularProgressIndicator()),
-        );
+        return _buildLoadingScaffold();
       },
     );
   }

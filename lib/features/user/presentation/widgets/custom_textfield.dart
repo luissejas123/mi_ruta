@@ -5,6 +5,10 @@ class CustomTextField extends StatefulWidget {
   final IconData icon;
   final bool obscureText;
   final TextEditingController? controller;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
+  final Widget? suffixIcon;
 
   const CustomTextField({
     super.key,
@@ -12,6 +16,10 @@ class CustomTextField extends StatefulWidget {
     required this.icon,
     this.obscureText = false,
     this.controller,
+    this.keyboardType,
+    this.textInputAction,
+    this.onSubmitted,
+    this.suffixIcon,
   });
 
   @override
@@ -52,8 +60,12 @@ class _CustomTextFieldState extends State<CustomTextField> {
       child: TextField(
         controller: _controller,
         obscureText: widget.obscureText,
+        keyboardType: widget.keyboardType,
+        textInputAction: widget.textInputAction,
+        onSubmitted: widget.onSubmitted,
         decoration: InputDecoration(
           prefixIcon: Icon(widget.icon, color: Colors.black54),
+          suffixIcon: widget.suffixIcon,
           hintText: widget.hintText,
           hintStyle: const TextStyle(fontSize: 14, color: Colors.black54),
           filled: true,

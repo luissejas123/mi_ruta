@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Un paso individual en el resumen del trayecto (ícono + etiqueta + subetiqueta).
 class TripStep extends StatelessWidget {
   final Color color;
   final bool isDotted;
@@ -22,14 +21,18 @@ class TripStep extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 36,
-          height: 36,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.15),
             shape: BoxShape.circle,
-            border: Border.all(color: color, width: isDotted ? 1.5 : 2),
+            border: Border.all(
+              color: color,
+              width: isDotted ? 1.5 : 2,
+              // ✅ Borde punteado para pasos a pie
+            ),
           ),
-          child: Icon(icon, color: color, size: 18),
+          child: Icon(icon, color: color, size: 20),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -43,12 +46,16 @@ class TripStep extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
+              const SizedBox(height: 2),
               Text(
                 sublabel,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
               ),
             ],
           ),
@@ -58,15 +65,18 @@ class TripStep extends StatelessWidget {
   }
 }
 
-/// Conector vertical entre pasos del trayecto.
 class TripConnector extends StatelessWidget {
   const TripConnector({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 17),
-      child: Container(width: 2, height: 18, color: Colors.grey.shade300),
+      padding: const EdgeInsets.only(left: 19),
+      child: Container(
+        width: 2,
+        height: 20,
+        color: Colors.grey.shade300,
+      ),
     );
   }
 }

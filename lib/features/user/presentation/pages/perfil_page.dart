@@ -3,9 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
+import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_state.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/editar_perfil_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
@@ -34,6 +38,10 @@ class _PerfilPageState extends State<PerfilPage> {
       context.read<UserBloc>().add(
         GetUserByIdEvent(uid: authState.user.uid),
       );
+      // ✅ Carga el saldo real desde WalletBloc
+      context.read<WalletBloc>().add(
+        LoadWalletEvent(authState.user.uid),
+      );
     }
   }
 
@@ -41,7 +49,6 @@ class _PerfilPageState extends State<PerfilPage> {
     navigateBottomNav(context, index);
   }
 
-  // ✅ Ahora recibe imageUrl también
   void _navigateToEditarPerfil(
     String uid,
     String fullName,
@@ -80,7 +87,14 @@ class _PerfilPageState extends State<PerfilPage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
+              // ✅ Cierra sesión y navega al inicio limpiando el stack
               context.read<AuthBloc>().add(const LogoutEvent());
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => const IniciarSesionPage(),
+                ),
+                (route) => false,
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red.shade700,
@@ -231,7 +245,6 @@ class _PerfilPageState extends State<PerfilPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ✅ Encabezado con foto y datos
                 ProfileHeader(
                   name: user.fullName,
                   email: user.email,
@@ -241,12 +254,11 @@ class _PerfilPageState extends State<PerfilPage> {
                     user.fullName,
                     user.email,
                     user.phoneNumber,
-                    user.profileImageUrl, // ✅ nuevo
+                    user.profileImageUrl,
                   ),
                 ),
                 const Divider(height: 1),
 
-                // ── Sección cuenta ──
                 _buildSectionTitle('MI CUENTA'),
                 _buildMenuItem(
                   icon: Icons.person_outline,
@@ -281,14 +293,28 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () {},
                 ),
 
-                // ── Sección billetera ──
                 _buildSectionTitle('BILLETERA'),
-                _buildMenuItem(
-                  icon: Icons.account_balance_wallet_outlined,
-                  title: 'Saldo disponible',
-                  subtitle:
-                      'Bs. ${user.walletBalance.toStringAsFixed(2)}',
-                  onTap: () => navigateBottomNav(context, 1),
+                // ✅ Saldo desde WalletBloc
+                BlocBuilder<WalletBloc, WalletState>(
+                  builder: (context, walletState) {
+                    String saldo = 'Bs. 0.00';
+                    if (walletState is WalletLoaded) {
+                      saldo =
+                          '${walletState.wallet.currency} ${walletState.wallet.currentBalance.toStringAsFixed(2)}';
+                    } else if (walletState is WalletOperationSuccess) {
+                      saldo =
+                          '${walletState.updatedWallet.currency} ${walletState.updatedWallet.currentBalance.toStringAsFixed(2)}';
+                    } else if (walletState is TransactionHistoryLoaded) {
+                      saldo =
+                          '${walletState.wallet.currency} ${walletState.wallet.currentBalance.toStringAsFixed(2)}';
+                    }
+                    return _buildMenuItem(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: 'Saldo disponible',
+                      subtitle: saldo,
+                      onTap: () => navigateBottomNav(context, 1),
+                    );
+                  },
                 ),
                 _buildMenuItem(
                   icon: Icons.star_outline,
@@ -297,7 +323,6 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () => navigateBottomNav(context, 1),
                 ),
 
-                // ── Sección app ──
                 _buildSectionTitle('APLICACIÓN'),
                 _buildMenuItem(
                   icon: Icons.info_outline,
@@ -306,7 +331,6 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () {},
                 ),
 
-                // ── Cerrar sesión ──
                 _buildSectionTitle('SESIÓN'),
                 _buildMenuItem(
                   icon: Icons.logout,

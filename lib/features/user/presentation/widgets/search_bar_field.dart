@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
 
-/// Barra de búsqueda superior con botón de retroceso y campo de texto.
 class SearchBarField extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
+  // ✅ Nuevo parámetro opcional
+  final String hintText;
 
   const SearchBarField({
     super.key,
     required this.controller,
     required this.onChanged,
     required this.onClear,
+    this.hintText = 'Buscar destino...',
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFFBC02D),
+      color: const Color(0xFFFFC12F),
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 8,
         left: 8,
@@ -26,7 +28,7 @@ class SearchBarField extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
             onPressed: () => Navigator.of(context).pop(),
           ),
           Expanded(
@@ -48,7 +50,8 @@ class SearchBarField extends StatelessWidget {
                 autofocus: true,
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: 'Buscar destino...',
+                  // ✅ Usa el hintText dinámico
+                  hintText: hintText,
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,

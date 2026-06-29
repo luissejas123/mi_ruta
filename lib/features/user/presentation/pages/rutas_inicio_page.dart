@@ -45,12 +45,12 @@ class _RutasInicioView extends StatefulWidget {
 
 class _RutasInicioViewState extends State<_RutasInicioView> {
   static const _navIndexRoutes = 2;
-  // ✅ Color consistente
   static const _amarillo = Color(0xFFFFC12F);
 
   final _locationDatasource = LocationDatasource();
   final _geocodingDatasource = GeocodingDatasource();
-  late final RouteDataSyncService _syncService = getIt<RouteDataSyncService>();
+  late final RouteDataSyncService _syncService =
+      getIt<RouteDataSyncService>();
 
   GoogleMapController? _mapController;
   LatLng? _userLocation;
@@ -101,9 +101,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
     if (originLatLng == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Esperando ubicación GPS...'),
-          ),
+          const SnackBar(content: Text('Esperando ubicación GPS...')),
         );
       }
       return;
@@ -155,11 +153,15 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
     );
   }
 
+  // ✅ Búsqueda de ORIGEN con modo correcto
   Future<void> _onOriginTap() async {
     final result = await Navigator.push<PlaceResult>(
       context,
       MaterialPageRoute(
-        builder: (_) => MapSearchPage(currentLocation: _userLocation),
+        builder: (_) => MapSearchPage(
+          currentLocation: _userLocation,
+          searchMode: SearchMode.origin,
+        ),
       ),
     );
     if (!mounted || result == null) return;
@@ -169,11 +171,15 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
     );
   }
 
+  // ✅ Búsqueda de DESTINO con modo correcto
   Future<void> _onDestinationTap() async {
     final result = await Navigator.push<PlaceResult>(
       context,
       MaterialPageRoute(
-        builder: (_) => MapSearchPage(currentLocation: _userLocation),
+        builder: (_) => MapSearchPage(
+          currentLocation: _userLocation,
+          searchMode: SearchMode.destination,
+        ),
       ),
     );
     if (!mounted || result == null) return;
@@ -309,9 +315,8 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
                 child: const Icon(Icons.my_location),
               ),
             ),
-          if (_isPinMode)
-            MapPinOverlay(isCameraMoving: _isCameraMoving),
-          // ✅ Banner de carga con color consistente
+          if (_isPinMode) MapPinOverlay(isCameraMoving: _isCameraMoving),
+          // ✅ Banner de carga
           if (_isDataLoading)
             Positioned(
               bottom: 110,
@@ -363,10 +368,9 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
                   _isPinMode = false;
                   _pinAddress = null;
                 }),
-                onConfirm:
-                    (_isCameraMoving || _pinAddress == null)
-                        ? null
-                        : _confirmPin,
+                onConfirm: (_isCameraMoving || _pinAddress == null)
+                    ? null
+                    : _confirmPin,
               ),
             ),
           BlocListener<RouteSearchBloc, RouteSearchState>(
@@ -385,7 +389,6 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(state.message),
-                    // ✅ red.shade700
                     backgroundColor: Colors.red.shade700,
                   ),
                 );

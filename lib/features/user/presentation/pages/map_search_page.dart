@@ -1,5 +1,4 @@
 ﻿import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/features/user/data/datasources/places_datasource.dart';
@@ -9,17 +8,25 @@ import 'package:mi_ruta/features/user/presentation/widgets/search_results_body.d
 
 export 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 
+// ✅ Enum para distinguir origen o destino
+enum SearchMode { origin, destination }
+
 class MapSearchPage extends StatefulWidget {
   final LatLng? currentLocation;
+  // ✅ Nuevo parámetro
+  final SearchMode searchMode;
 
-  const MapSearchPage({super.key, this.currentLocation});
+  const MapSearchPage({
+    super.key,
+    this.currentLocation,
+    this.searchMode = SearchMode.destination,
+  });
 
   @override
   State<MapSearchPage> createState() => _MapSearchPageState();
 }
 
 class _MapSearchPageState extends State<MapSearchPage> {
-  // ✅ Color consistente
   static const _amarillo = Color(0xFFFFC12F);
 
   final _controller = TextEditingController();
@@ -35,6 +42,16 @@ class _MapSearchPageState extends State<MapSearchPage> {
     _debounce?.cancel();
     super.dispose();
   }
+
+  // ✅ Texto del placeholder según el modo
+  String get _hintText => widget.searchMode == SearchMode.origin
+      ? 'Buscar punto de origen...'
+      : 'Buscar destino...';
+
+  // ✅ Título del AppBar según el modo
+  String get _appBarTitle => widget.searchMode == SearchMode.origin
+      ? 'Punto de origen'
+      : 'Buscar destino';
 
   void _onTextChanged(String value) {
     _debounce?.cancel();
@@ -101,14 +118,31 @@ class _MapSearchPageState extends State<MapSearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      // ✅ AppBar con título dinámico
+      appBar: AppBar(
+        backgroundColor: _amarillo,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          _appBarTitle,
+          style: const TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+      ),
       body: Column(
         children: [
           SearchBarField(
             controller: _controller,
             onChanged: _onTextChanged,
             onClear: _onClear,
+            hintText: _hintText,
           ),
-          // ✅ Color amarillo consistente
           if (_isLoading)
             const LinearProgressIndicator(
               color: _amarillo,

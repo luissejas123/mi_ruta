@@ -22,7 +22,6 @@ class _MovimientosPageState extends State<MovimientosPage> {
   static const _filterOptions = ['Hoy', 'Semanal', 'Mensual', 'Todos'];
   static const _defaultFilter = 'Todos';
   static const _defaultUserId = 'user_demo';
-  // ✅ Color consistente
   static const _amarillo = Color(0xFFFFC12F);
 
   final int _currentNavIndex = _navIndexWallet;
@@ -50,9 +49,7 @@ class _MovimientosPageState extends State<MovimientosPage> {
     context.read<WalletBloc>().add(LoadTransactionHistoryEvent(_userId));
   }
 
-  void _onNavTap(int index) {
-    navigateBottomNav(context, index);
-  }
+  void _onNavTap(int index) => navigateBottomNav(context, index);
 
   void _selectFilter(String filter) {
     setState(() => _selectedFilter = filter);
@@ -71,6 +68,37 @@ class _MovimientosPageState extends State<MovimientosPage> {
       // ignorar
     }
     return DateTime.now();
+  }
+
+  // ✅ Filtrar transacciones según el periodo seleccionado
+  List<Map<String, dynamic>> _filterTransactions(
+    List<Map<String, dynamic>> transactions,
+  ) {
+    if (_selectedFilter == 'Todos') return transactions;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    return transactions.where((transaction) {
+      final date = _parseTransactionDate(transaction['timestamp']);
+      final transactionDay = DateTime(date.year, date.month, date.day);
+
+      switch (_selectedFilter) {
+        case 'Hoy':
+          // ✅ Solo transacciones de hoy
+          return transactionDay.isAtSameMomentAs(today);
+        case 'Semanal':
+          // ✅ Últimos 7 días
+          final weekAgo = today.subtract(const Duration(days: 7));
+          return transactionDay.isAfter(weekAgo) ||
+              transactionDay.isAtSameMomentAs(weekAgo);
+        case 'Mensual':
+          // ✅ Mismo mes y año
+          return date.year == now.year && date.month == now.month;
+        default:
+          return true;
+      }
+    }).toList();
   }
 
   PreferredSizeWidget _buildAppBar() {
@@ -111,22 +139,22 @@ class _MovimientosPageState extends State<MovimientosPage> {
 
   Widget _buildLoadingState() {
     return const Center(
-      // ✅ CircularProgressIndicator amarillo
       child: CircularProgressIndicator(color: _amarillo),
     );
   }
 
   Widget _buildEmptyState() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // ✅ Color amarillo consistente
-          Icon(Icons.receipt_long, size: 64, color: _amarillo),
-          SizedBox(height: 16),
+          const Icon(Icons.receipt_long, size: 64, color: _amarillo),
+          const SizedBox(height: 16),
           Text(
-            'No hay movimientos registrados',
-            style: TextStyle(color: Colors.black54),
+            _selectedFilter == 'Todos'
+                ? 'No hay movimientos registrados'
+                : 'No hay movimientos en este período',
+            style: const TextStyle(color: Colors.black54),
           ),
         ],
       ),
@@ -135,10 +163,11 @@ class _MovimientosPageState extends State<MovimientosPage> {
 
   Widget _buildTransactionItem(Map<String, dynamic> transaction) {
     final title = transaction['description'] ?? 'Transacción';
-    final amount = transaction['amount'] ?? 0.0;
+    final amount = (transaction['amount'] ?? 0.0).toDouble().abs();
     final timestamp = transaction['timestamp'];
-    final isTopUp =
-        (transaction['transaction_type'] ?? '').contains('top_up');
+    final transactionType = transaction['transaction_type'] ?? '';
+    final isTopUp = transactionType.contains('top_up') ||
+        transactionType.contains('recharge');
     final date = _parseTransactionDate(timestamp);
 
     return TransactionCard(
@@ -148,7 +177,6 @@ class _MovimientosPageState extends State<MovimientosPage> {
       amount: '${isTopUp ? '+' : '-'} Bs. ${amount.toStringAsFixed(2)}',
       date: date,
       iconBackgroundColor: const Color(0xFFFFF9C4),
-      // ✅ Color amarillo consistente
       iconColor: _amarillo,
       amountColor: isTopUp ? Colors.green : _amarillo,
     );
@@ -158,12 +186,25 @@ class _MovimientosPageState extends State<MovimientosPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          _selectedFilter,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+        // ✅ Muestra el periodo y cantidad de resultados
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _selectedFilter,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              '${transactions.length} movimiento${transactions.length != 1 ? 's' : ''}',
+              style: const TextStyle(
+                fontSize: 13,
+                color: Colors.black45,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         Expanded(
@@ -178,8 +219,10 @@ class _MovimientosPageState extends State<MovimientosPage> {
   }
 
   Widget _buildTransactionsContainer(List<Map<String, dynamic>> transactions) {
-    if (transactions.isEmpty) return _buildEmptyState();
-    return _buildTransactionsList(transactions);
+    // ✅ Aplicar filtro antes de mostrar
+    final filtered = _filterTransactions(transactions);
+    if (filtered.isEmpty) return _buildEmptyState();
+    return _buildTransactionsList(filtered);
   }
 
   @override
@@ -198,8 +241,7 @@ class _MovimientosPageState extends State<MovimientosPage> {
               child: BlocBuilder<WalletBloc, WalletState>(
                 builder: (context, state) {
                   if (state is WalletLoading) return _buildLoadingState();
-                  final transactions =
-                      _extractTransactionsFromState(state);
+                  final transactions = _extractTransactionsFromState(state);
                   return _buildTransactionsContainer(transactions);
                 },
               ),
@@ -214,3 +256,4 @@ class _MovimientosPageState extends State<MovimientosPage> {
     );
   }
 }
+

@@ -166,6 +166,9 @@ class _PerfilPageState extends State<PerfilPage> {
         ),
       ),
       body: BlocConsumer<UserBloc, UserState>(
+        // No redibujar cuando llega UserOperationSuccess para no perder
+        // los datos del usuario que ya estaban visibles.
+        buildWhen: (previous, current) => current is! UserOperationSuccess,
         listener: (context, state) {
           if (state is UserOperationSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(

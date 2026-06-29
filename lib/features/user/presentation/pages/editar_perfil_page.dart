@@ -53,7 +53,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
     super.dispose();
   }
 
-  // ── Seleccionar imagen ──────────────────────────────────────────
   Future<void> _pickImage(ImageSource source) async {
     try {
       final picked = await _picker.pickImage(
@@ -132,7 +131,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
     );
   }
 
-  // ── Validar y guardar ───────────────────────────────────────────
   String? _validar() {
     if (_nameController.text.trim().isEmpty) {
       return 'El nombre no puede estar vacío';
@@ -161,7 +159,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
 
     String? newImageUrl;
 
-    // ✅ Subir imagen si se seleccionó una nueva
     if (_selectedImage != null) {
       setState(() => _isUploadingImage = true);
       try {
@@ -185,7 +182,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
       setState(() => _isUploadingImage = false);
     }
 
-    // ✅ Actualizar datos en Firestore
     final data = <String, dynamic>{
       'fullName': _nameController.text.trim(),
       'phoneNumber': _phoneController.text.trim(),
@@ -202,14 +198,12 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
     }
   }
 
-  // ── Widget del avatar ───────────────────────────────────────────
   Widget _buildAvatar() {
     return GestureDetector(
       onTap: _showImageOptions,
       child: Stack(
         alignment: Alignment.bottomRight,
         children: [
-          // ✅ Muestra imagen seleccionada, URL existente o inicial
           CircleAvatar(
             radius: 55,
             backgroundColor: _amarillo,
@@ -232,7 +226,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                   )
                 : null,
           ),
-          // ✅ Botón de editar foto
           Container(
             width: 32,
             height: 32,
@@ -264,9 +257,8 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
               duration: const Duration(seconds: 2),
             ),
           );
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) Navigator.pop(context);
-          });
+          // ✅ Navega de vuelta inmediatamente sin delay
+          if (mounted) Navigator.pop(context);
         }
         if (state is UserError) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -308,7 +300,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // ✅ Avatar con selector de foto
                   _buildAvatar(),
                   const SizedBox(height: 8),
                   TextButton(
@@ -329,8 +320,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                     ),
                   ),
                   const SizedBox(height: 32),
-
-                  // ── Nombre ──
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -350,8 +339,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 20),
-
-                  // ── Teléfono ──
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -373,8 +360,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                     onSubmitted: (_) => _guardarCambios(),
                   ),
                   const SizedBox(height: 20),
-
-                  // ── Email bloqueado ──
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -399,7 +384,7 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.email_outlined,
+                        Icon(Icons.email_outlined,
                             color: Colors.black38, size: 20),
                         const SizedBox(width: 12),
                         Expanded(
@@ -425,8 +410,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                     ),
                   ),
                   const SizedBox(height: 40),
-
-                  // ── Botón guardar ──
                   SizedBox(
                     width: double.infinity,
                     height: 56,

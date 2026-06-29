@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
@@ -38,7 +39,6 @@ class _PerfilPageState extends State<PerfilPage> {
       context.read<UserBloc>().add(
         GetUserByIdEvent(uid: authState.user.uid),
       );
-      // ✅ Carga el saldo real desde WalletBloc
       context.read<WalletBloc>().add(
         LoadWalletEvent(authState.user.uid),
       );
@@ -87,7 +87,6 @@ class _PerfilPageState extends State<PerfilPage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
-              // ✅ Cierra sesión y navega al inicio limpiando el stack
               context.read<AuthBloc>().add(const LogoutEvent());
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
@@ -116,6 +115,7 @@ class _PerfilPageState extends State<PerfilPage> {
     VoidCallback? onTap,
     Color? iconColor,
     Color? titleColor,
+    Widget? trailing,
   }) {
     return ListTile(
       leading: Container(
@@ -131,17 +131,18 @@ class _PerfilPageState extends State<PerfilPage> {
         title,
         style: TextStyle(
           fontWeight: FontWeight.w600,
-          color: titleColor ?? Colors.black,
+          color: titleColor,
         ),
       ),
       subtitle: subtitle != null
-          ? Text(subtitle, style: const TextStyle(color: Colors.black54))
+          ? Text(subtitle)
           : null,
-      trailing: const Icon(
-        Icons.arrow_forward_ios,
-        size: 14,
-        color: Colors.black38,
-      ),
+      trailing: trailing ??
+          const Icon(
+            Icons.arrow_forward_ios,
+            size: 14,
+            color: Colors.black38,
+          ),
       onTap: onTap,
     );
   }
@@ -163,17 +164,15 @@ class _PerfilPageState extends State<PerfilPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = context.watch<ThemeCubit>().state;
+
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
         automaticallyImplyLeading: false,
         centerTitle: true,
         title: const Text(
           'Mi Perfil',
           style: TextStyle(
-            color: Colors.black,
             fontWeight: FontWeight.bold,
             fontSize: 20,
           ),
@@ -213,8 +212,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   const Icon(Icons.error_outline,
                       size: 60, color: Colors.red),
                   const SizedBox(height: 16),
-                  Text(state.message,
-                      style: const TextStyle(color: Colors.black54)),
+                  Text(state.message),
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: _loadUser,
@@ -259,6 +257,7 @@ class _PerfilPageState extends State<PerfilPage> {
                 ),
                 const Divider(height: 1),
 
+                // ── Mi cuenta ──
                 _buildSectionTitle('MI CUENTA'),
                 _buildMenuItem(
                   icon: Icons.person_outline,
@@ -293,8 +292,8 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () {},
                 ),
 
+                // ── Billetera ──
                 _buildSectionTitle('BILLETERA'),
-                // ✅ Saldo desde WalletBloc
                 BlocBuilder<WalletBloc, WalletState>(
                   builder: (context, walletState) {
                     String saldo = 'Bs. 0.00';
@@ -323,6 +322,25 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () => navigateBottomNav(context, 1),
                 ),
 
+                // ── Apariencia ──
+                _buildSectionTitle('APARIENCIA'),
+                // ✅ Botón modo oscuro con switch
+                _buildMenuItem(
+                  icon: isDarkMode
+                      ? Icons.dark_mode
+                      : Icons.light_mode,
+                  title: 'Modo oscuro',
+                  subtitle: isDarkMode ? 'Activado' : 'Desactivado',
+                  onTap: () => context.read<ThemeCubit>().toggleTheme(),
+                  trailing: Switch(
+                    value: isDarkMode,
+                    onChanged: (_) =>
+                        context.read<ThemeCubit>().toggleTheme(),
+                    activeColor: _amarillo,
+                  ),
+                ),
+
+                // ── Aplicación ──
                 _buildSectionTitle('APLICACIÓN'),
                 _buildMenuItem(
                   icon: Icons.info_outline,
@@ -331,6 +349,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () {},
                 ),
 
+                // ── Sesión ──
                 _buildSectionTitle('SESIÓN'),
                 _buildMenuItem(
                   icon: Icons.logout,

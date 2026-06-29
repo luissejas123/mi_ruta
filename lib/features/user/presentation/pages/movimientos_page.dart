@@ -70,7 +70,6 @@ class _MovimientosPageState extends State<MovimientosPage> {
     return DateTime.now();
   }
 
-  // ✅ Filtrar transacciones según el periodo seleccionado
   List<Map<String, dynamic>> _filterTransactions(
     List<Map<String, dynamic>> transactions,
   ) {
@@ -85,15 +84,12 @@ class _MovimientosPageState extends State<MovimientosPage> {
 
       switch (_selectedFilter) {
         case 'Hoy':
-          // ✅ Solo transacciones de hoy
           return transactionDay.isAtSameMomentAs(today);
         case 'Semanal':
-          // ✅ Últimos 7 días
           final weekAgo = today.subtract(const Duration(days: 7));
           return transactionDay.isAfter(weekAgo) ||
               transactionDay.isAtSameMomentAs(weekAgo);
         case 'Mensual':
-          // ✅ Mismo mes y año
           return date.year == now.year && date.month == now.month;
         default:
           return true;
@@ -106,7 +102,11 @@ class _MovimientosPageState extends State<MovimientosPage> {
       backgroundColor: Colors.white,
       elevation: 0,
       centerTitle: true,
-      automaticallyImplyLeading: false,
+      // ✅ Flecha de regreso
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: Colors.black),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
       title: const Text(
         'MOVIMIENTOS',
         style: TextStyle(
@@ -186,7 +186,6 @@ class _MovimientosPageState extends State<MovimientosPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ✅ Muestra el periodo y cantidad de resultados
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -219,7 +218,6 @@ class _MovimientosPageState extends State<MovimientosPage> {
   }
 
   Widget _buildTransactionsContainer(List<Map<String, dynamic>> transactions) {
-    // ✅ Aplicar filtro antes de mostrar
     final filtered = _filterTransactions(transactions);
     if (filtered.isEmpty) return _buildEmptyState();
     return _buildTransactionsList(filtered);
@@ -256,4 +254,3 @@ class _MovimientosPageState extends State<MovimientosPage> {
     );
   }
 }
-

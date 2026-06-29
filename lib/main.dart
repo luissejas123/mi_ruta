@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
@@ -23,8 +24,6 @@ void main() async {
   await Firebase.initializeApp();
   setupDependencies();
 
-  // Iniciar seed GTFS en background desde el arranque de la app.
-  // Así cuando el usuario navegue a rutas, los datos ya estarán listos.
   unawaited(getIt<RouteDataSyncService>().ensureDataReady());
 
   runApp(const MyApp());
@@ -37,6 +36,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
+        // ✅ ThemeCubit para modo oscuro
+        BlocProvider<ThemeCubit>(
+          create: (context) => ThemeCubit(),
+        ),
         BlocProvider<AuthBloc>(
           create: (context) =>
               getIt<AuthBloc>()..add(const GetCurrentUserEvent()),
@@ -54,13 +57,57 @@ class MyApp extends StatelessWidget {
           create: (context) => getIt<MiRutaBloc>(),
         ),
       ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'MiRuta',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        ),
-        home: const _AuthGate(),
+      // ✅ BlocBuilder para aplicar tema en toda la app
+      child: BlocBuilder<ThemeCubit, bool>(
+        builder: (context, isDarkMode) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'MiRuta',
+            // ✅ Tema claro
+            theme: ThemeData(
+              brightness: Brightness.light,
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFFFFC12F),
+                brightness: Brightness.light,
+              ),
+              scaffoldBackgroundColor: Colors.white,
+              appBarTheme: const AppBarTheme(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                elevation: 0,
+              ),
+              bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+                backgroundColor: Colors.white,
+                selectedItemColor: Colors.black,
+                unselectedItemColor: Colors.grey,
+              ),
+            ),
+            // ✅ Tema oscuro
+            darkTheme: ThemeData(
+              brightness: Brightness.dark,
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFFFFC12F),
+                brightness: Brightness.dark,
+              ),
+              scaffoldBackgroundColor: const Color(0xFF121212),
+              appBarTheme: const AppBarTheme(
+                backgroundColor: Color(0xFF1E1E1E),
+                foregroundColor: Colors.white,
+                elevation: 0,
+              ),
+              bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+                backgroundColor: Color(0xFF1E1E1E),
+                selectedItemColor: Color(0xFFFFC12F),
+                unselectedItemColor: Colors.grey,
+              ),
+              cardColor: const Color(0xFF1E1E1E),
+              dividerColor: Colors.grey.shade800,
+            ),
+            // ✅ Aplica el tema según el estado
+            themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
+            home: const _AuthGate(),
+          );
+        },
       ),
     );
   }

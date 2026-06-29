@@ -116,7 +116,6 @@ class _RegisterPageState extends State<RegisterPage> {
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           return Scaffold(
-            backgroundColor: Colors.white,
             body: SafeArea(
               child: Center(
                 child: SingleChildScrollView(
@@ -133,7 +132,6 @@ class _RegisterPageState extends State<RegisterPage> {
                         style: TextStyle(
                           fontSize: 40,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -188,7 +186,6 @@ class _RegisterPageState extends State<RegisterPage> {
                             _obscurePassword
                                 ? Icons.visibility_outlined
                                 : Icons.visibility_off_outlined,
-                            color: Colors.grey,
                           ),
                           onPressed: () {
                             setState(() {
@@ -220,13 +217,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           );
                         },
-                        child: const Text(
-                          '¿Ya tienes cuenta? Inicia sesión',
-                          style: TextStyle(
-                            color: Colors.black54,
-                            fontSize: 13,
-                          ),
-                        ),
+                        child: const Text('¿Ya tienes cuenta? Inicia sesión'),
                       ),
                     ],
                   ),

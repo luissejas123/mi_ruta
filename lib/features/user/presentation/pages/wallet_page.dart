@@ -12,7 +12,6 @@ import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_pag
 import 'package:mi_ruta/features/user/presentation/widgets/balance_card.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/wallet_primary_button.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
@@ -85,27 +84,19 @@ class _WalletPageState extends State<WalletPage> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: Colors.white,
       elevation: 0,
       centerTitle: true,
-      // ✅ Sin flecha atrás — es pantalla principal del nav
       automaticallyImplyLeading: false,
       title: const Text(
         'Mi Billetera',
-        style: TextStyle(
-          color: Colors.black,
-          fontWeight: FontWeight.bold,
-          fontSize: 20,
-        ),
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
       ),
     );
   }
 
   Widget _buildLoadingState() {
     return const Center(
-      child: CircularProgressIndicator(
-        color: Color(0xFFFFC12F),
-      ),
+      child: CircularProgressIndicator(color: Color(0xFFFFC12F)),
     );
   }
 
@@ -116,11 +107,7 @@ class _WalletPageState extends State<WalletPage> {
         children: [
           const Icon(Icons.error_outline, size: 60, color: Colors.red),
           const SizedBox(height: 16),
-          Text(
-            error.message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.black54),
-          ),
+          Text(error.message, textAlign: TextAlign.center),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () =>
@@ -139,7 +126,6 @@ class _WalletPageState extends State<WalletPage> {
   Widget _buildActionsColumn() {
     return Column(
       children: [
-        // ✅ Botones con íconos para mejor UX
         _ActionButton(
           label: 'RECARGAR SALDO',
           icon: Icons.add_circle_outline,
@@ -181,11 +167,7 @@ class _WalletPageState extends State<WalletPage> {
             const SizedBox(height: 32),
             const Text(
               'Acciones',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.black54,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             _buildActionsColumn(),
@@ -218,7 +200,6 @@ class _WalletPageState extends State<WalletPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: _buildAppBar(),
       body: BlocConsumer<WalletBloc, WalletState>(
         listener: (context, state) {
@@ -239,12 +220,7 @@ class _WalletPageState extends State<WalletPage> {
                   : null;
 
           if (wallet == null) {
-            return const Center(
-              child: Text(
-                'No hay datos de billetera',
-                style: TextStyle(color: Colors.black54),
-              ),
-            );
+            return const Center(child: Text('No hay datos de billetera'));
           }
 
           return _buildMainContent(wallet);
@@ -258,7 +234,6 @@ class _WalletPageState extends State<WalletPage> {
   }
 }
 
-// ✅ Widget interno para botones de acción
 class _ActionButton extends StatelessWidget {
   final String label;
   final IconData icon;

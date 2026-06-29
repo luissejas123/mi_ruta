@@ -117,8 +117,6 @@ class _MapSearchPageState extends State<MapSearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      // ✅ AppBar con título dinámico
       appBar: AppBar(
         backgroundColor: _amarillo,
         elevation: 0,
@@ -146,7 +144,6 @@ class _MapSearchPageState extends State<MapSearchPage> {
           if (_isLoading)
             const LinearProgressIndicator(
               color: _amarillo,
-              backgroundColor: Colors.white,
             ),
           if (_error != null) SearchErrorBanner(message: _error!),
           Expanded(

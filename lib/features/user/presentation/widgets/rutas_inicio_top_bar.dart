@@ -30,6 +30,7 @@ class RutasInicioTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
     return SingleChildScrollView(
       child: Container(
         decoration: BoxDecoration(
@@ -37,9 +38,9 @@ class RutasInicioTopBar extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFFF1F3F4).withValues(alpha: 1.0),
-              const Color(0xFFF1F3F4).withValues(alpha: 0.95),
-              const Color(0xFFF1F3F4).withValues(alpha: 0.0),
+              surface.withValues(alpha: 1.0),
+              surface.withValues(alpha: 0.95),
+              surface.withValues(alpha: 0.0),
             ],
             stops: const [0.0, 0.7, 1.0],
           ),
@@ -60,7 +61,7 @@ class RutasInicioTopBar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildLocationCard(),
+                _buildLocationCard(context),
                 const SizedBox(height: 12),
                 if (destination != null) _buildSearchButton(),
               ],
@@ -71,10 +72,11 @@ class RutasInicioTopBar extends StatelessWidget {
     );
   }
 
-  Widget _buildLocationCard() {
+  Widget _buildLocationCard(BuildContext context) {
+    final cardColor = Theme.of(context).colorScheme.surfaceContainerHighest;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(

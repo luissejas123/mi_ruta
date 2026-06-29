@@ -42,21 +42,16 @@ class _RecargaSaldoPageState extends State<RecargaSaldoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
           'Recargar saldo',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
       body: BlocBuilder<WalletBloc, WalletState>(
@@ -70,7 +65,7 @@ class _RecargaSaldoPageState extends State<RecargaSaldoPage> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: Column(
               children: [
-                // ✅ Tarjeta de saldo
+                // Saldo card — amarillo siempre (branding), colores negros son sobre fondo amarillo
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 28),
@@ -83,7 +78,6 @@ class _RecargaSaldoPageState extends State<RecargaSaldoPage> {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        // ✅ withValues en vez de withOpacity deprecado
                         color: Colors.black.withValues(alpha: 0.10),
                         blurRadius: 12,
                         offset: const Offset(0, 6),
@@ -114,7 +108,6 @@ class _RecargaSaldoPageState extends State<RecargaSaldoPage> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                // ✅ Botón amarillo consistente
                 SizedBox(
                   width: double.infinity,
                   height: 56,

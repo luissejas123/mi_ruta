@@ -63,28 +63,20 @@ class _RutasSeleccionPageState extends State<RutasSeleccionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ✅ Fondo blanco consistente
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
               'Rutas disponibles',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             Text(
               widget.destination?.name ?? 'Destino',
-              style: const TextStyle(
-                color: Colors.black54,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                 fontSize: 12,
               ),
               overflow: TextOverflow.ellipsis,
@@ -97,7 +89,6 @@ class _RutasSeleccionPageState extends State<RutasSeleccionPage> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             children: [
-              // ✅ Guard para destination null
               if (widget.destination != null)
                 RouteMapView(
                   title: widget.destination!.name,

@@ -63,7 +63,6 @@ class _InsertarCorreoPageState extends State<InsertarCorreoPage> {
   Widget build(BuildContext context) {
     return BlocConsumer<AuthBloc, AuthState>(
       listener: (context, state) {
-        // ✅ Login exitoso → va al mapa principal
         if (state is AuthLoaded) {
           Navigator.pushAndRemoveUntil(
             context,
@@ -71,7 +70,6 @@ class _InsertarCorreoPageState extends State<InsertarCorreoPage> {
             (_) => false,
           );
         }
-        // ✅ Error → muestra mensaje rojo
         if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -86,8 +84,6 @@ class _InsertarCorreoPageState extends State<InsertarCorreoPage> {
         final isLoading = state is AuthLoading;
 
         return Scaffold(
-          backgroundColor: Colors.white,
-          // ✅ Sin AppBar — sin flecha atrás
           body: SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -105,13 +101,9 @@ class _InsertarCorreoPageState extends State<InsertarCorreoPage> {
                   const SizedBox(height: 12),
                   const Text(
                     'Inicia sesión para continuar',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.black54,
-                    ),
+                    style: TextStyle(fontSize: 15),
                   ),
                   const SizedBox(height: 50),
-                  // ✅ Campos con íconos igual que registro
                   CustomTextField(
                     hintText: 'Correo Electrónico',
                     icon: Icons.email_outlined,
@@ -120,7 +112,6 @@ class _InsertarCorreoPageState extends State<InsertarCorreoPage> {
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 18),
-                  // ✅ Contraseña con ojo
                   CustomTextField(
                     hintText: 'Contraseña',
                     icon: Icons.lock_outline,
@@ -133,7 +124,6 @@ class _InsertarCorreoPageState extends State<InsertarCorreoPage> {
                         _obscurePassword
                             ? Icons.visibility_outlined
                             : Icons.visibility_off_outlined,
-                        color: Colors.grey,
                       ),
                       onPressed: () {
                         setState(() {
@@ -143,7 +133,6 @@ class _InsertarCorreoPageState extends State<InsertarCorreoPage> {
                     ),
                   ),
                   const SizedBox(height: 30),
-                  // ✅ Botón amarillo igual que registro
                   isLoading
                       ? const CircularProgressIndicator(
                           color: Color(0xFFFFC12F),
@@ -171,7 +160,6 @@ class _InsertarCorreoPageState extends State<InsertarCorreoPage> {
                           ),
                         ),
                   const SizedBox(height: 20),
-                  // ✅ Recuperar contraseña
                   TextButton(
                     onPressed: () {
                       Navigator.push(
@@ -186,15 +174,8 @@ class _InsertarCorreoPageState extends State<InsertarCorreoPage> {
                         ),
                       );
                     },
-                    child: const Text(
-                      '¿Olvidaste tu contraseña?',
-                      style: TextStyle(
-                        color: Colors.black54,
-                        fontSize: 14,
-                      ),
-                    ),
+                    child: const Text('¿Olvidaste tu contraseña?'),
                   ),
-                  // ✅ Ir a registro
                   TextButton(
                     onPressed: () {
                       Navigator.pushReplacement(
@@ -207,13 +188,7 @@ class _InsertarCorreoPageState extends State<InsertarCorreoPage> {
                         ),
                       );
                     },
-                    child: const Text(
-                      '¿No tienes cuenta? Regístrate',
-                      style: TextStyle(
-                        color: Colors.black54,
-                        fontSize: 14,
-                      ),
-                    ),
+                    child: const Text('¿No tienes cuenta? Regístrate'),
                   ),
                 ],
               ),

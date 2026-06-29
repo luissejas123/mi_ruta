@@ -41,7 +41,9 @@ class LocationRow extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 15,
-                  color: isPlaceholder ? Colors.black45 : Colors.black87,
+                  color: isPlaceholder
+                      ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)
+                      : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.87),
                   fontWeight: isPlaceholder
                       ? FontWeight.normal
                       : FontWeight.w500,
@@ -52,7 +54,7 @@ class LocationRow extends StatelessWidget {
             ),
             IconButton(
               icon: const Icon(Icons.push_pin_outlined, size: 20),
-              color: Colors.black54,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               onPressed: onPinTap,

@@ -63,7 +63,6 @@ class MyApp extends StatelessWidget {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             title: 'MiRuta',
-            // ✅ Tema claro
             theme: ThemeData(
               brightness: Brightness.light,
               colorScheme: ColorScheme.fromSeed(
@@ -75,14 +74,46 @@ class MyApp extends StatelessWidget {
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.black,
                 elevation: 0,
+                titleTextStyle: TextStyle(
+                  color: Colors.black,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                iconTheme: IconThemeData(color: Colors.black),
               ),
               bottomNavigationBarTheme: const BottomNavigationBarThemeData(
                 backgroundColor: Colors.white,
-                selectedItemColor: Colors.black,
+                selectedItemColor: Color(0xFFFFC12F),
                 unselectedItemColor: Colors.grey,
               ),
+              cardTheme: const CardThemeData(
+                color: Colors.white,
+                surfaceTintColor: Colors.transparent,
+              ),
+              listTileTheme: const ListTileThemeData(
+                textColor: Colors.black87,
+                iconColor: Colors.black54,
+              ),
+              inputDecorationTheme: InputDecorationTheme(
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                hintStyle: const TextStyle(color: Colors.black38),
+              ),
+              textTheme: const TextTheme(
+                bodyLarge: TextStyle(color: Colors.black87),
+                bodyMedium: TextStyle(color: Colors.black87),
+                bodySmall: TextStyle(color: Colors.black54),
+                titleLarge: TextStyle(color: Colors.black),
+                titleMedium: TextStyle(color: Colors.black87),
+                titleSmall: TextStyle(color: Colors.black54),
+              ),
+              iconTheme: const IconThemeData(color: Colors.black87),
+              dividerColor: Colors.grey,
             ),
-            // ✅ Tema oscuro
             darkTheme: ThemeData(
               brightness: Brightness.dark,
               colorScheme: ColorScheme.fromSeed(
@@ -94,14 +125,48 @@ class MyApp extends StatelessWidget {
                 backgroundColor: Color(0xFF1E1E1E),
                 foregroundColor: Colors.white,
                 elevation: 0,
+                titleTextStyle: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                iconTheme: IconThemeData(color: Colors.white),
               ),
               bottomNavigationBarTheme: const BottomNavigationBarThemeData(
                 backgroundColor: Color(0xFF1E1E1E),
                 selectedItemColor: Color(0xFFFFC12F),
                 unselectedItemColor: Colors.grey,
               ),
+              cardTheme: const CardThemeData(
+                color: Color(0xFF1E1E1E),
+                surfaceTintColor: Colors.transparent,
+              ),
+              listTileTheme: ListTileThemeData(
+                tileColor: Colors.transparent,
+                textColor: Colors.white70,
+                iconColor: Colors.grey.shade400,
+              ),
+              inputDecorationTheme: InputDecorationTheme(
+                filled: true,
+                fillColor: const Color(0xFF2C2C2C),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                hintStyle: const TextStyle(color: Colors.white38),
+                labelStyle: const TextStyle(color: Colors.white70),
+              ),
+              textTheme: const TextTheme(
+                bodyLarge: TextStyle(color: Colors.white70),
+                bodyMedium: TextStyle(color: Colors.white70),
+                bodySmall: TextStyle(color: Colors.white54),
+                titleLarge: TextStyle(color: Colors.white),
+                titleMedium: TextStyle(color: Colors.white70),
+                titleSmall: TextStyle(color: Colors.white54),
+              ),
+              iconTheme: const IconThemeData(color: Colors.white70),
+              dividerColor: Color(0xFF2C2C2C),
               cardColor: const Color(0xFF1E1E1E),
-              dividerColor: Colors.grey.shade800,
             ),
             // ✅ Aplica el tema según el estado
             themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,

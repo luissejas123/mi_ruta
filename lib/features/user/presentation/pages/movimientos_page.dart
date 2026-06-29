@@ -99,21 +99,15 @@ class _MovimientosPageState extends State<MovimientosPage> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: Colors.white,
       elevation: 0,
       centerTitle: true,
-      // ✅ Flecha de regreso
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.black),
+        icon: const Icon(Icons.arrow_back),
         onPressed: () => Navigator.of(context).pop(),
       ),
       title: const Text(
         'MOVIMIENTOS',
-        style: TextStyle(
-          color: Colors.black,
-          fontWeight: FontWeight.bold,
-          fontSize: 20,
-        ),
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
       ),
     );
   }
@@ -154,7 +148,6 @@ class _MovimientosPageState extends State<MovimientosPage> {
             _selectedFilter == 'Todos'
                 ? 'No hay movimientos registrados'
                 : 'No hay movimientos en este período',
-            style: const TextStyle(color: Colors.black54),
           ),
         ],
       ),
@@ -198,10 +191,7 @@ class _MovimientosPageState extends State<MovimientosPage> {
             ),
             Text(
               '${transactions.length} movimiento${transactions.length != 1 ? 's' : ''}',
-              style: const TextStyle(
-                fontSize: 13,
-                color: Colors.black45,
-              ),
+              style: const TextStyle(fontSize: 13),
             ),
           ],
         ),
@@ -226,7 +216,6 @@ class _MovimientosPageState extends State<MovimientosPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: _buildAppBar(),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),

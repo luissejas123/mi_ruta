@@ -63,21 +63,18 @@ class _SubirFotografiaPageState extends State<SubirFotografiaPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
           'Subir Fotografía',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
       body: Padding(
@@ -90,33 +87,28 @@ class _SubirFotografiaPageState extends State<SubirFotografiaPage> {
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             const Text(
               'Selecciona una foto de tu carnet o documento',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.black54,
-              ),
+              style: TextStyle(fontSize: 14),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 28),
-            // ✅ Área de previsualización de imagen
             GestureDetector(
               onTap: () => _pickImage(ImageSource.gallery),
               child: Container(
                 width: double.infinity,
                 height: 240,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
+                  color: colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: _selectedImage != null
                         ? _amarillo
-                        : Colors.black26,
+                        : colorScheme.outline,
                     width: 2,
                   ),
                 ),
@@ -134,14 +126,14 @@ class _SubirFotografiaPageState extends State<SubirFotografiaPage> {
                           Icon(
                             Icons.cloud_upload_outlined,
                             size: 60,
-                            color: Colors.grey.shade400,
+                            color: colorScheme.onSurface.withValues(alpha: 0.4),
                           ),
                           const SizedBox(height: 12),
                           Text(
                             'Toca para seleccionar',
                             style: TextStyle(
                               fontSize: 15,
-                              color: Colors.grey.shade500,
+                              color: colorScheme.onSurface.withValues(alpha: 0.5),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -149,7 +141,7 @@ class _SubirFotografiaPageState extends State<SubirFotografiaPage> {
                             'PNG, JPG o JPEG',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey.shade400,
+                              color: colorScheme.onSurface.withValues(alpha: 0.4),
                             ),
                           ),
                         ],
@@ -157,20 +149,14 @@ class _SubirFotografiaPageState extends State<SubirFotografiaPage> {
               ),
             ),
             const SizedBox(height: 16),
-            // ✅ Botones de selección
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _pickImage(ImageSource.gallery),
-                    icon: const Icon(Icons.photo_library_outlined,
-                        color: Colors.black),
-                    label: const Text(
-                      'Galería',
-                      style: TextStyle(color: Colors.black),
-                    ),
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: const Text('Galería'),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.black26),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -182,14 +168,9 @@ class _SubirFotografiaPageState extends State<SubirFotografiaPage> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _pickImage(ImageSource.camera),
-                    icon: const Icon(Icons.camera_alt_outlined,
-                        color: Colors.black),
-                    label: const Text(
-                      'Cámara',
-                      style: TextStyle(color: Colors.black),
-                    ),
+                    icon: const Icon(Icons.camera_alt_outlined),
+                    label: const Text('Cámara'),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.black26),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -210,7 +191,6 @@ class _SubirFotografiaPageState extends State<SubirFotografiaPage> {
               ),
             ],
             const Spacer(),
-            // ✅ Botón amarillo consistente
             SizedBox(
               width: double.infinity,
               height: 56,

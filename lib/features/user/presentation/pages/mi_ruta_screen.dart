@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:mi_ruta/core/theme/map_styles.dart';
+import 'package:mi_ruta/core/theme/theme_cubit.dart';
 
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
@@ -114,13 +116,14 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
     };
   }
 
-  Widget _buildMap(MiRutaState state) {
+  Widget _buildMap(MiRutaState state, bool isDark) {
     if (state.myLocationLatLng == null) {
       return const Center(
         child: CircularProgressIndicator(color: Color(0xFFFFC12F)),
       );
     }
     return GoogleMap(
+      style: isDark ? MapStyles.dark : null,
       initialCameraPosition: CameraPosition(
         target: state.myLocationLatLng!,
         zoom: 15,
@@ -155,8 +158,8 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
       },
       child: BlocBuilder<MiRutaBloc, MiRutaState>(
         builder: (context, state) {
+          final isDark = context.watch<ThemeCubit>().state;
           return Scaffold(
-            backgroundColor: const Color(0xFFF1F3F4),
             body: SafeArea(
               child: Column(
                 children: [
@@ -167,7 +170,7 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
                   Expanded(
                     child: Stack(
                       children: [
-                        Positioned.fill(child: _buildMap(state)),
+                        Positioned.fill(child: _buildMap(state, isDark)),
                         if (state.isPinMode)
                           MapPinOverlay(
                             isCameraMoving: state.isCameraMoving,

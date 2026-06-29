@@ -20,28 +20,21 @@ class _ConfirmacionBeneficioPageState extends State<ConfirmacionBeneficioPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
           'Confirmación de Beneficio',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: Column(
           children: [
-            // ✅ Banner de éxito
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 24),
@@ -66,7 +59,6 @@ class _ConfirmacionBeneficioPageState extends State<ConfirmacionBeneficioPage> {
               ),
             ),
             const SizedBox(height: 24),
-            // ✅ Tarjeta de documento válido
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -76,7 +68,6 @@ class _ConfirmacionBeneficioPageState extends State<ConfirmacionBeneficioPage> {
               ),
               child: Row(
                 children: [
-                  // ✅ Ícono con fondo amarillo oscuro
                   Container(
                     width: 60,
                     height: 60,
@@ -100,6 +91,7 @@ class _ConfirmacionBeneficioPageState extends State<ConfirmacionBeneficioPage> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
+                            color: Colors.black,
                           ),
                         ),
                         SizedBox(height: 6),
@@ -122,7 +114,6 @@ class _ConfirmacionBeneficioPageState extends State<ConfirmacionBeneficioPage> {
               ),
             ),
             const Spacer(),
-            // ✅ Botón amarillo consistente
             SizedBox(
               width: double.infinity,
               height: 56,

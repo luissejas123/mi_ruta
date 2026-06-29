@@ -183,12 +183,12 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
     }
 
     final data = <String, dynamic>{
-      'fullName': _nameController.text.trim(),
-      'phoneNumber': _phoneController.text.trim(),
+      'full_name': _nameController.text.trim(),
+      'phone_number': _phoneController.text.trim(),
     };
 
     if (newImageUrl != null) {
-      data['profileImageUrl'] = newImageUrl;
+      data['profile_picture_url'] = newImageUrl;
     }
 
     if (mounted) {
@@ -247,6 +247,8 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return BlocListener<UserBloc, UserState>(
       listener: (context, state) {
         if (state is UserOperationSuccess) {
@@ -257,7 +259,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
               duration: const Duration(seconds: 2),
             ),
           );
-          // ✅ Navega de vuelta inmediatamente sin delay
           if (mounted) Navigator.pop(context);
         }
         if (state is UserError) {
@@ -274,22 +275,16 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
           final isLoading = state is UserLoading || _isUploadingImage;
 
           return Scaffold(
-            backgroundColor: Colors.white,
             appBar: AppBar(
-              backgroundColor: Colors.white,
               elevation: 0,
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                icon: const Icon(Icons.arrow_back),
                 onPressed: () => Navigator.pop(context),
               ),
               centerTitle: true,
               title: const Text(
                 'Editar Perfil',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
               ),
             ),
             body: SingleChildScrollView(
@@ -314,10 +309,7 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                   ),
                   Text(
                     widget.email,
-                    style: const TextStyle(
-                      color: Colors.black54,
-                      fontSize: 14,
-                    ),
+                    style: const TextStyle(fontSize: 14),
                   ),
                   const SizedBox(height: 32),
                   const Align(
@@ -327,7 +319,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black54,
                       ),
                     ),
                   ),
@@ -346,7 +337,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black54,
                       ),
                     ),
                   ),
@@ -367,7 +357,6 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black54,
                       ),
                     ),
                   ),
@@ -379,33 +368,39 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                       vertical: 18,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.email_outlined,
-                            color: Colors.black38, size: 20),
+                        Icon(
+                          Icons.email_outlined,
+                          color: colorScheme.onSurface.withValues(alpha: 0.38),
+                          size: 20,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             widget.email,
-                            style: const TextStyle(
-                              color: Colors.black38,
+                            style: TextStyle(
+                              color: colorScheme.onSurface.withValues(alpha: 0.38),
                               fontSize: 14,
                             ),
                           ),
                         ),
-                        const Icon(Icons.lock_outline,
-                            color: Colors.black26, size: 16),
+                        Icon(
+                          Icons.lock_outline,
+                          color: colorScheme.onSurface.withValues(alpha: 0.26),
+                          size: 16,
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'El correo electrónico no se puede modificar',
                     style: TextStyle(
-                      color: Colors.black38,
+                      color: colorScheme.onSurface.withValues(alpha: 0.38),
                       fontSize: 12,
                     ),
                   ),

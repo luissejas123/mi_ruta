@@ -18,6 +18,8 @@ import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dar
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/map_pin_confirm_panel.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/map_pin_overlay.dart';
+import 'package:mi_ruta/core/theme/map_styles.dart';
+import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/route_selection_sheet.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/rutas_inicio_top_bar.dart';
 
@@ -246,10 +248,12 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.watch<ThemeCubit>().state;
     return Scaffold(
       body: Stack(
         children: [
           GoogleMap(
+            style: isDark ? MapStyles.dark : null,
             initialCameraPosition: CameraPosition(
               target: _userLocation ?? LocationDatasource.defaultCenter,
               zoom: 14,
@@ -309,7 +313,6 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
               child: FloatingActionButton(
                 heroTag: 'rutas_my_location',
                 mini: true,
-                backgroundColor: Colors.white,
                 foregroundColor: Colors.blue,
                 onPressed: _getLocation,
                 child: const Icon(Icons.my_location),

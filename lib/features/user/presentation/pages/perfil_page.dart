@@ -141,7 +141,6 @@ class _PerfilPageState extends State<PerfilPage> {
           const Icon(
             Icons.arrow_forward_ios,
             size: 14,
-            color: Colors.black38,
           ),
       onTap: onTap,
     );
@@ -155,7 +154,6 @@ class _PerfilPageState extends State<PerfilPage> {
         style: const TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.bold,
-          color: Colors.black45,
           letterSpacing: 1.1,
         ),
       ),

@@ -18,11 +18,12 @@ class MapPinConfirmPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: const [
           BoxShadow(
             color: Colors.black12,
             blurRadius: 10,
@@ -42,7 +43,7 @@ class MapPinConfirmPanel extends StatelessWidget {
               height: 4,
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: colorScheme.onSurface.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -55,9 +56,12 @@ class MapPinConfirmPanel extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: isCameraMoving
-                    ? const Text(
+                    ? Text(
                         'Moviendo mapa...',
-                        style: TextStyle(color: Colors.black54, fontSize: 14),
+                        style: TextStyle(
+                          color: colorScheme.onSurface.withValues(alpha: 0.54),
+                          fontSize: 14,
+                        ),
                       )
                     : Text(
                         address ?? 'Buscando dirección...',
@@ -79,9 +83,11 @@ class MapPinConfirmPanel extends StatelessWidget {
             children: [
               TextButton(
                 onPressed: onCancel,
-                child: const Text(
+                child: Text(
                   'Cancelar',
-                  style: TextStyle(color: Colors.black54),
+                  style: TextStyle(
+                    color: colorScheme.onSurface.withValues(alpha: 0.54),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),

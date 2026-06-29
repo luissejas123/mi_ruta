@@ -160,22 +160,15 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
-        // ✅ Flecha de regreso
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
           'Solicitud de Beneficio',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
       ),
       body: BlocListener<BenefitRequestBLoC, BenefitRequestState>(
@@ -187,8 +180,10 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
                 backgroundColor: Colors.green.shade700,
               ),
             );
+            final navigator = Navigator.of(context);
             Future.delayed(const Duration(seconds: 2), () {
-              if (mounted) Navigator.of(context).pop();
+              if (!mounted) return;
+              navigator.pop();
             });
           } else if (state is BenefitRequestError) {
             ScaffoldMessenger.of(context).showSnackBar(

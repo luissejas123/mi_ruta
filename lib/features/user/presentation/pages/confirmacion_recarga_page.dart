@@ -20,12 +20,10 @@ class _ConfirmacionRecargaPageState extends State<ConfirmacionRecargaPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -35,7 +33,6 @@ class _ConfirmacionRecargaPageState extends State<ConfirmacionRecargaPage> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 40),
-            // ✅ Ícono de éxito verde
             const Icon(
               Icons.check_circle,
               size: 120,
@@ -48,20 +45,15 @@ class _ConfirmacionRecargaPageState extends State<ConfirmacionRecargaPage> {
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
               ),
             ),
             const SizedBox(height: 16),
             const Text(
               'Tu saldo ha sido actualizado correctamente.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 15,
-                color: Colors.black54,
-              ),
+              style: TextStyle(fontSize: 15),
             ),
             const Spacer(),
-            // ✅ Botón amarillo consistente
             SizedBox(
               width: double.infinity,
               height: 56,

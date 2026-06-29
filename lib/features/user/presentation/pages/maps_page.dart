@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:mi_ruta/core/theme/map_styles.dart';
+import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
@@ -46,10 +49,12 @@ class _MapsPageState extends State<MapsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.watch<ThemeCubit>().state;
     return Scaffold(
       body: Stack(
         children: [
           GoogleMap(
+            style: isDark ? MapStyles.dark : null,
             onMapCreated: _onMapCreated,
             initialCameraPosition: const CameraPosition(
               target: _initialPosition,

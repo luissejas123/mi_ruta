@@ -12,6 +12,8 @@ import 'package:mi_ruta/features/user/domain/services/trip_phase_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_state.dart';
+import 'package:mi_ruta/core/theme/map_styles.dart';
+import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/nav_bottom_panel.dart';
@@ -171,6 +173,7 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.watch<ThemeCubit>().state;
     return BlocListener<NavigationBloc, NavigationState>(
       listener: (context, state) {
         if (state.currentPosition != null && _mapController != null) {
@@ -217,6 +220,7 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
             return Stack(
               children: [
                 GoogleMap(
+                  style: isDark ? MapStyles.dark : null,
                   onMapCreated: _onMapCreated,
                   initialCameraPosition: CameraPosition(
                     target: widget.origin ?? widget.boardingStop,

@@ -91,20 +91,14 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
   }
 
   PreferredSizeWidget _buildAppBar() => AppBar(
-    backgroundColor: Colors.white,
     elevation: 0,
-    iconTheme: const IconThemeData(color: Colors.black),
     title: Text(
       widget.route.name,
-      style: const TextStyle(
-        color: Colors.black,
-        fontWeight: FontWeight.bold,
-      ),
+      style: const TextStyle(fontWeight: FontWeight.bold),
     ),
   );
 
   Widget _buildLoadingScaffold() => Scaffold(
-    backgroundColor: Colors.white,
     appBar: _buildAppBar(),
     body: const Center(
       child: CircularProgressIndicator(color: _amarillo),
@@ -197,7 +191,6 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
                   Text(
                     state.message,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.black54),
                   ),
                 ],
               ),

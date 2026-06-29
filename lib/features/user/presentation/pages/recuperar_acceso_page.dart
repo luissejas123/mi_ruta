@@ -63,7 +63,6 @@ class _RecuperarAccesoPageState extends State<RecuperarAccesoPage> {
     return BlocConsumer<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthSuccess) {
-          // ✅ Correo enviado exitosamente
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text(
@@ -73,9 +72,9 @@ class _RecuperarAccesoPageState extends State<RecuperarAccesoPage> {
               duration: const Duration(seconds: 4),
             ),
           );
-          // Volver al login después de 2 segundos
           Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) Navigator.pop(context);
+            if (!context.mounted) return;
+            Navigator.pop(context);
           });
         }
         if (state is AuthError) {
@@ -92,8 +91,6 @@ class _RecuperarAccesoPageState extends State<RecuperarAccesoPage> {
         final isLoading = state is AuthLoading;
 
         return Scaffold(
-          backgroundColor: Colors.white,
-          // ✅ Sin marco negro — fondo limpio
           body: SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -106,11 +103,9 @@ class _RecuperarAccesoPageState extends State<RecuperarAccesoPage> {
                     style: TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black,
                     ),
                   ),
                   const SizedBox(height: 30),
-                  // ✅ Ícono de candado amarillo
                   Container(
                     width: 100,
                     height: 100,
@@ -138,13 +133,9 @@ class _RecuperarAccesoPageState extends State<RecuperarAccesoPage> {
                   const Text(
                     'Ingresa tu correo de registro y te enviaremos un enlace de recuperación.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.black54,
-                    ),
+                    style: TextStyle(fontSize: 15),
                   ),
                   const SizedBox(height: 36),
-                  // ✅ Campo con ícono consistente con el resto
                   CustomTextField(
                     hintText: 'Correo Electrónico',
                     icon: Icons.email_outlined,
@@ -154,7 +145,6 @@ class _RecuperarAccesoPageState extends State<RecuperarAccesoPage> {
                     onSubmitted: (_) => _enviarRecuperacion(),
                   ),
                   const SizedBox(height: 30),
-                  // ✅ Botón amarillo
                   SizedBox(
                     width: double.infinity,
                     height: 56,
@@ -182,16 +172,9 @@ class _RecuperarAccesoPageState extends State<RecuperarAccesoPage> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  // ✅ Volver al login
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text(
-                      'Volver a inicio de sesión',
-                      style: TextStyle(
-                        color: Colors.black54,
-                        fontSize: 15,
-                      ),
-                    ),
+                    child: const Text('Volver a inicio de sesión'),
                   ),
                 ],
               ),

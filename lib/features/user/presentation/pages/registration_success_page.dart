@@ -9,7 +9,6 @@ class RegistrationSuccessPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -23,11 +22,9 @@ class RegistrationSuccessPage extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 40,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black,
                   ),
                 ),
                 const SizedBox(height: 40),
-                // ✅ Ícono de éxito verde
                 Container(
                   width: 150,
                   height: 150,
@@ -49,31 +46,24 @@ class RegistrationSuccessPage extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black,
                   ),
                 ),
                 const SizedBox(height: 16),
-                // ✅ Muestra el nombre del usuario
                 Text(
                   '¡Bienvenido, $fullName!',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black,
                   ),
                 ),
                 const SizedBox(height: 12),
                 const Text(
                   'Tu cuenta ha sido creada exitosamente.\nYa puedes usar la aplicación.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.black54,
-                  ),
+                  style: TextStyle(fontSize: 15),
                 ),
                 const SizedBox(height: 40),
-                // ✅ Botón amarillo consistente con el resto
                 SizedBox(
                   width: double.infinity,
                   height: 56,

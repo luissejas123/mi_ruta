@@ -129,8 +129,10 @@ class _PagoQRViewState extends State<_PagoQRView> {
         backgroundColor: Colors.green.shade700,
       ),
     );
+    final navigator = Navigator.of(context);
     Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) Navigator.of(context).pop();
+      if (!mounted) return;
+      navigator.pop();
     });
   }
 
@@ -247,22 +249,15 @@ class _PagoQRViewState extends State<_PagoQRView> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.white,
     appBar: AppBar(
-      backgroundColor: Colors.white,
       elevation: 0,
-      // ✅ Flecha de regreso
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.black),
+        icon: const Icon(Icons.arrow_back),
         onPressed: () => Navigator.of(context).pop(),
       ),
       title: const Text(
         'PAGO CON QR',
-        style: TextStyle(
-          color: Colors.black,
-          fontWeight: FontWeight.bold,
-          fontSize: 20,
-        ),
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
       ),
     ),
     body: BlocListener<TripPaymentBLoC, TripPaymentState>(
@@ -303,7 +298,7 @@ class _PagoQRViewState extends State<_PagoQRView> {
                 const Text(
                   'Escanea o sube el QR del conductor',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Colors.black54),
+                  style: TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 32),
                 SizedBox(
@@ -361,14 +356,10 @@ class _PagoQRViewState extends State<_PagoQRView> {
                   height: 56,
                   child: OutlinedButton.icon(
                     onPressed: isLoading ? null : _pickQRFromGallery,
-                    icon: const Icon(
-                      Icons.photo_library_outlined,
-                      color: Colors.black,
-                    ),
+                    icon: const Icon(Icons.photo_library_outlined),
                     label: const Text(
                       'Subir QR desde galería',
                       style: TextStyle(
-                        color: Colors.black,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),

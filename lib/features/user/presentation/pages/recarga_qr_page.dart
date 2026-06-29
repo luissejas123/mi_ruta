@@ -326,7 +326,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
             padding: const EdgeInsets.only(top: 6),
             child: Text(
               text,
-              style: const TextStyle(fontSize: 13, color: Colors.black87),
+              style: const TextStyle(fontSize: 13),
             ),
           ),
         ),
@@ -364,7 +364,6 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
           hintText: '0.00',
           prefixText: 'Bs. ',
           prefixStyle: const TextStyle(
-            color: Colors.black,
             fontWeight: FontWeight.bold,
           ),
           border: OutlineInputBorder(
@@ -557,20 +556,15 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.white,
     appBar: AppBar(
-      backgroundColor: Colors.white,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.black),
+        icon: const Icon(Icons.arrow_back),
         onPressed: () => Navigator.of(context).pop(),
       ),
       title: const Text(
         'Recargar con QR',
-        style: TextStyle(
-          color: Colors.black,
-          fontWeight: FontWeight.bold,
-        ),
+        style: TextStyle(fontWeight: FontWeight.bold),
       ),
     ),
     body: BlocListener<RechargeBloC, RechargeState>(

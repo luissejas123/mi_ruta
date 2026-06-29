@@ -19,18 +19,11 @@ class RutaTiempoPage extends StatelessWidget {
     final destName = destination?.name ?? 'Destino';
 
     return Scaffold(
-      // ✅ Fondo blanco
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
         title: const Text(
           'Tiempo estimado',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
       body: SafeArea(
@@ -69,7 +62,6 @@ class RutaTiempoPage extends StatelessWidget {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    // ✅ Color amarillo consistente
                     backgroundColor: const Color(0xFFFFC12F),
                     elevation: 0,
                     shape: RoundedRectangleBorder(

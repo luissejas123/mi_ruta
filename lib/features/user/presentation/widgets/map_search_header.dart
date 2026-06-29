@@ -12,11 +12,12 @@ class MapSearchHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFF1F3F4),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(15)),
-        boxShadow: [
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(15)),
+        boxShadow: const [
           BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),

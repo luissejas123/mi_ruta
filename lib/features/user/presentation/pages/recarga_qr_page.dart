@@ -77,29 +77,29 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
     }
   }
 
-  // ✅ Descarga QR a carpeta Downloads sin paquetes externos
+  // Descarga QR a la carpeta de documentos de la app (sin permiso externo)
   Future<void> _downloadQR() async {
     if (_qrUrl == null) return;
     setState(() => _isDownloading = true);
 
     try {
-      // Pedir permiso
-      PermissionStatus status;
+      // En Android solicitamos ambos permisos: photos (API 33+) y storage (API <33).
+      // permission_handler retorna granted en el que aplique según la versión del SO.
       if (Platform.isAndroid) {
-        final androidInfo = await _getAndroidVersion();
-        if (androidInfo >= 33) {
-          status = await Permission.photos.request();
-        } else {
-          status = await Permission.storage.request();
+        final photosStatus = await Permission.photos.request();
+        final storageStatus = await Permission.storage.request();
+        if (!photosStatus.isGranted && !storageStatus.isGranted) {
+          _showSnackBar('Permiso denegado para guardar imágenes', isError: true);
+          setState(() => _isDownloading = false);
+          return;
         }
       } else {
-        status = await Permission.photos.request();
-      }
-
-      if (!status.isGranted) {
-        _showSnackBar('Permiso denegado para guardar imágenes', isError: true);
-        setState(() => _isDownloading = false);
-        return;
+        final status = await Permission.photos.request();
+        if (!status.isGranted) {
+          _showSnackBar('Permiso denegado para guardar imágenes', isError: true);
+          setState(() => _isDownloading = false);
+          return;
+        }
       }
 
       // Descargar imagen
@@ -110,29 +110,20 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
         return;
       }
 
-      // Guardar en Downloads
+      // Guardar en directorio de documentos de la app (no requiere permiso adicional)
       final Uint8List bytes = response.bodyBytes;
-      final dir = await getExternalStorageDirectory();
-      final downloadsPath = dir?.path.split('Android').first ?? '/storage/emulated/0/';
-      final filePath = '${downloadsPath}Download/QR_MiRuta_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final dir = await getApplicationDocumentsDirectory();
+      final filePath =
+          '${dir.path}/QR_MiRuta_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final file = File(filePath);
       await file.writeAsBytes(bytes);
 
-      _showSnackBar('✅ QR guardado en Descargas');
+      _showSnackBar('QR guardado correctamente');
     } catch (e) {
       _showSnackBar('Error al guardar: $e', isError: true);
     }
 
     setState(() => _isDownloading = false);
-  }
-
-  Future<int> _getAndroidVersion() async {
-    try {
-      final result = await Process.run('getprop', ['ro.build.version.sdk']);
-      return int.tryParse(result.stdout.toString().trim()) ?? 30;
-    } catch (_) {
-      return 30;
-    }
   }
 
   void _onNavTap(int index) => navigateBottomNav(context, index);
@@ -590,6 +581,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
           setState(() {
             _comprobanteEnviado = true;
             _amountController.clear();
+            _selectedImage = null;
           });
         } else if (state is RechargeError) {
           _showSnackBar(state.message, isError: true);

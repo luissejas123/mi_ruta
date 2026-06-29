@@ -44,12 +44,9 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
         source: ImageSource.gallery,
         imageQuality: 85,
       );
-
       if (result == null) return;
 
       final file = File(result.path);
-
-      // ✅ Validar formato y tamaño
       final validationError = DocumentUploadSection.validateFile(file);
       if (validationError != null) {
         if (mounted) {
@@ -70,9 +67,7 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
         return;
       }
 
-      setState(() {
-        _selectedDocuments.add(file);
-      });
+      setState(() => _selectedDocuments.add(file));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -96,9 +91,7 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
   }
 
   void _removeDocument(int index) {
-    setState(() {
-      _selectedDocuments.removeAt(index);
-    });
+    setState(() => _selectedDocuments.removeAt(index));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Documento removido'),
@@ -117,7 +110,6 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
       );
       return;
     }
-
     if (_descriptionController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -127,7 +119,6 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
       );
       return;
     }
-
     if (_selectedDocuments.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -150,7 +141,6 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
     }
 
     setState(() => _isSubmitting = true);
-
     context.read<BenefitRequestBLoC>().add(
       SubmitBenefitRequestEvent(
         userId: userId,
@@ -174,6 +164,7 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        // ✅ Flecha de regreso
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.of(context).pop(),
@@ -215,44 +206,32 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Tipo de beneficio ──
                 const Text(
                   'Tipo de Beneficio',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
                 BenefitTypeButton(
                   label: 'Estudiante',
                   isSelected: _selectedBenefitType == 'student',
-                  onTap: () =>
-                      setState(() => _selectedBenefitType = 'student'),
+                  onTap: () => setState(() => _selectedBenefitType = 'student'),
                 ),
                 const SizedBox(height: 12),
                 BenefitTypeButton(
                   label: 'Universitario',
                   isSelected: _selectedBenefitType == 'university',
-                  onTap: () =>
-                      setState(() => _selectedBenefitType = 'university'),
+                  onTap: () => setState(() => _selectedBenefitType = 'university'),
                 ),
                 const SizedBox(height: 12),
                 BenefitTypeButton(
                   label: 'Adulto mayor',
                   isSelected: _selectedBenefitType == 'senior',
-                  onTap: () =>
-                      setState(() => _selectedBenefitType = 'senior'),
+                  onTap: () => setState(() => _selectedBenefitType = 'senior'),
                 ),
                 const SizedBox(height: 32),
-
-                // ── Descripción ──
                 const Text(
                   'Descripción de tu solicitud',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -274,23 +253,14 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
                   ),
                 ),
                 const SizedBox(height: 32),
-
-                // ── Documentos ──
                 const Text(
                   'Documentos adjuntos',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
-                // ✅ Indicador de formato permitido
                 Text(
                   'Solo JPG o PNG • Máximo 5 MB por archivo',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade500,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                 ),
                 const SizedBox(height: 12),
                 DocumentUploadSection(
@@ -300,8 +270,6 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
                   onRemoveDocument: _removeDocument,
                 ),
                 const SizedBox(height: 32),
-
-                // ── Botón enviar ──
                 BlocBuilder<BenefitRequestBLoC, BenefitRequestState>(
                   builder: (context, state) {
                     final isLoading = state is BenefitRequestLoading;
@@ -319,9 +287,7 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
                           ),
                         ),
                         child: Text(
-                          isLoading
-                              ? 'Enviando solicitud...'
-                              : 'Enviar solicitud',
+                          isLoading ? 'Enviando...' : 'Enviar solicitud',
                           style: const TextStyle(
                             color: Colors.black,
                             fontSize: 18,

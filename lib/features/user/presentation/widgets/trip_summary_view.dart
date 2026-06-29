@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/trip_step.dart';
 
-/// Resumen visual del trayecto completo:
-/// inicio a pie → bus → bajada a pie → destino final.
 class TripSummaryView extends StatelessWidget {
   final String walkStartSublabel;
   final String busLabel;
@@ -30,19 +28,24 @@ class TripSummaryView extends StatelessWidget {
         ),
         const TripConnector(),
         TripStep(
-          color: const Color(0xFFFBC02D),
+          color: const Color(0xFFFFC12F),
           isDotted: false,
           icon: Icons.directions_bus,
           label: busLabel,
-          sublabel: 'Tomar el micro / trufi',
+          sublabel: 'Abordar el micro / trufi',
         ),
         const TripConnector(),
         TripStep(
           color: Colors.grey.shade700,
           isDotted: true,
           icon: Icons.directions_walk,
-          label: 'Caminar hasta el destino',
-          sublabel: walkEndSublabel,
+          // ✅ Texto más claro — solo si hay distancia significativa
+          label: walkEndSublabel == '0 m' || walkEndSublabel == '0m'
+              ? 'Bajada en el destino'
+              : 'Bajarse y caminar al destino',
+          sublabel: walkEndSublabel == '0 m' || walkEndSublabel == '0m'
+              ? 'Tu destino está en la parada'
+              : walkEndSublabel,
         ),
         const TripConnector(),
         TripStep(
@@ -50,7 +53,7 @@ class TripSummaryView extends StatelessWidget {
           isDotted: false,
           icon: Icons.location_on,
           label: destinationName,
-          sublabel: 'Destino final',
+          sublabel: '📍 Tu destino',
         ),
       ],
     );

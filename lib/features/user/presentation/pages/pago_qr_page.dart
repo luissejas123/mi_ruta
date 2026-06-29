@@ -29,7 +29,7 @@ class _PagoQRView extends StatefulWidget {
 class _PagoQRViewState extends State<_PagoQRView> {
   static const _navIndexWallet = 1;
   static const _amarillo = Color(0xFFFFC12F);
-  static const _maxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
+  static const _maxFileSizeBytes = 5 * 1024 * 1024;
 
   File? _selectedQRImage;
   final ImagePicker _picker = ImagePicker();
@@ -41,20 +41,17 @@ class _PagoQRViewState extends State<_PagoQRView> {
 
   void _onNavTap(int index) => navigateBottomNav(context, index);
 
-  // ── Escanear QR con cámara ──────────────────────────────────────
   Future<void> _scanQr() async {
     final userId = _getUserId();
     if (userId == null) {
       _showError('No se pudo obtener tu información');
       return;
     }
-
     final qrResult = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => const QRScannerPage(title: 'Escanear QR del viaje'),
       ),
     );
-
     if (PagoQRUtilsService.isValidQrResult(qrResult) && mounted) {
       context.read<TripPaymentBLoC>().add(
         ProcessPaymentEvent(userId: userId, qrData: qrResult!),
@@ -62,25 +59,21 @@ class _PagoQRViewState extends State<_PagoQRView> {
     }
   }
 
-  // ── Seleccionar QR desde galería ────────────────────────────────
   Future<void> _pickQRFromGallery() async {
     try {
       final picked = await _picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 100,
       );
-
       if (picked == null) return;
 
       final file = File(picked.path);
       final fileSize = await file.length();
 
-      // ✅ Validar peso máximo 5 MB
       if (fileSize > _maxFileSizeBytes) {
         if (mounted) {
           _showError(
-            'El archivo supera el límite de 5 MB. '
-            'Tamaño actual: ${(fileSize / 1024 / 1024).toStringAsFixed(1)} MB',
+            'El archivo supera 5 MB (${(fileSize / 1024 / 1024).toStringAsFixed(1)} MB)',
           );
         }
         return;
@@ -104,25 +97,18 @@ class _PagoQRViewState extends State<_PagoQRView> {
     }
   }
 
-  // ── Procesar QR desde imagen ────────────────────────────────────
   void _processQRFromImage() {
     if (_selectedQRImage == null) {
       _showError('Por favor selecciona una imagen del QR primero');
       return;
     }
-
     final userId = _getUserId();
     if (userId == null) {
       _showError('No se pudo obtener tu información');
       return;
     }
-
-    // Enviar ruta del archivo como qrData para procesamiento
     context.read<TripPaymentBLoC>().add(
-      ProcessPaymentEvent(
-        userId: userId,
-        qrData: _selectedQRImage!.path,
-      ),
+      ProcessPaymentEvent(userId: userId, qrData: _selectedQRImage!.path),
     );
   }
 
@@ -174,15 +160,9 @@ class _PagoQRViewState extends State<_PagoQRView> {
           ],
         ),
         const SizedBox(height: 8),
-        Text(
-          'Monto: ${PagoQRUtilsService.formatAmount(state.amount)}',
-          style: const TextStyle(fontSize: 14),
-        ),
+        Text('Monto: ${PagoQRUtilsService.formatAmount(state.amount)}'),
         const SizedBox(height: 4),
-        Text(
-          'Nuevo saldo: ${PagoQRUtilsService.formatAmount(state.newBalance)}',
-          style: const TextStyle(fontSize: 14),
-        ),
+        Text('Nuevo saldo: ${PagoQRUtilsService.formatAmount(state.newBalance)}'),
       ],
     ),
   );
@@ -209,7 +189,6 @@ class _PagoQRViewState extends State<_PagoQRView> {
     ),
   );
 
-  // ── Widget de imagen QR seleccionada ────────────────────────────
   Widget _buildSelectedQRImage() => Column(
     children: [
       const SizedBox(height: 16),
@@ -225,7 +204,6 @@ class _PagoQRViewState extends State<_PagoQRView> {
               fit: BoxFit.contain,
             ),
           ),
-          // ✅ Botón para quitar imagen
           GestureDetector(
             onTap: () => setState(() => _selectedQRImage = null),
             child: Container(
@@ -235,17 +213,12 @@ class _PagoQRViewState extends State<_PagoQRView> {
                 color: Colors.black87,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 18,
-              ),
+              child: const Icon(Icons.close, color: Colors.white, size: 18),
             ),
           ),
         ],
       ),
       const SizedBox(height: 12),
-      // ✅ Botón procesar QR desde imagen
       SizedBox(
         width: double.infinity,
         height: 56,
@@ -278,6 +251,7 @@ class _PagoQRViewState extends State<_PagoQRView> {
     appBar: AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
+      // ✅ Flecha de regreso
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.black),
         onPressed: () => Navigator.of(context).pop(),
@@ -300,14 +274,10 @@ class _PagoQRViewState extends State<_PagoQRView> {
         builder: (context, state) {
           final isLoading = state is TripPaymentLoading;
           return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 32,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // ✅ Ícono principal
                 Container(
                   width: 120,
                   height: 120,
@@ -333,14 +303,9 @@ class _PagoQRViewState extends State<_PagoQRView> {
                 const Text(
                   'Escanea o sube el QR del conductor',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.black54,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.black54),
                 ),
                 const SizedBox(height: 32),
-
-                // ── Opción 1: Escanear con cámara ──
                 SizedBox(
                   width: double.infinity,
                   height: 56,
@@ -355,10 +320,7 @@ class _PagoQRViewState extends State<_PagoQRView> {
                               strokeWidth: 2,
                             ),
                           )
-                        : const Icon(
-                            Icons.qr_code_scanner,
-                            color: Colors.black,
-                          ),
+                        : const Icon(Icons.qr_code_scanner, color: Colors.black),
                     label: Text(
                       isLoading ? 'Procesando...' : 'Escanear con cámara',
                       style: const TextStyle(
@@ -377,8 +339,6 @@ class _PagoQRViewState extends State<_PagoQRView> {
                   ),
                 ),
                 const SizedBox(height: 16),
-
-                // ── Divisor ──
                 Row(
                   children: [
                     const Expanded(child: Divider()),
@@ -396,8 +356,6 @@ class _PagoQRViewState extends State<_PagoQRView> {
                   ],
                 ),
                 const SizedBox(height: 16),
-
-                // ── Opción 2: Subir desde galería ──
                 SizedBox(
                   width: double.infinity,
                   height: 56,
@@ -416,17 +374,13 @@ class _PagoQRViewState extends State<_PagoQRView> {
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(
-                        color: _amarillo,
-                        width: 2,
-                      ),
+                      side: const BorderSide(color: _amarillo, width: 2),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                   ),
                 ),
-                // ✅ Límite de tamaño visible
                 const SizedBox(height: 6),
                 Text(
                   'Máximo 5 MB — PNG, JPG',
@@ -435,11 +389,7 @@ class _PagoQRViewState extends State<_PagoQRView> {
                     color: Colors.grey.shade500,
                   ),
                 ),
-
-                // ✅ Previsualización del QR seleccionado
                 if (_selectedQRImage != null) _buildSelectedQRImage(),
-
-                // ✅ Mensajes de resultado
                 if (state is TripPaymentSuccess) ...[
                   const SizedBox(height: 24),
                   _buildSuccessMessage(state),

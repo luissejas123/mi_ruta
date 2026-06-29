@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
+import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_state.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/editar_perfil_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
@@ -34,6 +39,9 @@ class _PerfilPageState extends State<PerfilPage> {
       context.read<UserBloc>().add(
         GetUserByIdEvent(uid: authState.user.uid),
       );
+      context.read<WalletBloc>().add(
+        LoadWalletEvent(authState.user.uid),
+      );
     }
   }
 
@@ -41,7 +49,6 @@ class _PerfilPageState extends State<PerfilPage> {
     navigateBottomNav(context, index);
   }
 
-  // ✅ Ahora recibe imageUrl también
   void _navigateToEditarPerfil(
     String uid,
     String fullName,
@@ -81,6 +88,12 @@ class _PerfilPageState extends State<PerfilPage> {
             onPressed: () {
               Navigator.pop(ctx);
               context.read<AuthBloc>().add(const LogoutEvent());
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => const IniciarSesionPage(),
+                ),
+                (route) => false,
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red.shade700,
@@ -102,6 +115,7 @@ class _PerfilPageState extends State<PerfilPage> {
     VoidCallback? onTap,
     Color? iconColor,
     Color? titleColor,
+    Widget? trailing,
   }) {
     return ListTile(
       leading: Container(
@@ -117,17 +131,18 @@ class _PerfilPageState extends State<PerfilPage> {
         title,
         style: TextStyle(
           fontWeight: FontWeight.w600,
-          color: titleColor ?? Colors.black,
+          color: titleColor,
         ),
       ),
       subtitle: subtitle != null
-          ? Text(subtitle, style: const TextStyle(color: Colors.black54))
+          ? Text(subtitle)
           : null,
-      trailing: const Icon(
-        Icons.arrow_forward_ios,
-        size: 14,
-        color: Colors.black38,
-      ),
+      trailing: trailing ??
+          const Icon(
+            Icons.arrow_forward_ios,
+            size: 14,
+            color: Colors.black38,
+          ),
       onTap: onTap,
     );
   }
@@ -149,17 +164,15 @@ class _PerfilPageState extends State<PerfilPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = context.watch<ThemeCubit>().state;
+
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
         automaticallyImplyLeading: false,
         centerTitle: true,
         title: const Text(
           'Mi Perfil',
           style: TextStyle(
-            color: Colors.black,
             fontWeight: FontWeight.bold,
             fontSize: 20,
           ),
@@ -202,8 +215,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   const Icon(Icons.error_outline,
                       size: 60, color: Colors.red),
                   const SizedBox(height: 16),
-                  Text(state.message,
-                      style: const TextStyle(color: Colors.black54)),
+                  Text(state.message),
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: _loadUser,
@@ -234,7 +246,6 @@ class _PerfilPageState extends State<PerfilPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ✅ Encabezado con foto y datos
                 ProfileHeader(
                   name: user.fullName,
                   email: user.email,
@@ -244,12 +255,12 @@ class _PerfilPageState extends State<PerfilPage> {
                     user.fullName,
                     user.email,
                     user.phoneNumber,
-                    user.profileImageUrl, // ✅ nuevo
+                    user.profileImageUrl,
                   ),
                 ),
                 const Divider(height: 1),
 
-                // ── Sección cuenta ──
+                // ── Mi cuenta ──
                 _buildSectionTitle('MI CUENTA'),
                 _buildMenuItem(
                   icon: Icons.person_outline,
@@ -284,14 +295,28 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () {},
                 ),
 
-                // ── Sección billetera ──
+                // ── Billetera ──
                 _buildSectionTitle('BILLETERA'),
-                _buildMenuItem(
-                  icon: Icons.account_balance_wallet_outlined,
-                  title: 'Saldo disponible',
-                  subtitle:
-                      'Bs. ${user.walletBalance.toStringAsFixed(2)}',
-                  onTap: () => navigateBottomNav(context, 1),
+                BlocBuilder<WalletBloc, WalletState>(
+                  builder: (context, walletState) {
+                    String saldo = 'Bs. 0.00';
+                    if (walletState is WalletLoaded) {
+                      saldo =
+                          '${walletState.wallet.currency} ${walletState.wallet.currentBalance.toStringAsFixed(2)}';
+                    } else if (walletState is WalletOperationSuccess) {
+                      saldo =
+                          '${walletState.updatedWallet.currency} ${walletState.updatedWallet.currentBalance.toStringAsFixed(2)}';
+                    } else if (walletState is TransactionHistoryLoaded) {
+                      saldo =
+                          '${walletState.wallet.currency} ${walletState.wallet.currentBalance.toStringAsFixed(2)}';
+                    }
+                    return _buildMenuItem(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: 'Saldo disponible',
+                      subtitle: saldo,
+                      onTap: () => navigateBottomNav(context, 1),
+                    );
+                  },
                 ),
                 _buildMenuItem(
                   icon: Icons.star_outline,
@@ -300,7 +325,25 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () => navigateBottomNav(context, 1),
                 ),
 
-                // ── Sección app ──
+                // ── Apariencia ──
+                _buildSectionTitle('APARIENCIA'),
+                // ✅ Botón modo oscuro con switch
+                _buildMenuItem(
+                  icon: isDarkMode
+                      ? Icons.dark_mode
+                      : Icons.light_mode,
+                  title: 'Modo oscuro',
+                  subtitle: isDarkMode ? 'Activado' : 'Desactivado',
+                  onTap: () => context.read<ThemeCubit>().toggleTheme(),
+                  trailing: Switch(
+                    value: isDarkMode,
+                    onChanged: (_) =>
+                        context.read<ThemeCubit>().toggleTheme(),
+                    activeColor: _amarillo,
+                  ),
+                ),
+
+                // ── Aplicación ──
                 _buildSectionTitle('APLICACIÓN'),
                 _buildMenuItem(
                   icon: Icons.info_outline,
@@ -309,7 +352,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () {},
                 ),
 
-                // ── Cerrar sesión ──
+                // ── Sesión ──
                 _buildSectionTitle('SESIÓN'),
                 _buildMenuItem(
                   icon: Icons.logout,

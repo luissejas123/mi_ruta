@@ -26,10 +26,11 @@ class RouteSelectionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFF1F3F4),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
@@ -40,7 +41,7 @@ class RouteSelectionSheet extends StatelessWidget {
               width: 48,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[400],
+                color: colorScheme.onSurface.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -58,7 +59,10 @@ class RouteSelectionSheet extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Hacia ${destination.name}',
-                  style: const TextStyle(fontSize: 14, color: Colors.black54),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: colorScheme.onSurface.withValues(alpha: 0.54),
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -70,7 +74,9 @@ class RouteSelectionSheet extends StatelessWidget {
                 ? Center(
                     child: Text(
                       'No hay rutas cercanas',
-                      style: TextStyle(color: Colors.grey[600]),
+                      style: TextStyle(
+                        color: colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
                     ),
                   )
                 : ListView.builder(

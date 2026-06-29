@@ -30,7 +30,7 @@ class RouteCard extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -63,7 +63,10 @@ class RouteCard extends StatelessWidget {
                   if (routeRef.isNotEmpty)
                     Text(
                       routeRef,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
+                      ),
                     ),
                 ],
               ),
@@ -83,7 +86,10 @@ class RouteCard extends StatelessWidget {
                 ),
                 Text(
                   distance,
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
+                  ),
                 ),
               ],
             ),

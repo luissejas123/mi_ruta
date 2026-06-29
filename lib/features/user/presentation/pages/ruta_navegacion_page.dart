@@ -101,6 +101,9 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
   BitmapDescriptor? _locationIcon;
   late final NavigationBloc _navBloc;
 
+  bool _followUser = true;
+  bool _isProgrammaticMove = false;
+
   @override
   void initState() {
     super.initState();
@@ -176,7 +179,8 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
     final isDark = context.watch<ThemeCubit>().state;
     return BlocListener<NavigationBloc, NavigationState>(
       listener: (context, state) {
-        if (state.currentPosition != null && _mapController != null) {
+        if (state.currentPosition != null && _mapController != null && _followUser) {
+          _isProgrammaticMove = true;
           _mapController!.animateCamera(
             CameraUpdate.newLatLng(state.currentPosition!),
           );
@@ -226,6 +230,12 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
                     target: widget.origin ?? widget.boardingStop,
                     zoom: 15,
                   ),
+                  onCameraMove: (_) {
+                    if (!_isProgrammaticMove && _followUser) {
+                      setState(() => _followUser = false);
+                    }
+                  },
+                  onCameraIdle: () => _isProgrammaticMove = false,
                   polylines: polylines,
                   markers: markers,
                   myLocationEnabled: false,
@@ -237,6 +247,29 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
                   elapsed: DistanceUtils.formatDuration(state.elapsed),
                   onBack: _onBackPressed,
                 ),
+                if (!_followUser)
+                  Positioned(
+                    right: 16,
+                    bottom: 200,
+                    child: FloatingActionButton.small(
+                      heroTag: 'follow_user',
+                      backgroundColor: const Color(0xFFFFC12F),
+                      foregroundColor: Colors.black,
+                      onPressed: () {
+                        setState(() {
+                          _followUser = true;
+                          _isProgrammaticMove = true;
+                        });
+                        final pos = _navBloc.state.currentPosition;
+                        if (pos != null) {
+                          _mapController?.animateCamera(
+                            CameraUpdate.newLatLng(pos),
+                          );
+                        }
+                      },
+                      child: const Icon(Icons.my_location),
+                    ),
+                  ),
                 NavBottomPanel(
                   phase: state.phase,
                   routeName: widget.route.name,

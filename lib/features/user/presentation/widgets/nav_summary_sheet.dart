@@ -37,7 +37,7 @@ class NavSummarySheet extends StatelessWidget {
             height: 4,
             margin: const EdgeInsets.only(bottom: 20),
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -50,7 +50,10 @@ class NavSummarySheet extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             'Gracias por usar Mi Ruta',
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 22),
           _NavSummaryRow(icon: Icons.route, label: 'Línea', value: routeName),
@@ -104,13 +107,14 @@ class _NavSummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Row(
       children: [
-        Icon(icon, color: Colors.grey.shade500, size: 20),
+        Icon(icon, color: onSurface.withValues(alpha: 0.5), size: 20),
         const SizedBox(width: 10),
         Text(
           '$label: ',
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+          style: TextStyle(color: onSurface.withValues(alpha: 0.6), fontSize: 14),
         ),
         Expanded(
           child: Text(

@@ -17,10 +17,11 @@ class TripSummaryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final walkColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
     return Column(
       children: [
         TripStep(
-          color: Colors.grey.shade700,
+          color: walkColor,
           isDotted: true,
           icon: Icons.directions_walk,
           label: 'Caminar hasta la parada',
@@ -36,7 +37,7 @@ class TripSummaryView extends StatelessWidget {
         ),
         const TripConnector(),
         TripStep(
-          color: Colors.grey.shade700,
+          color: walkColor,
           isDotted: true,
           icon: Icons.directions_walk,
           // ✅ Texto más claro — solo si hay distancia significativa

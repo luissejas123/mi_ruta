@@ -41,10 +41,10 @@ class TripStep extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.87),
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -54,7 +54,7 @@ class TripStep extends StatelessWidget {
                 sublabel,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey.shade600,
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -75,7 +75,7 @@ class TripConnector extends StatelessWidget {
       child: Container(
         width: 2,
         height: 20,
-        color: Colors.grey.shade300,
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
       ),
     );
   }

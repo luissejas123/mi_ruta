@@ -30,7 +30,10 @@ class PlacePredictionTile extends StatelessWidget {
       subtitle: Text(
         secondaryText,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 13, color: Colors.black54),
+        style: TextStyle(
+          fontSize: 13,
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
+        ),
       ),
       onTap: onTap,
     );

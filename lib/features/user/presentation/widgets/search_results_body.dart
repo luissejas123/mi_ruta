@@ -31,10 +31,12 @@ class SearchResultsBody extends StatelessWidget {
   Widget build(BuildContext context) {
     if (predictions.isEmpty && !isLoading) {
       return hasText
-          ? const Center(
+          ? Center(
               child: Text(
                 'Sin resultados',
-                style: TextStyle(color: Colors.black54),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
+                ),
               ),
             )
           : const SearchEmptyHint();

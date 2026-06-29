@@ -175,8 +175,6 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
 
         if (state is TripLineError) {
           return Scaffold(
-            // ✅ Fondo blanco
-            backgroundColor: Colors.white,
             appBar: _buildAppBar(),
             body: Center(
               child: Column(
@@ -221,8 +219,6 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
           );
 
           return Scaffold(
-            // ✅ Fondo blanco consistente
-            backgroundColor: Colors.white,
             appBar: _buildAppBar(),
             body: SafeArea(
               child: Padding(

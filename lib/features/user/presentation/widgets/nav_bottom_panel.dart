@@ -70,9 +70,9 @@ class NavBottomPanel extends StatelessWidget {
         elevation: 12,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
         child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
           ),
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 36),
           child: Column(
@@ -105,7 +105,7 @@ class NavBottomPanel extends StatelessWidget {
                         Text(
                           info.subtitle,
                           style: TextStyle(
-                            color: Colors.grey.shade600,
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                             fontSize: 13,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -128,7 +128,7 @@ class NavBottomPanel extends StatelessWidget {
                         'restante',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey.shade500,
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                         ),
                       ),
                     ],

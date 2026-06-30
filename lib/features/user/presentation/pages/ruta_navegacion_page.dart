@@ -12,8 +12,13 @@ import 'package:mi_ruta/features/user/domain/services/trip_phase_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_state.dart';
+import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/map_styles.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
+import 'package:mi_ruta/features/user/domain/services/trip_history_service.dart';
+import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/nav_bottom_panel.dart';
@@ -24,6 +29,7 @@ class RutaNavegacionPage extends StatelessWidget {
   final OsmRoute route;
   final PlaceResult destination;
   final LatLng? origin;
+  final String originName;
   final LatLng boardingStop;
   final LatLng alightingStop;
   final List<LatLng> transitSegment;
@@ -35,6 +41,7 @@ class RutaNavegacionPage extends StatelessWidget {
     required this.route,
     required this.destination,
     this.origin,
+    this.originName = 'Mi ubicación',
     required this.boardingStop,
     required this.alightingStop,
     required this.transitSegment,
@@ -58,6 +65,7 @@ class RutaNavegacionPage extends StatelessWidget {
         route: route,
         destination: destination,
         origin: origin,
+        originName: originName,
         boardingStop: boardingStop,
         alightingStop: alightingStop,
         transitSegment: transitSegment,
@@ -72,6 +80,7 @@ class _RutaNavegacionView extends StatefulWidget {
   final OsmRoute route;
   final PlaceResult destination;
   final LatLng? origin;
+  final String originName;
   final LatLng boardingStop;
   final LatLng alightingStop;
   final List<LatLng> transitSegment;
@@ -82,6 +91,7 @@ class _RutaNavegacionView extends StatefulWidget {
     required this.route,
     required this.destination,
     this.origin,
+    required this.originName,
     required this.boardingStop,
     required this.alightingStop,
     required this.transitSegment,
@@ -152,7 +162,38 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
     Navigator.of(context).pop();
   }
 
-  void _showSummarySheet(Duration elapsed) {
+  bool _tripSaved = false;
+
+  Future<void> _showSummarySheet(Duration elapsed) async {
+    if (!mounted) return;
+    if (!_tripSaved) {
+      _tripSaved = true;
+      final authState = context.read<AuthBloc>().state;
+      if (authState is AuthLoaded) {
+        final userId = authState.user.uid;
+        final notifService = getIt<NotificationService>();
+        await getIt<TripHistoryService>().saveTrip(
+          userId: userId,
+          routeName: widget.route.name,
+          originName: widget.originName,
+          destinationName: widget.destination.name,
+          elapsed: elapsed,
+        );
+        await notifService.saveTripNotification(userId, widget.route.name);
+        if (notifService.shouldGiveGift()) {
+          final discount = await notifService.saveGiftNotification(userId);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('🎁 ¡Recibiste un $discount% de descuento!'),
+                backgroundColor: const Color(0xFFFFC12F),
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        }
+      }
+    }
     if (!mounted) return;
     showModalBottomSheet(
       context: context,

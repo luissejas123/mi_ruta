@@ -112,16 +112,25 @@ class RouteLocalDatabase {
     }
   }
 
-  /// Devuelve rutas cuyo bounding box contiene el punto (lat, lng).
+  /// Devuelve rutas cuyo bbox se SUPERPONE con el área [radiusDeg] alrededor
+  /// del punto. Esto encuentra rutas que pasan cerca aunque el punto no esté
+  /// exactamente dentro de su bbox.
+  /// radiusDeg ≈ 0.018 → ~2 km en Cochabamba (lat ~-17°).
   Future<List<Map<String, dynamic>>> getRoutesInBbox(
     double lat,
-    double lng,
-  ) async {
+    double lng, {
+    double radiusDeg = 0.018,
+  }) async {
     final db = await _database;
     return db.query(
       _tableRoutes,
       where: 'lat_min <= ? AND lat_max >= ? AND lng_min <= ? AND lng_max >= ?',
-      whereArgs: [lat, lat, lng, lng],
+      whereArgs: [
+        lat + radiusDeg,
+        lat - radiusDeg,
+        lng + radiusDeg,
+        lng - radiusDeg,
+      ],
     );
   }
 

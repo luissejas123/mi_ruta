@@ -17,6 +17,10 @@ import 'package:mi_ruta/features/user/presentation/widgets/map_pin_confirm_panel
 import 'package:mi_ruta/features/user/presentation/widgets/map_pin_overlay.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/map_search_header.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/map_status_card.dart';
+import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
+import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
+import 'package:mi_ruta/features/user/presentation/pages/notificaciones_page.dart';
 
 class MiRutaScreen extends StatefulWidget {
   const MiRutaScreen({super.key});
@@ -27,11 +31,30 @@ class MiRutaScreen extends StatefulWidget {
 
 class _MiRutaScreenState extends State<MiRutaScreen> {
   GoogleMapController? _mapController;
+  int _unreadCount = 0;
 
   @override
   void initState() {
     super.initState();
     context.read<MiRutaBloc>().add(const MiRutaLocationRequested());
+    _loadUnreadCount();
+  }
+
+  Future<void> _loadUnreadCount() async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthLoaded) {
+      final count = await getIt<NotificationService>()
+          .getUnreadCount(authState.user.uid);
+      if (mounted) setState(() => _unreadCount = count);
+    }
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NotificacionesPage()),
+    );
+    _loadUnreadCount();
   }
 
   @override
@@ -209,6 +232,57 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
                               message: state.statusText!,
                             ),
                           ),
+                        Positioned(
+                          top: 12,
+                          right: 12,
+                          child: GestureDetector(
+                            onTap: _openNotifications,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surface,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.15),
+                                        blurRadius: 6,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Icons.notifications_outlined,
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                    size: 22,
+                                  ),
+                                ),
+                                if (_unreadCount > 0)
+                                  Positioned(
+                                    top: -2,
+                                    right: -2,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Text(
+                                        _unreadCount > 9 ? '9+' : '$_unreadCount',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),

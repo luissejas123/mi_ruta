@@ -15,6 +15,8 @@ import 'package:mi_ruta/features/user/presentation/bloc/recharge_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
+import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
@@ -572,6 +574,8 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
         setState(() => _isProcessing = false);
         if (state is RechargeSubmitted) {
           context.read<WalletBloc>().add(LoadWalletEvent(_userId));
+          getIt<NotificationService>()
+              .saveRechargeNotification(_userId, state.amount);
           setState(() {
             _comprobanteEnviado = true;
             _amountController.clear();

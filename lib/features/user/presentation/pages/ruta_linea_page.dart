@@ -18,12 +18,14 @@ class RutaLineaPage extends StatelessWidget {
   final OsmRoute route;
   final PlaceResult destination;
   final LatLng? origin;
+  final String originName;
 
   const RutaLineaPage({
     super.key,
     required this.route,
     required this.destination,
     this.origin,
+    this.originName = 'Mi ubicación',
   });
 
   @override
@@ -41,6 +43,7 @@ class RutaLineaPage extends StatelessWidget {
         route: route,
         destination: destination,
         origin: origin,
+        originName: originName,
       ),
     );
   }
@@ -50,11 +53,13 @@ class _RutaLineaView extends StatefulWidget {
   final OsmRoute route;
   final PlaceResult destination;
   final LatLng? origin;
+  final String originName;
 
   const _RutaLineaView({
     required this.route,
     required this.destination,
     this.origin,
+    required this.originName,
   });
 
   @override
@@ -80,6 +85,7 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
           route: widget.route,
           destination: widget.destination,
           origin: widget.origin,
+          originName: widget.originName,
           boardingStop: boardingStop,
           alightingStop: alightingStop,
           transitSegment: transitSegment,

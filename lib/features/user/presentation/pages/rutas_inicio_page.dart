@@ -119,7 +119,13 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
     }
   }
 
-  void _onRouteSelected(RouteMatch match) {
+  Future<void> _onRouteSelected(RouteMatch match) async {
+    String originName = _origin?.name ?? 'Mi ubicación';
+    if (_origin == null && _userLocation != null) {
+      final address = await _geocodingDatasource.reverseGeocode(_userLocation!);
+      if (address != null) originName = address;
+    }
+    if (!mounted) return;
     Navigator.pop(context);
     Navigator.push(
       context,
@@ -128,6 +134,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
           route: match.route,
           destination: _destination!,
           origin: _origin?.latLng ?? _userLocation,
+          originName: originName,
         ),
       ),
     );

@@ -12,6 +12,9 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/editar_perfil_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/notificaciones_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/planificar_viaje_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
@@ -291,6 +294,39 @@ class _PerfilPageState extends State<PerfilPage> {
                   title: 'Correo electrónico',
                   subtitle: user.email,
                   onTap: () {},
+                ),
+                _buildMenuItem(
+                  icon: Icons.history,
+                  title: 'Historial de viajes',
+                  subtitle: 'Ver todos tus viajes',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const HistorialViajesPage(),
+                    ),
+                  ),
+                ),
+                _buildMenuItem(
+                  icon: Icons.notifications_outlined,
+                  title: 'Notificaciones',
+                  subtitle: 'Viajes, recargas y regalos',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NotificacionesPage(),
+                    ),
+                  ),
+                ),
+                _buildMenuItem(
+                  icon: Icons.map_outlined,
+                  title: 'Planificar viaje',
+                  subtitle: 'Combina líneas para llegar a tu destino',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PlanificarViajePage(),
+                    ),
+                  ),
                 ),
 
                 // ── Billetera ──

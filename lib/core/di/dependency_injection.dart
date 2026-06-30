@@ -10,11 +10,17 @@ import 'package:mi_ruta/features/auth/domain/usecases/auth_usecases.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/user/data/datasources/user_remote_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/user_remote_datasource_impl.dart';
+import 'package:mi_ruta/features/user/data/datasources/trip_history_datasource.dart';
+import 'package:mi_ruta/features/user/data/datasources/notification_datasource.dart';
+import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
+import 'package:mi_ruta/features/routes/data/datasources/planned_trip_datasource.dart';
+import 'package:mi_ruta/features/routes/domain/services/planned_trip_service.dart';
 import 'package:mi_ruta/features/user/data/datasources/wallet_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/recharge_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/benefit_request_datasource.dart';
 import 'package:mi_ruta/features/user/data/repositories/user_repository_impl.dart';
 import 'package:mi_ruta/features/user/domain/repositories/user_repository.dart';
+import 'package:mi_ruta/features/user/domain/services/trip_history_service.dart';
 import 'package:mi_ruta/features/user/domain/services/wallet_service.dart';
 import 'package:mi_ruta/features/user/domain/services/recharge_service.dart';
 import 'package:mi_ruta/features/user/domain/services/storage_service.dart';
@@ -181,6 +187,28 @@ void setupDependencies() {
   );
 
   // ============================================
+  // TRIP HISTORY FEATURE
+  // ============================================
+  getIt.registerSingleton<TripHistoryDatasource>(
+    TripHistoryDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  getIt.registerSingleton<TripHistoryService>(
+    TripHistoryService(datasource: getIt<TripHistoryDatasource>()),
+  );
+
+  // ============================================
+  // NOTIFICATIONS FEATURE
+  // ============================================
+  getIt.registerSingleton<NotificationDatasource>(
+    NotificationDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  getIt.registerSingleton<NotificationService>(
+    NotificationService(datasource: getIt<NotificationDatasource>()),
+  );
+
+  // ============================================
   // WALLET FEATURE - DATA LAYER
   // ============================================
   getIt.registerSingleton<WalletDatasource>(
@@ -305,6 +333,20 @@ void setupDependencies() {
       localDb: getIt<RouteLocalDatabase>(),
       gtfsDatasource: getIt<GtfsDatasource>(),
       firestore: getIt<FirebaseFirestore>(),
+    ),
+  );
+
+  // ============================================
+  // TRIP PLANNER FEATURE
+  // ============================================
+  getIt.registerSingleton<PlannedTripDatasource>(
+    PlannedTripDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  getIt.registerSingleton<PlannedTripService>(
+    PlannedTripService(
+      datasource: getIt<PlannedTripDatasource>(),
+      syncService: getIt<RouteDataSyncService>(),
     ),
   );
 }

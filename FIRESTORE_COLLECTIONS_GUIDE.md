@@ -1,43 +1,50 @@
 # 📚 Firestore Collections Guide - Mi Ruta
 
+> Verificado directamente contra el proyecto Firebase (`mi-ruta-4004d`) el 2026-06-29 y contra el código en `lib/`. Las colecciones marcadas como **"sin referencias en código"** existen como datos semilla/demo pero ningún datasource las lee o escribe todavía — corresponden al módulo de conductores (`driver/`), que en `lib/features/driver/` es solo un placeholder (`.gitkeep`).
+
 ## Estructura General
 
-Firestore almacena rutas de transporte y datos de usuarios con las siguientes colecciones principales:
+| Colección | Propósito | ID del doc | ¿Usada por código? |
+|-----------|-----------|-----|-----|
+| `users` | Perfil de usuario + cartera | `uid` (Firebase Auth) | ✅ |
+| `routes` | Rutas con polyline/stops completos (fuente de `routes_bbox`) | auto-id | ✅ |
+| `routes_bbox` | Bounding box ligero por ruta, para búsqueda espacial sin cargar polylines | auto-id | ✅ |
+| `planned_trips/{uid}/trips` | Planes de viaje guardados (subcolección) | auto-id | ✅ |
+| `notifications/{uid}/items` | Notificaciones del usuario (subcolección) | auto-id | ✅ |
+| `trip_history/{uid}/trips` | Historial de viajes completados por el pasajero (subcolección) | auto-id | ✅ |
+| `benefit_requests` | Solicitudes de descuento/beneficio (universitario, senior, etc.) | auto-id | ✅ |
+| `recharges` | Solicitudes de recarga de saldo vía comprobante QR | auto-id | ✅ |
+| `transactions` | Ledger de movimientos de dinero (recargas, beneficios, pagos) | auto-id | ✅ |
+| `config` | Documentos de configuración global de la app | clave fija (`qr_recarga`, `routes_meta`) | ✅ |
+| `trips` | Registro de viajes de conductor (ingresos, pasajeros) | `trip_id` | ✅ (leído por `TripPaymentService`) |
+| `vehicles` | Datos técnicos/documentación legal de vehículos | `vehicle_id` (placa) | ⚠️ Sin referencias en código — datos demo para futuro módulo conductor |
+| `ratings` | Calificaciones de pasajero → conductor | `rating_id` | ⚠️ Sin referencias en código |
+| `claims` | Reclamos/denuncias | `claim_id` | ⚠️ Sin referencias en código |
+| `station_logs` | Registro de salidas/llegadas en terminal | `log_id` | ⚠️ Sin referencias en código |
 
-| Colección | Propósito | ID |
-|-----------|-----------|-----|
-| `users` | Perfil usuario con sub-objetos por rol (incluye driver_profile) | `uid` (Firebase Auth) |
-| `transport_lines` | Líneas de transporte con control de estado | `line_id` |
-| `routes_bbox` | Bounding box para búsqueda espacial | `route_id` |
-| `schedules` | Horarios (subcolección de transport_lines) | HH-mm |
-| `vehicles` | Datos técnicos de vehículos con documentación legal | `vehicle_id` (placa) |
-| `trips` | Historial de viajes realizados por conductores | `trip_id` |
-| `transactions` | Historial de pagos/recargas/ingresos | Auto-generado |
-| `notifications` | Alertas para usuarios/conductores | Auto-generado |
-| `ratings` | Calificaciones y reseñas de viajes | `rating_id` |
-| `claims` | Reclamos y denuncias | `claim_id` |
-| `station_logs` | Registros de terminal (salidas/llegadas) | `log_id` |
+**Nota:** `transport_lines` y la subcolección `schedules` que aparecían en versiones previas de este documento **no existen** en el proyecto Firebase real — se han eliminado de esta guía.
 
 ---
 
 ## 🧑 Colección: users
 
-**Descripción:** Perfil usuario, cartera y configuración. Estructura ampliada por roles.
+**⚠️ Inconsistencia real de esquema:** hay documentos antiguos en `snake_case` y documentos nuevos en `camelCase` coexistiendo en la misma colección. Revisado en producción:
 
-**Estructura Base (todos los roles):**
+**Esquema A — snake_case** (escrito por `wallet_datasource.dart`, `auth_remote_datasource_impl.dart`):
 ```json
 {
-  "uid": "user_001",
-  "full_name": "Juan Pérez",
-  "email": "juan@example.com",
-  "government_id": "12345678LP",
-  "phone_number": "+591 70123456",
-  "profile_picture_url": "https://...",
+  "uid": "1hTAcCmH04OfYzQLjFMb3OUMdoY2",
+  "full_name": "caro",
+  "email": "caro@gmail.com",
+  "phone_number": "638xxxx",
+  "government_id": "1234567hjd",
+  "profile_picture_url": null,
   "role": "user",
-  "created_at": "2026-01-15T10:30:00Z",
+  "created_at": "2026-05-21T21:12:01.166180",
   "wallet": {
-    "current_balance": 67.50,
-    "currency": "Bs"
+    "current_balance": 12,
+    "currency": "Bs",
+    "updated_at": "<Timestamp>"
   },
   "settings": {
     "dark_mode_enabled": false,
@@ -46,364 +53,334 @@ Firestore almacena rutas de transporte y datos de usuarios con las siguientes co
 }
 ```
 
-**Sub-objeto: admin_info (para role: "admin" o "presidente")**
+**Esquema B — camelCase** (visto en registros más recientes):
 ```json
 {
-  "admin_info": {
-    "assigned_line_id": "line_138",
-    "privileges": {
-      "manage_routes": {"create": true, "edit": true, "delete": false},
-      "manage_users": {"accept": true, "suspend": true, "delete": false},
-      "manage_admins": {"create": false, "edit": false, "delete": false}
-    }
-  }
+  "uid": "0hLY27TtXRRBUxx2TzV3jvkuNzJ2",
+  "fullName": "dropx",
+  "email": "dropx@gmail.com",
+  "phoneNumber": "77777777",
+  "governmentId": "8888888",
+  "userType": "user",
+  "profileImageUrl": "",
+  "isActive": true,
+  "rating": 0,
+  "reviewsCount": 0,
+  "createdAt": "2026-06-29T20:29:31.603786",
+  "updatedAt": "2026-06-29T20:29:31.603786",
+  "wallet": { "balance": 0, "currency": "Bs." }
 }
 ```
 
-**Sub-objeto: tickeador_info (para role: "tickeador")**
-```json
-{
-  "tickeador_info": {
-    "assigned_station": "Terminal Sur",
-    "assigned_lines": ["line_138", "line_200"],
-    "status": "active"
-  }
-}
-```
+**Al leer `users` siempre verificar ambas claves** (`full_name`/`fullName`, `wallet.current_balance`/`wallet.balance`, etc.) o normalizar en el modelo de datos — actualmente cada datasource asume un esquema distinto, lo que es una fuente real de bugs.
 
-**Sub-objeto: driver_info (para role: "driver")**
-```json
-{
-  "driver_info": {
-    "assigned_line_id": "line_138",
-    "vehicle_plate": "2341-ABC",
-    "vehicle_capacity": 24,
-    "status": "approved",
-    "performance_status": "good",
-    "strikes_count": 0
-  }
-}
-```
-
-**Sub-objeto: driver_profile (para conductores activos - Módulo de Conductores)**
-```json
-{
-  "driver_profile": {
-    "current_vehicle_id": "ABC-1234",
-    "assigned_route_id": "line_233",
-    "is_service_active": true,
-    "average_rating": 4.9,
-    "total_trips_completed": 42
-  }
-}
-```
-
-**Roles:** `user` (pasajero), `driver` (conductor), `tickeador` (operador terminal), `admin` (administrador), `presidente` (presidente línea)
+**Roles vistos en datos:** `user`. Roles documentados pero sin datos de ejemplo: `driver`, `tickeador`, `admin`, `presidente` (relacionados al módulo de conductores no implementado).
 
 ---
 
-## 🚌 Colección: transport_lines
+## 🛣️ Colección: routes
 
-**Descripción:** Información de líneas de transporte con ruta geográfica y control de estado.
+**Descripción:** Catálogo maestro de rutas con polyline y paradas completas. Es la fuente desde la cual se genera `routes_bbox` (versión ligera) y desde la cual `RouteDataSyncService` siembra SQLite local para uso offline.
 
-**Estructura:**
+**Escrito por:** [lib/features/routes/data/datasources/route_datasource.dart](lib/features/routes/data/datasources/route_datasource.dart)
+
 ```json
 {
-  "line_id": "line_138",
-  "line_name": "Línea 138",
-  "transport_type": "micro",
-  "status": "active",
-  "is_diverted_realtime": false,
-  "origin": "Centro",
-  "destination": "Zona Sur",
-  "base_fare": 2.00,
-  "route_points": [
-    {"latitude": -16.5283, "longitude": -68.1493, "name": "Centro"},
-    {"latitude": -16.5350, "longitude": -68.1350, "name": "Plaza Avaroa"}
-  ],
-  "created_at": "2024-03-15T00:00:00Z"
+  "name": "106 - Trufi 106",
+  "ref": "106",
+  "color": "#FF5733",
+  "stops": [{"latitude": -17.32, "longitude": -66.14}],
+  "polyline": [{"latitude": -17.32, "longitude": -66.14}, "... cientos de puntos"],
+  "description": null,
+  "active": true,
+  "created_at": "<Timestamp>",
+  "updated_at": "<Timestamp>"
 }
 ```
 
-**Status:** `active` (activo), `suspended` (suspendido), `diverted` (desviado)  
-**Subcolección:** `transport_lines/{line_id}/schedules` (horarios con disponibilidad)
-
----
-
-## � Colección: vehicles
-
-**Descripción:** Datos técnicos de vehículos registrados con documentación legal completa (Módulo de Conductores).
-
-**Estructura:**
-```json
-{
-  "vehicle_id": "ABC-1234",
-  "owner_uid": "driver_001",
-  "vehicle_type": "taxitrufi",
-  "line_number": "233",
-  "internal_number": "103",
-  "brand": "Toyota",
-  "model": "Corolla 2023",
-  "color": "Blanco",
-  "passenger_capacity": 15,
-  "status": "approved",
-  "legal_documentation": {
-    "driver_license_url": "https://firebasestorage.../documents/driver_001_license.pdf",
-    "vehicle_inspection_url": "https://firebasestorage.../documents/ABC1234_inspection.pdf",
-    "soat_url": "https://firebasestorage.../documents/ABC1234_soat.pdf",
-    "ruat_url": "https://firebasestorage.../documents/ABC1234_ruat.pdf",
-    "municipal_operation_card_url": "https://firebasestorage.../documents/ABC1234_municipal.pdf"
-  },
-  "updated_at": "2026-05-30T10:00:00Z"
-}
-```
-
-**Tipos:** `bus`, `micro`, `taxitrufi`, `minibus`  
-**Status:** `pending_review` (pendiente), `approved` (aprobado), `rejected` (rechazado), `maintenance` (mantenimiento)
-
----
-
-## 🗺️ Colección: trips
-
-**Descripción:** Historial de viajes completados por conductores con datos de ruta, ingresos y pasajeros.
-
-**Estructura:**
-```json
-{
-  "trip_id": "TRP_001",
-  "driver_uid": "driver_001",
-  "vehicle_id": "ABC-1234",
-  "internal_number": "103",
-  "route_line": "233",
-  "route_name": "Quillacollo - Cochabamba",
-  "start_point": "Terminal Quillacollo",
-  "end_point": "Plaza 14 de Septiembre",
-  "start_time": "2026-03-15T14:00:00Z",
-  "end_time": "2026-03-15T14:15:00Z",
-  "duration_minutes": 15,
-  "distance_km": 5.2,
-  "base_fare": 4.00,
-  "passengers_count": 8,
-  "points_earned": 120,
-  "total_amount_accumulated": 32.00,
-  "geo_path_snapshot_url": "https://maps.googleapis.com/maps/api/staticmap?path=..."
-}
-```
-
-**Uso:** Alimenta el historial de viajes y panel de descargas de reportes del conductor.
-
----
-
-## �💰 Colección: transactions
-
-**Descripción:** Registro de movimientos de dinero (recargas, pagos, ganancias).
-
-**Estructura:**
-```json
-{
-  "user_id": "user_001",
-  "transaction_type": "trip_payment",
-  "amount": 2.00,
-  "description": "Pago Transporte Línea 138",
-  "timestamp": "2026-05-05T08:45:00Z",
-  "payment_method": "wallet",
-  "status": "completed",
-  "analytics": {
-    "day_of_week": "M",
-    "week_number": 18,
-    "year": 2026
-  }
-}
-```
-
-**Tipos:** `trip_payment` (pago viaje usuario), `wallet_topup` (recarga cartera), `trip_income` (ingreso conductor), `withdrawal` (retiro conductor), `refund` (devolución)  
-**Estados:** `completed`, `pending`, `failed`
-
----
-
-## ⭐ Colección: ratings
-
-**Descripción:** Calificaciones y reseñas que los usuarios dan a los conductores tras completar un viaje (Módulo de Conductores).
-
-**Estructura:**
-```json
-{
-  "rating_id": "RAT_001",
-  "trip_id": "TRP_001",
-  "reviewer_uid": "user_001",
-  "target_uid": "driver_001",
-  "stars": 5,
-  "selected_tags": [
-    "Conductor amable",
-    "Viaje seguro",
-    "Llegó a tiempo"
-  ],
-  "created_at": "2026-03-15T14:20:00Z"
-}
-```
-
-**Rango de estrellas:** 1-5  
-**Tags predefinidos:** "Conductor amable", "Excelente conducción", "Vehículo limpio", "Llegó a tiempo", "Conducción segura", etc.
-
----
-
-## � Colección: claims
-
-**Descripción:** Reclamos y denuncias sobre choferes, usuarios o servicio.
-
-**Estructura:**
-```json
-{
-  "claim_id": "claim_99812",
-  "reporter_id": "user_001",
-  "target_id": "driver_001",
-  "line_id": "line_220",
-  "claim_type": "driver",
-  "title": "Tarifa incorrecta",
-  "description": "El chofer me cobró Bs 3.00 en lugar de Bs 2.00",
-  "status": "open",
-  "created_at": "2026-05-30T09:15:00Z",
-  "resolved_at": null,
-  "resolved_by": null
-}
-```
-
-**Tipos:** `driver` (sobre chofer), `user` (sobre usuario), `service` (sobre servicio)  
-**Estados:** `open` (abierto), `resolved` (atendido)
-
----
-
-## 🔔 Colección: notifications
-
-**Descripción:** Alertas para usuarios (saldo bajo, promociones, avisos).
-
-**Estructura:**
-```json
-{
-  "user_id": "user_001",
-  "category": "wallet",
-  "title": "Saldo bajo",
-  "content": "Tu saldo está por debajo de Bs 20...",
-  "is_read": false,
-  "created_at": "2026-05-05T10:00:00Z",
-  "deep_link_module": "module_2"
-}
-```
-
-**Categorías:** `wallet`, `ia_prediction`, `gift`, `driver`, `system`
+**Uso:** Documentos pueden ser grandes (polyline con cientos de puntos) — la migración a `routes_bbox` se hace en lotes de 20 (`getAllActiveRoutesForMigration`) para evitar OOM.
 
 ---
 
 ## 🗺️ Colección: routes_bbox
 
-**Descripción:** Bounding boxes de rutas para búsqueda espacial eficiente (geocerca).
+**Descripción:** Versión ligera de `routes` — solo bounding box y metadatos, sin polyline. Permite filtrar rutas candidatas por área sin cargar geometría completa.
 
-**Estructura:**
 ```json
 {
-  "route_id": "route_138_001",
-  "line_id": "line_138",
-  "bbox": {
-    "north": -16.4980,
-    "south": -16.5500,
-    "east": -68.0900,
-    "west": -68.1600
-  },
-  "metadata": {
-    "line_name": "Línea 138",
-    "transport_type": "micro",
-    "base_fare": 2.00
-  },
-  "created_at": "2024-03-15T00:00:00Z"
+  "ref": "106",
+  "name": "106 - Trufi 106",
+  "lat_min": -17.4019863,
+  "lat_max": -17.3277236,
+  "lng_min": -66.2661124,
+  "lng_max": -66.1419522,
+  "active": true
 }
 ```
 
-**Uso:** Consultas geoespaciales para encontrar rutas disponibles en un área específica.
-
+**Uso real (filtro en memoria, no query compuesta):**
 ```dart
-// Buscar rutas en área (bounding box)
 final routes = await FirebaseFirestore.instance
     .collection('routes_bbox')
-    .where('bbox.north', isGreaterThanOrEqualTo: lat)
-    .where('bbox.south', isLessThanOrEqualTo: lat)
-    .where('bbox.east', isGreaterThanOrEqualTo: lng)
-    .where('bbox.west', isLessThanOrEqualTo: lng)
+    .where('active', isEqualTo: true)
     .get();
+// luego filtrar lat_min/lat_max/lng_min/lng_max en memoria
 ```
 
 ---
 
-## � Colección: station_logs
+## 🗂️ Subcolección: planned_trips/{uid}/trips
 
-**Descripción:** Registro de salidas/llegadas de vehículos por operador de terminal.
+**Descripción:** Planes de viaje multi-tramo generados por `MultiRoutePlanner` y guardados para repetir/seguir después. Ver [lib/features/routes/data/datasources/planned_trip_datasource.dart](lib/features/routes/data/datasources/planned_trip_datasource.dart).
 
-**Estructura:**
 ```json
 {
-  "log_id": "log_77219",
-  "tickeador_id": "tick_001",
-  "station_name": "Terminal Sur",
-  "line_id": "line_138",
-  "vehicle_plate": "2341-ABC",
-  "driver_id": "driver_001",
-  "passenger_count": 24,
-  "max_capacity": 24,
-  "log_type": "departure",
-  "timestamp": "2026-05-30T13:20:00Z",
-  "time_since_last_departure": "1h 20min"
+  "origin_name": "Av. Blanco Galindo",
+  "origin_lat": -17.39, "origin_lng": -66.16,
+  "destination_name": "UMSS",
+  "destination_lat": -17.40, "destination_lng": -66.15,
+  "legs": [
+    {
+      "leg_type": "bus",
+      "route_id": "rt_001", "route_name": "Trufi 106", "route_ref": "106",
+      "direction_id": "1",
+      "boarding_lat": -17.39, "boarding_lng": -66.16,
+      "alighting_lat": -17.40, "alighting_lng": -66.15,
+      "walk_to_meters": 120, "transit_meters": 2400, "walk_from_meters": 80
+    }
+  ],
+  "created_at": "2026-06-29T10:00:00Z",
+  "is_completed": false
 }
 ```
 
-**Log Type:** `departure` (salida), `arrival` (llegada)
+`leg_type` es `"bus"` o `"walking"` (`LegType` enum en [lib/features/routes/domain/entities/planned_trip.dart](lib/features/routes/domain/entities/planned_trip.dart)).
 
 ---
 
-## �🔗 Relaciones
+## 🔔 Subcolección: notifications/{uid}/items
+
+**Descripción:** Notificaciones del usuario (recarga aprobada, viaje completado, regalos/descuentos). Ver [lib/features/user/data/datasources/notification_datasource.dart](lib/features/user/data/datasources/notification_datasource.dart).
+
+```json
+{
+  "type": "gift",
+  "title": "¡Tienes un descuento!",
+  "body": "20% en tu próximo viaje",
+  "is_read": false,
+  "created_at": "2026-06-29T10:00:00Z",
+  "discount_percent": 20,
+  "business_name": "Café Central",
+  "is_used": false,
+  "valid_until": "2026-07-15T00:00:00Z"
+}
+```
+
+Los campos `discount_percent`, `business_name`, `is_used`, `valid_until` solo existen cuando `type == "gift"`. `NotificationType` define los valores válidos de `type` en [lib/features/user/domain/entities/app_notification.dart](lib/features/user/domain/entities/app_notification.dart).
+
+---
+
+## 🕓 Subcolección: trip_history/{uid}/trips
+
+**Descripción:** Historial de viajes completados por el pasajero (no confundir con la colección `trips`, que es del conductor). Ver [lib/features/user/data/datasources/trip_history_datasource.dart](lib/features/user/data/datasources/trip_history_datasource.dart).
+
+```json
+{
+  "route_name": "Trufi 106",
+  "origin_name": "Mi ubicación",
+  "destination_name": "UMSS",
+  "elapsed_seconds": 1140,
+  "date": "2026-06-29T10:00:00Z"
+}
+```
+
+---
+
+## 🎓 Colección: benefit_requests
+
+**Descripción:** Solicitudes de descuento/beneficio (universitario, senior, discapacidad) con documentos de respaldo. Ver [lib/features/user/data/datasources/benefit_request_datasource.dart](lib/features/user/data/datasources/benefit_request_datasource.dart).
+
+```json
+{
+  "user_id": "hikHzOhxx0d8QnJto4jAvBfCaFa2",
+  "benefit_type": "university",
+  "description": "prueba",
+  "document_urls": ["https://firebasestorage.googleapis.com/.../document_0.png"],
+  "status": "pending",
+  "admin_notes": null,
+  "approved_at": null,
+  "created_at": "<Timestamp>"
+}
+```
+
+**Tipos:** `university`, `senior`, (otros definidos en la UI de solicitud)
+**Estados:** `pending`, `approved`, `rejected`
+**Efecto secundario:** al crear una solicitud se agrega un doc espejo en `transactions` con `transaction_type: "benefit_request"`.
+
+---
+
+## 💳 Colección: recharges
+
+**Descripción:** Solicitudes de recarga de saldo con comprobante de pago (QR/transferencia) subido a Storage. Ver [lib/features/user/data/datasources/recharge_datasource.dart](lib/features/user/data/datasources/recharge_datasource.dart).
+
+```json
+{
+  "user_id": "1hTAcCmH04OfYzQLjFMb3OUMdoY2",
+  "amount": 12,
+  "currency": "Bs",
+  "proof_image_url": "https://firebasestorage.googleapis.com/.../proof_....jpg",
+  "status": "approved",
+  "created_at": "<Timestamp>",
+  "verified_at": "<Timestamp>"
+}
+```
+
+**Estados:** `pending`, `approved`, `rejected`
+**Efecto secundario:** al aprobarse, se actualiza `users/{uid}.wallet.current_balance` y se agrega un doc en `transactions`.
+
+---
+
+## 💰 Colección: transactions
+
+**Descripción:** Ledger de todos los movimientos de dinero — recargas, beneficios, pagos de viaje.
+
+```json
+{
+  "user_id": "dTZKcwHInueq683GUD6xAUJklem1",
+  "transaction_type": "recharge",
+  "amount": 80,
+  "description": "Recarga con QR",
+  "payment_method": "qr_proof",
+  "status": "approved",
+  "recharge_id": "TOVzLud2gHvUNOqYCemJ",
+  "timestamp": "<Timestamp>"
+}
+```
+
+**`transaction_type` vistos en datos:** `recharge`, `benefit_request`. Documentados en código pero también usados: `trip_payment`, `trip_income`.
+**Estados:** `pending`, `approved`/`completed`, `rejected`/`failed`
+**Campo de vínculo opcional:** `recharge_id` o `benefit_request_id` según el tipo de transacción.
+
+---
+
+## ⚙️ Colección: config
+
+**Descripción:** Documentos de configuración global, IDs fijos por propósito (no auto-generados).
+
+```json
+// config/qr_recarga
+{
+  "qr_url": "https://firebasestorage.googleapis.com/.../qr_banco.jpg",
+  "update_at": "2026-06-28"
+}
+
+// config/routes_meta
+{
+  "description": "Rutas de transporte Cochabamba desde GTFS",
+  "source": "gtfs_seed",
+  "version": "1.0",
+  "total_routes": 140,
+  "updated_at": "<Timestamp>"
+}
+```
+
+---
+
+## 🚌 Colección: trips (conductor)
+
+**Descripción:** Registro de viajes completados por conductores — leído por `TripPaymentService` para procesar pagos pasajero→conductor. Actualmente solo hay datos demo (`TRP_001`, `TRP_002`); no existe flujo de escritura desde la app (el módulo conductor está sin implementar).
+
+```json
+{
+  "trip_id": "TRP_001",
+  "driver_uid": "driver_001",
+  "vehicle_id": "ABC-1234",
+  "route_line": "233",
+  "route_name": "Quillacollo - Cochabamba",
+  "start_point": "Terminal Quillacollo",
+  "end_point": "Plaza 14 de Septiembre",
+  "start_time": "2026-05-29T06:00:29",
+  "end_time": "2026-05-29T06:15:29",
+  "duration_minutes": 15,
+  "distance_km": 5.2,
+  "base_fare": 4,
+  "passengers_count": 8,
+  "total_amount_accumulated": 32
+}
+```
+
+---
+
+## ⚠️ Colecciones sin referencias en código (datos demo del futuro módulo conductor)
+
+Estas colecciones tienen datos en Firestore pero **ningún archivo en `lib/` las lee o escribe**. Coinciden con el feature `driver/` que en el repo es solo un placeholder (`.gitkeep`, ver CLAUDE.md). Documentadas aquí tal como existen hoy en la base, para cuando se implemente el módulo:
+
+### vehicles
+ID = placa del vehículo. Campos: `vehicle_id`, `owner_uid`, `vehicle_type` (`taxitrufi`/`micro`/...), `line_number`, `internal_number`, `brand`, `model`, `color`, `passenger_capacity`, `status` (`approved`/`pending_review`/`rejected`), `legal_documentation` (URLs a Storage: `soat_url`, `vehicle_inspection_url`, `driver_license_url`, `municipal_operation_card_url`, `ruat_url`), `updated_at`.
+
+### ratings
+ID = `rating_id`. Campos: `trip_id`, `reviewer_uid`, `target_uid`, `stars` (1-5), `selected_tags` (array de strings predefinidos), `created_at`.
+
+### claims
+ID = `claim_id`. Campos: `reporter_id`, `target_id` (nullable), `line_id`, `claim_type` (`driver`/`user`/`service`), `title`, `description`, `status` (`open`/`resolved`), `created_at`, `resolved_at`, `resolved_by`.
+
+### station_logs
+ID = `log_id`. Campos: `tickeador_id`, `station_name`, `line_id`, `vehicle_plate`, `driver_id`, `passenger_count`, `max_capacity`, `log_type` (`departure`/`arrival`), `timestamp`, `time_since_last_departure`.
+
+---
+
+## 🔗 Relaciones (verificadas en código)
 
 | Relación | Vínculo |
 |----------|---------|
-| Usuarios → Transacciones | `users.uid = transactions.user_id` |
-| Usuarios → Notificaciones | `users.uid = notifications.user_id` |
-| Usuarios → Vehículos | `users.uid = vehicles.owner_uid` (conductor propietario) |
-| Usuarios → Viajes | `users.uid = trips.driver_uid` (conductor del viaje) |
-| Usuarios → Calificaciones | `users.uid = ratings.target_uid` (conductor calificado) |
-| Líneas → Horarios | `transport_lines.line_id` (subcolección) |
-| Líneas → BBox Rutas | `transport_lines.line_id = routes_bbox.line_id` |
-| Líneas → Viajes | `transport_lines.line_id = trips.route_line` |
-| Vehículos → Viajes | `vehicles.vehicle_id = trips.vehicle_id` |
-| Viajes → Calificaciones | `trips.trip_id = ratings.trip_id` |
-| Reclamos → Chofer | `claims.target_id = users.uid` (driver) |
-| Reclamos → Resolutor | `claims.resolved_by = users.uid` (admin) |
-| Logs Terminal → Tickeador | `station_logs.tickeador_id = users.uid` |
-| Logs Terminal → Chofer | `station_logs.driver_id = users.uid` |
-| Logs Terminal → Línea | `station_logs.line_id = transport_lines.line_id` |
+| Usuario → Notificaciones | `notifications/{uid}/items` (subcolección) |
+| Usuario → Planes de viaje | `planned_trips/{uid}/trips` (subcolección) |
+| Usuario → Historial de viajes | `trip_history/{uid}/trips` (subcolección) |
+| Usuario → Solicitudes de beneficio | `benefit_requests.user_id = users.uid` |
+| Usuario → Recargas | `recharges.user_id = users.uid` |
+| Usuario → Transacciones | `transactions.user_id = users.uid` |
+| Recarga → Transacción | `transactions.recharge_id = recharges.{id}` |
+| Beneficio → Transacción | `transactions.benefit_request_id = benefit_requests.{id}` |
+| Ruta → BBox | `routes_bbox.ref = routes.ref` |
+
+**Relaciones del módulo conductor (sin código, solo datos demo):** `vehicles.owner_uid`, `trips.driver_uid`/`vehicle_id`, `ratings.target_uid`/`trip_id`, `claims.target_id`, `station_logs.driver_id`/`tickeador_id` — todas referencian `users.uid` o `trips.trip_id`, pero no hay datasources implementados todavía.
+
 ---
 
-## Consultas Comunes
+## Consultas Comunes (verificadas contra código real)
 
 **Obtener perfil usuario:**
 ```dart
-final user = await FirebaseFirestore.instance.collection('users').doc('user_001').get();
+final user = await FirebaseFirestore.instance.collection('users').doc(uid).get();
 ```
 
-**Obtener líneas activas:**
+**Buscar rutas por bbox (filtro en memoria, ver `route_datasource.dart`):**
 ```dart
-final lines = await FirebaseFirestore.instance
-    .collection('transport_lines')
-    .where('status', isEqualTo: 'active')
-    .get();
-```
-
-**Obtener rutas en área geográfica:**
-```dart
-final routes = await FirebaseFirestore.instance
+final bboxSnap = await FirebaseFirestore.instance
     .collection('routes_bbox')
-    .where('bbox.north', isGreaterThanOrEqualTo: lat)
-    .where('bbox.south', isLessThanOrEqualTo: lat)
+    .where('active', isEqualTo: true)
+    .get();
+// filtrar lat_min/lat_max/lng_min/lng_max contra el punto en memoria
+```
+
+**Obtener planes de viaje guardados:**
+```dart
+final plans = await FirebaseFirestore.instance
+    .collection('planned_trips').doc(userId).collection('trips')
+    .orderBy('created_at', descending: true)
+    .limit(50)
     .get();
 ```
 
-**Obtener transacciones usuario:**
+**Obtener notificaciones no leídas:**
+```dart
+final count = await FirebaseFirestore.instance
+    .collection('notifications').doc(userId).collection('items')
+    .where('is_read', isEqualTo: false)
+    .count().get();
+```
+
+**Obtener transacciones de un usuario:**
 ```dart
 final tx = await FirebaseFirestore.instance
     .collection('transactions')
@@ -412,100 +389,20 @@ final tx = await FirebaseFirestore.instance
     .get();
 ```
 
-**Obtener reclamos abiertos:**
+**Obtener solicitudes de beneficio pendientes:**
 ```dart
-final claims = await FirebaseFirestore.instance
-    .collection('claims')
-    .where('status', isEqualTo: 'open')
-    .orderBy('created_at', descending: true)
+final pending = await FirebaseFirestore.instance
+    .collection('benefit_requests')
+    .where('status', isEqualTo: 'pending')
     .get();
-```
-
-**Obtener registros de terminal por tickeador:**
-```dart
-final logs = await FirebaseFirestore.instance
-    .collection('station_logs')
-    .where('tickeador_id', isEqualTo: 'tick_001')
-    .orderBy('timestamp', descending: true)
-    .limit(20)
-    .get();
-```
-
-**Obtener vehículos de un conductor:**
-```dart
-final vehicles = await FirebaseFirestore.instance
-    .collection('vehicles')
-    .where('owner_uid', isEqualTo: 'driver_001')
-    .get();
-```
-
-**Obtener viajes completados por conductor:**
-```dart
-final trips = await FirebaseFirestore.instance
-    .collection('trips')
-    .where('driver_uid', isEqualTo: 'driver_001')
-    .orderBy('start_time', descending: true)
-    .limit(10)
-    .get();
-```
-
-**Obtener calificaciones de un conductor:**
-```dart
-final ratings = await FirebaseFirestore.instance
-    .collection('ratings')
-    .where('target_uid', isEqualTo: 'driver_001')
-    .orderBy('created_at', descending: true)
-    .get();
-
-// Calcular promedio de estrellas
-double totalStars = 0;
-for (var doc in ratings.docs) {
-  totalStars += doc['stars'];
-}
-double averageRating = ratings.docs.isEmpty ? 0 : totalStars / ratings.docs.length;
-```
-
-**Obtener ingresos de conductor (últimas 7 días):**
-```dart
-final sevenDaysAgo = DateTime.now().subtract(Duration(days: 7));
-final earnings = await FirebaseFirestore.instance
-    .collection('transactions')
-    .where('user_uid', isEqualTo: 'driver_001')
-    .where('type', isEqualTo: 'trip_income')
-    .where('timestamp', isGreaterThanOrEqualTo: sevenDaysAgo.toIso8601String())
-    .orderBy('timestamp', descending: true)
-    .get();
-
-double totalEarnings = 0;
-for (var doc in earnings.docs) {
-  totalEarnings += doc['amount'];
-}
 ```
 
 ---
 
 ## Notas Importantes
 
-- **IDs:** `uid` para usuarios, `line_id` para líneas, `route_id` para rutas, `vehicle_id` para vehículos (placa), `trip_id` para viajes, `claim_id` para reclamos, `log_id` para logs, `rating_id` para calificaciones
-- **Timestamps:** Usar siempre formato ISO 8601
-- **Moneda:** Bs (Bolivianos) - almacenados como Double
-- **Roles permitidos:** user, driver, tickeador, admin, presidente
-- **Sub-objetos condicionados:** Solo incluir admin_info, tickeador_info o driver_profile según el rol
-
-## Módulo de Conductores - Estructura de Datos
-
-El módulo de conductores utiliza las siguientes colecciones principales:
-
-1. **users** - Expandida con `driver_profile` (ruta asignada, vehículo actual, estado del servicio, calificación promedio)
-2. **vehicles** - Datos técnicos y documentación legal (licencia, inspección, SOAT, RUAT, tarjeta municipal)
-3. **trips** - Historial de viajes con ingresos, pasajeros y duración
-4. **transactions** - Ingresos (`trip_income`), retiros (`withdrawal`) y análisis por día/semana
-5. **notifications** - Alertas de mantenimiento, solicitudes de parada, bloqueos, pagos
-6. **ratings** - Calificaciones con tags predefinidos de usuarios hacia conductores
-
-## Campos para Gráficos y Reportes
-
-- **transactions.analytics** - `{day_of_week, week_number, year}` para gráficos semanales de ingresos
-- **trips.duration_minutes** y **trips.distance_km** - Para estadísticas de rendimiento
-- **ratings.stars** - Para calcular promedio de calificación del conductor
-- **vehicles.legal_documentation** - URLs de documentos en Firebase Storage para validación
+- **Inconsistencia de esquema en `users`** — coexisten docs `snake_case` y `camelCase`. Cualquier código nuevo que lea `users` debe manejar ambas convenciones o se debe planear una migración de normalización.
+- **`routes` vs `routes_bbox`** — `routes` tiene polyline completo (pesado), `routes_bbox` es la versión ligera para queries de área. La sincronización es manual vía `RouteDatasource.createBboxCollection()`, no automática con triggers.
+- **Timestamps mixtos** — algunos campos usan `Timestamp` nativo de Firestore (`created_at` en `recharges`, `benefit_requests`), otros usan string ISO 8601 (`created_at` en `users`, `notifications`, `planned_trips`). No asumir un tipo único al deserializar.
+- **Moneda:** Bs (Bolivianos), almacenada como número (`int`/`double` según el doc).
+- **Las colecciones del módulo conductor existen pero están huérfanas** — son datos de prueba para una funcionalidad (`lib/features/driver/`) que aún no se implementó. No depender de ellas hasta que exista código que las consuma.

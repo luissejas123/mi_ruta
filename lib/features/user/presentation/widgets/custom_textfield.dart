@@ -5,6 +5,10 @@ class CustomTextField extends StatefulWidget {
   final IconData icon;
   final bool obscureText;
   final TextEditingController? controller;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
+  final Widget? suffixIcon;
 
   const CustomTextField({
     super.key,
@@ -12,6 +16,10 @@ class CustomTextField extends StatefulWidget {
     required this.icon,
     this.obscureText = false,
     this.controller,
+    this.keyboardType,
+    this.textInputAction,
+    this.onSubmitted,
+    this.suffixIcon,
   });
 
   @override
@@ -37,13 +45,16 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final fieldColor = colorScheme.surfaceContainerHighest;
+    final hintColor = colorScheme.onSurface.withValues(alpha: 0.45);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: fieldColor,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),
@@ -52,12 +63,16 @@ class _CustomTextFieldState extends State<CustomTextField> {
       child: TextField(
         controller: _controller,
         obscureText: widget.obscureText,
+        keyboardType: widget.keyboardType,
+        textInputAction: widget.textInputAction,
+        onSubmitted: widget.onSubmitted,
         decoration: InputDecoration(
-          prefixIcon: Icon(widget.icon, color: Colors.black54),
+          prefixIcon: Icon(widget.icon, color: hintColor),
+          suffixIcon: widget.suffixIcon,
           hintText: widget.hintText,
-          hintStyle: const TextStyle(fontSize: 14, color: Colors.black54),
+          hintStyle: TextStyle(fontSize: 14, color: hintColor),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: fieldColor,
           contentPadding: const EdgeInsets.symmetric(vertical: 18),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),

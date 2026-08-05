@@ -29,7 +29,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     emit(const AuthLoading());
-
     final result = await registerUseCase.call(
       email: event.email,
       password: event.password,
@@ -38,21 +37,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       phoneNumber: event.phoneNumber,
       role: event.role,
     );
-
     result.fold(
       (failure) => emit(AuthError(message: failure.toString())),
-      (user) => emit(AuthLoaded(user: user)),
+      (user) => emit(const AuthSuccess(message: 'Registro exitoso')),
     );
   }
 
-  Future<void> _onLoginEvent(LoginEvent event, Emitter<AuthState> emit) async {
+  Future<void> _onLoginEvent(
+    LoginEvent event,
+    Emitter<AuthState> emit,
+  ) async {
     emit(const AuthLoading());
-
     final result = await loginUseCase.call(
       email: event.email,
       password: event.password,
     );
-
     result.fold(
       (failure) => emit(AuthError(message: failure.toString())),
       (user) => emit(AuthLoaded(user: user)),
@@ -64,9 +63,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     emit(const AuthLoading());
-
     final result = await logoutUseCase.call();
-
     result.fold(
       (failure) => emit(AuthError(message: failure.toString())),
       (_) => emit(const AuthUnauthenticated()),
@@ -78,11 +75,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     emit(const AuthLoading());
-
     final result = await getCurrentUserUseCase.call();
-
     result.fold(
-      (failure) => emit(AuthError(message: failure.toString())),
+      (failure) => emit(const AuthUnauthenticated()),
       (user) => emit(AuthLoaded(user: user)),
     );
   }
@@ -92,9 +87,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     emit(const AuthLoading());
-
     final result = await resetPasswordUseCase.call(event.email);
-
     result.fold(
       (failure) => emit(AuthError(message: failure.toString())),
       (_) => emit(

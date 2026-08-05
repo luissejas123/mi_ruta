@@ -21,21 +21,25 @@ class UserModel extends UserEntity {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       uid: json['uid'] as String? ?? '',
-      fullName: json['fullName'] as String? ?? '',
+      fullName: (json['full_name'] ?? json['fullName']) as String? ?? '',
       email: json['email'] as String? ?? '',
-      phoneNumber: json['phoneNumber'] as String? ?? '',
-      userType: json['userType'] as String? ?? 'passenger',
-      profileImageUrl: json['profileImageUrl'] as String? ?? '',
+      phoneNumber: (json['phone_number'] ?? json['phoneNumber']) as String? ?? '',
+      userType: (json['role'] ?? json['userType']) as String? ?? 'passenger',
+      profileImageUrl: (json['profile_picture_url'] ?? json['profileImageUrl']) as String? ?? '',
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
       reviewsCount: json['reviewsCount'] as int? ?? 0,
-      walletBalance: (json['wallet']?['balance'] as num?)?.toDouble() ?? 0.0,
+      walletBalance: (json['wallet']?['current_balance'] ?? json['wallet']?['balance'] as num?)?.toDouble() ?? 0.0,
       isActive: json['isActive'] as bool? ?? true,
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
-          : DateTime.now(),
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String)
-          : DateTime.now(),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : json['createdAt'] != null
+              ? DateTime.parse(json['createdAt'] as String)
+              : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : json['updatedAt'] != null
+              ? DateTime.parse(json['updatedAt'] as String)
+              : DateTime.now(),
     );
   }
 
@@ -43,19 +47,19 @@ class UserModel extends UserEntity {
   Map<String, dynamic> toJson() {
     return {
       'uid': uid,
-      'fullName': fullName,
+      'full_name': fullName,
       'email': email,
-      'phoneNumber': phoneNumber,
-      'userType': userType,
-      'profileImageUrl': profileImageUrl,
+      'phone_number': phoneNumber,
+      'role': userType,
+      'profile_picture_url': profileImageUrl,
       'rating': rating,
       'reviewsCount': reviewsCount,
       'wallet': {
-        'balance': walletBalance,
+        'current_balance': walletBalance,
       },
       'isActive': isActive,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
     };
   }
 }

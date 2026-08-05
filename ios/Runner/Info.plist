@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Necesitamos acceso a tu galería para subir comprobantes de transferencia</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Necesitamos acceso a tu cámara para escanear códigos QR de pagos</string>
 </dict>
 </plist>

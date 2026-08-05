@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:mi_ruta/features/user/presentation/pages/test_widgets_screen.dart';
+import 'package:mi_ruta/core/theme/map_styles.dart';
+import 'package:mi_ruta/core/theme/theme_cubit.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
 class MapsPage extends StatefulWidget {
@@ -11,8 +14,11 @@ class MapsPage extends StatefulWidget {
 }
 
 class _MapsPageState extends State<MapsPage> {
+  // ✅ Color consistente
+  static const _amarillo = Color(0xFFFFC12F);
+
   late GoogleMapController mapController;
-  int _currentNavIndex = 0;
+  final int _currentNavIndex = 0;
 
   static const LatLng _initialPosition = LatLng(-17.3895, -66.1568);
 
@@ -32,29 +38,30 @@ class _MapsPageState extends State<MapsPage> {
   }
 
   void _onNavTap(int index) {
-    if (index == 3) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const TestWidgetsScreen()),
-      );
-      return;
-    }
-    setState(() => _currentNavIndex = index);
+    navigateBottomNav(context, index);
+  }
+
+  @override
+  void dispose() {
+    mapController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.watch<ThemeCubit>().state;
     return Scaffold(
       body: Stack(
         children: [
           GoogleMap(
+            style: isDark ? MapStyles.dark : null,
             onMapCreated: _onMapCreated,
             initialCameraPosition: const CameraPosition(
               target: _initialPosition,
               zoom: 12.0,
             ),
             markers: _markers,
-            myLocationEnabled: true,
+            myLocationEnabled: false,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
           ),
@@ -63,12 +70,16 @@ class _MapsPageState extends State<MapsPage> {
             right: 16,
             child: FloatingActionButton.small(
               heroTag: 'center',
-              backgroundColor: const Color(0xFFFFC107),
+              // ✅ Color amarillo consistente
+              backgroundColor: _amarillo,
               foregroundColor: Colors.black,
               onPressed: () {
                 mapController.animateCamera(
                   CameraUpdate.newCameraPosition(
-                    const CameraPosition(target: _initialPosition, zoom: 15.0),
+                    const CameraPosition(
+                      target: _initialPosition,
+                      zoom: 15.0,
+                    ),
                   ),
                 );
               },
@@ -82,11 +93,5 @@ class _MapsPageState extends State<MapsPage> {
         onTap: _onNavTap,
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    mapController.dispose();
-    super.dispose();
   }
 }

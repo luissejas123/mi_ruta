@@ -205,3 +205,6 @@ local_override.properties
 # Node modules (for web development)
 node_modules/
 npm-debug.log
+
+# Claude Code MCP configuration (local dev tool, not part of project)
+.mcp.json

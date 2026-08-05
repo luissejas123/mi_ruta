@@ -54,11 +54,12 @@ class UserRemoteDataSourceImpl implements UserRemoteDataSource {
   @override
   Future<void> updateUser(String uid, Map<String, dynamic> data) async {
     try {
-      data['updatedAt'] = DateTime.now().toIso8601String();
+      data['updated_at'] = DateTime.now().toIso8601String();
+      // set+merge en lugar de update: funciona aunque el documento no exista.
       await _firestore
           .collection('users')
           .doc(uid)
-          .update(data);
+          .set(data, SetOptions(merge: true));
     } catch (e) {
       throw Exception('Error actualizando usuario: $e');
     }

@@ -2,28 +2,17 @@ import 'package:mi_ruta/features/auth/domain/entities/auth_entity.dart';
 
 class AuthModel extends AuthEntity {
   const AuthModel({
-    required String uid,
-    required String fullName,
-    required String email,
-    required String governmentId,
-    required String phoneNumber,
-    String? profilePictureUrl,
-    required String role,
-    required DateTime createdAt,
-    Map<String, dynamic>? wallet,
-    Map<String, dynamic>? settings,
-  }) : super(
-         uid: uid,
-         fullName: fullName,
-         email: email,
-         governmentId: governmentId,
-         phoneNumber: phoneNumber,
-         profilePictureUrl: profilePictureUrl,
-         role: role,
-         createdAt: createdAt,
-         wallet: wallet,
-         settings: settings,
-       );
+    required super.uid,
+    required super.fullName,
+    required super.email,
+    required super.governmentId,
+    required super.phoneNumber,
+    super.profilePictureUrl,
+    required super.role,
+    required super.createdAt,
+    super.wallet,
+    super.settings,
+  });
 
   factory AuthModel.fromJson(Map<String, dynamic> json) {
     // Firestore puede devolver Timestamp o String para created_at

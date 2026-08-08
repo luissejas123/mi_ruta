@@ -12,6 +12,7 @@
         android:maxSdkVersion="29"/>
     <!-- Permisos para la cámara (mobile_scanner) -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:label="mi_ruta"

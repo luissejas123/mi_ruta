@@ -13,6 +13,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/notification_preferences_cubit.dart';
 import 'dart:async';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
@@ -39,6 +40,9 @@ class MyApp extends StatelessWidget {
         // ✅ ThemeCubit para modo oscuro
         BlocProvider<ThemeCubit>(
           create: (context) => ThemeCubit(),
+        ),
+        BlocProvider<NotificationPreferencesCubit>(
+          create: (context) => NotificationPreferencesCubit(),
         ),
         BlocProvider<AuthBloc>(
           create: (context) =>

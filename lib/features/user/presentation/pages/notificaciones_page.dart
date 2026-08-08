@@ -7,7 +7,9 @@ import 'package:mi_ruta/features/user/domain/entities/app_notification.dart';
 import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/notification_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/notification_event.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/notification_preferences_cubit.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/notification_state.dart';
+import 'package:mi_ruta/features/user/presentation/pages/preferencias_notificacion_page.dart';
 
 class NotificacionesPage extends StatelessWidget {
   const NotificacionesPage({super.key});
@@ -74,43 +76,126 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
                 'Marcar leídas',
                 style: TextStyle(color: Color(0xFFFFC12F), fontSize: 12),
               ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: 'Preferencias de notificación',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const PreferenciasNotificacionPage(),
+                ),
+              ),
             ),
         ],
       ),
-      body: BlocBuilder<NotificationBloc, NotificationState>(
-        builder: (context, state) {
-          if (state is NotificationLoading) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFFFFC12F)),
+      body: BlocBuilder<NotificationPreferencesCubit, NotificationPreferences>(
+        builder: (context, prefs) {
+          if (!prefs.masterEnabled) {
+            return _NotificationsDisabledState(
+              onEnable: () =>
+                  context.read<NotificationPreferencesCubit>().setMasterEnabled(true),
             );
           }
-          if (state is NotificationError) {
-            return Center(child: Text(state.message));
-          }
-          if (state is NotificationLoaded) {
-            if (_activeCategory == null) {
-              return _CategoryPicker(
-                tripCount: state.trips.length,
-                rechargeCount: state.recharges.length,
-                giftCount: state.gifts.length,
-                tripUnread: state.trips.where((n) => !n.isRead).length,
-                rechargeUnread: state.recharges.where((n) => !n.isRead).length,
-                giftUnread: state.gifts.where((n) => !n.isRead).length,
-                onTap: (cat) => setState(() => _activeCategory = cat),
-              );
-            }
-            final items = _activeCategory == 'trip'
-                ? state.trips
-                : _activeCategory == 'recharge'
-                    ? state.recharges
-                    : state.gifts;
-            return _NotificationList(
-              items: items,
-              userId: _userId,
-            );
-          }
-          return const SizedBox.shrink();
+          return BlocBuilder<NotificationBloc, NotificationState>(
+            builder: (context, state) {
+              if (state is NotificationLoading) {
+                return const Center(
+                  child: CircularProgressIndicator(color: Color(0xFFFFC12F)),
+                );
+              }
+              if (state is NotificationError) {
+                return Center(child: Text(state.message));
+              }
+              if (state is NotificationLoaded) {
+                if (_activeCategory == null) {
+                  return _CategoryPicker(
+                    tripCount: prefs.tripsEnabled ? state.trips.length : 0,
+                    rechargeCount:
+                        prefs.rechargesEnabled ? state.recharges.length : 0,
+                    giftCount: prefs.giftsEnabled ? state.gifts.length : 0,
+                    tripUnread: prefs.tripsEnabled
+                        ? state.trips.where((n) => !n.isRead).length
+                        : 0,
+                    rechargeUnread: prefs.rechargesEnabled
+                        ? state.recharges.where((n) => !n.isRead).length
+                        : 0,
+                    giftUnread: prefs.giftsEnabled
+                        ? state.gifts.where((n) => !n.isRead).length
+                        : 0,
+                    tripsEnabled: prefs.tripsEnabled,
+                    rechargesEnabled: prefs.rechargesEnabled,
+                    giftsEnabled: prefs.giftsEnabled,
+                    onTap: (cat) => setState(() => _activeCategory = cat),
+                  );
+                }
+                final items = _activeCategory == 'trip'
+                    ? (prefs.tripsEnabled ? state.trips : const <AppNotification>[])
+                    : _activeCategory == 'recharge'
+                        ? (prefs.rechargesEnabled
+                            ? state.recharges
+                            : const <AppNotification>[])
+                        : (prefs.giftsEnabled ? state.gifts : const <AppNotification>[]);
+                return _NotificationList(
+                  items: items,
+                  userId: _userId,
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          );
         },
+      ),
+    );
+  }
+}
+
+class _NotificationsDisabledState extends StatelessWidget {
+  final VoidCallback onEnable;
+
+  const _NotificationsDisabledState({required this.onEnable});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.notifications_off_outlined,
+              size: 64,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Notificaciones desactivadas',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Activa las notificaciones en preferencias para ver tus alertas de viajes, recargas y regalos.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: onEnable,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC12F),
+              ),
+              child: const Text(
+                'Activar notificaciones',
+                style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -119,6 +204,7 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
 class _CategoryPicker extends StatelessWidget {
   final int tripCount, rechargeCount, giftCount;
   final int tripUnread, rechargeUnread, giftUnread;
+  final bool tripsEnabled, rechargesEnabled, giftsEnabled;
   final void Function(String) onTap;
 
   const _CategoryPicker({
@@ -128,6 +214,9 @@ class _CategoryPicker extends StatelessWidget {
     required this.tripUnread,
     required this.rechargeUnread,
     required this.giftUnread,
+    required this.tripsEnabled,
+    required this.rechargesEnabled,
+    required this.giftsEnabled,
     required this.onTap,
   });
 
@@ -143,6 +232,7 @@ class _CategoryPicker extends StatelessWidget {
             label: 'Notificaciones de viajes',
             count: tripCount,
             unread: tripUnread,
+            enabled: tripsEnabled,
             onTap: () => onTap('trip'),
           ),
           const SizedBox(height: 16),
@@ -151,6 +241,7 @@ class _CategoryPicker extends StatelessWidget {
             label: 'Notificaciones de recargas',
             count: rechargeCount,
             unread: rechargeUnread,
+            enabled: rechargesEnabled,
             onTap: () => onTap('recharge'),
           ),
           const SizedBox(height: 16),
@@ -159,6 +250,7 @@ class _CategoryPicker extends StatelessWidget {
             label: 'Regalos obtenidos',
             count: giftCount,
             unread: giftUnread,
+            enabled: giftsEnabled,
             onTap: () => onTap('gift'),
           ),
         ],
@@ -172,6 +264,7 @@ class _CategoryCard extends StatelessWidget {
   final String label;
   final int count;
   final int unread;
+  final bool enabled;
   final VoidCallback onTap;
 
   const _CategoryCard({
@@ -179,6 +272,7 @@ class _CategoryCard extends StatelessWidget {
     required this.label,
     required this.count,
     required this.unread,
+    required this.enabled,
     required this.onTap,
   });
 
@@ -190,7 +284,9 @@ class _CategoryCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFC12F),
+          color: enabled
+              ? const Color(0xFFFFC12F)
+              : const Color(0xFFFFC12F).withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Row(
@@ -207,7 +303,12 @@ class _CategoryCard extends StatelessWidget {
                 ),
               ),
             ),
-            if (unread > 0)
+            if (!enabled)
+              const Text(
+                'Desactivado',
+                style: TextStyle(color: Colors.black54, fontSize: 12),
+              )
+            else if (unread > 0)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(

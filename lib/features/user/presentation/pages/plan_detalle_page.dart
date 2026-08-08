@@ -245,6 +245,7 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       originName: widget.trip.originName,
       destinationName: widget.trip.destinationName,
       elapsed: Duration(minutes: widget.trip.totalMinutes),
+      farePaid: widget.trip.totalCostBs,
     );
 
     final notifService = getIt<NotificationService>();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
+import 'package:mi_ruta/features/user/domain/services/receipt_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
@@ -25,6 +26,7 @@ class _MovimientosPageState extends State<MovimientosPage> {
   static const _amarillo = Color(0xFFFFC12F);
 
   final int _currentNavIndex = _navIndexWallet;
+  final _receiptService = ReceiptService();
   String _selectedFilter = _defaultFilter;
   late String _userId;
 
@@ -163,16 +165,60 @@ class _MovimientosPageState extends State<MovimientosPage> {
         transactionType.contains('recharge');
     final date = _parseTransactionDate(timestamp);
 
-    return TransactionCard(
-      icon: isTopUp ? Icons.add_circle : Icons.remove_circle,
-      title: title,
-      subtitle: isTopUp ? 'Recarga de saldo' : 'Pago de viaje',
-      amount: '${isTopUp ? '+' : '-'} Bs. ${amount.toStringAsFixed(2)}',
-      date: date,
-      iconBackgroundColor: const Color(0xFFFFF9C4),
-      iconColor: _amarillo,
-      amountColor: isTopUp ? Colors.green : _amarillo,
+    return GestureDetector(
+      onTap: () => _showReceiptSheet(transaction, isTopUp, amount, date),
+      child: TransactionCard(
+        icon: isTopUp ? Icons.add_circle : Icons.remove_circle,
+        title: title,
+        subtitle: isTopUp ? 'Recarga de saldo' : 'Pago de viaje',
+        amount: '${isTopUp ? '+' : '-'} Bs. ${amount.toStringAsFixed(2)}',
+        date: date,
+        iconBackgroundColor: const Color(0xFFFFF9C4),
+        iconColor: _amarillo,
+        amountColor: isTopUp ? Colors.green : _amarillo,
+      ),
     );
+  }
+
+  void _showReceiptSheet(
+    Map<String, dynamic> transaction,
+    bool isTopUp,
+    double amount,
+    DateTime date,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => _ReceiptSheet(
+        title: transaction['description'] ?? 'Transacción',
+        subtitle: isTopUp ? 'Recarga de saldo' : 'Pago de viaje',
+        amount: amount,
+        isTopUp: isTopUp,
+        date: date,
+        onDownload: () => _downloadReceipt(sheetContext, transaction),
+      ),
+    );
+  }
+
+  Future<void> _downloadReceipt(
+    BuildContext sheetContext,
+    Map<String, dynamic> transaction,
+  ) async {
+    try {
+      final file = await _receiptService.buildTransactionReceipt(transaction);
+      if (!sheetContext.mounted) return;
+      await _receiptService.share(file, subject: 'Comprobante Mi Ruta');
+    } catch (e) {
+      if (!sheetContext.mounted) return;
+      ScaffoldMessenger.of(sheetContext).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo generar el comprobante: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
   }
 
   Widget _buildTransactionsList(List<Map<String, dynamic>> transactions) {
@@ -239,6 +285,123 @@ class _MovimientosPageState extends State<MovimientosPage> {
       bottomNavigationBar: CustomBottomNav(
         currentIndex: _currentNavIndex,
         onTap: _onNavTap,
+      ),
+    );
+  }
+}
+
+class _ReceiptSheet extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  final double amount;
+  final bool isTopUp;
+  final DateTime date;
+  final Future<void> Function() onDownload;
+
+  const _ReceiptSheet({
+    required this.title,
+    required this.subtitle,
+    required this.amount,
+    required this.isTopUp,
+    required this.date,
+    required this.onDownload,
+  });
+
+  @override
+  State<_ReceiptSheet> createState() => _ReceiptSheetState();
+}
+
+class _ReceiptSheetState extends State<_ReceiptSheet> {
+  static const _amarillo = Color(0xFFFFC12F);
+  bool _downloading = false;
+
+  Future<void> _handleDownload() async {
+    setState(() => _downloading = true);
+    await widget.onDownload();
+    if (mounted) setState(() => _downloading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: colorScheme.onSurface.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Icon(
+            Icons.receipt_long,
+            size: 48,
+            color: _amarillo,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            widget.title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            widget.subtitle,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            '${widget.isTopUp ? '+' : '-'} Bs. ${widget.amount.toStringAsFixed(2)}',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: widget.isTopUp ? Colors.green : _amarillo,
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: _downloading ? null : _handleDownload,
+              icon: _downloading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.black,
+                      ),
+                    )
+                  : const Icon(Icons.download_outlined, color: Colors.black),
+              label: Text(
+                _downloading ? 'Generando...' : 'Descargar comprobante',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _amarillo,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

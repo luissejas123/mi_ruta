@@ -8,6 +8,7 @@ import 'package:mi_ruta/features/user/domain/services/trip_history_service.dart'
 import 'package:mi_ruta/features/user/presentation/bloc/trip_history_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_history_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_history_state.dart';
+import 'package:mi_ruta/features/user/presentation/pages/detalle_viaje_page.dart';
 
 class HistorialViajesPage extends StatelessWidget {
   const HistorialViajesPage({super.key});
@@ -170,7 +171,13 @@ class _TripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => DetalleViajePage(entry: entry)),
+      ),
+      child: Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
@@ -269,7 +276,13 @@ class _TripCard extends StatelessWidget {
               ],
             ),
           ),
+          Icon(
+            Icons.chevron_right,
+            size: 20,
+            color: colorScheme.onSurface.withValues(alpha: 0.3),
+          ),
         ],
+      ),
       ),
     );
   }

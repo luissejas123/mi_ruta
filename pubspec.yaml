@@ -1,0 +1,12 @@
+name: mi_ruta_proyecto
+description: Proyecto separado que contiene la UI de registro de viaje de MiRuta.
+publish_to: none
+version: 1.0.0+1
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

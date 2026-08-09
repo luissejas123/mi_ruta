@@ -62,10 +62,10 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
           _activeCategory == null
               ? 'Notificaciones'
               : _activeCategory == 'trip'
-                  ? 'Viajes'
-                  : _activeCategory == 'recharge'
-                      ? 'Recargas'
-                      : 'Regalos',
+              ? 'Viajes'
+              : _activeCategory == 'recharge'
+              ? 'Recargas'
+              : 'Regalos',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
         actions: [
@@ -98,6 +98,7 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
                   context.read<NotificationPreferencesCubit>().setMasterEnabled(true),
             );
           }
+<<<<<<< HEAD
           return BlocBuilder<NotificationBloc, NotificationState>(
             builder: (context, state) {
               if (state is NotificationLoading) {
@@ -145,6 +146,31 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
               return const SizedBox.shrink();
             },
           );
+=======
+          if (state is NotificationError) {
+            return Center(child: Text(state.message));
+          }
+          if (state is NotificationLoaded) {
+            if (_activeCategory == null) {
+              return _CategoryPicker(
+                tripCount: state.trips.length,
+                rechargeCount: state.recharges.length,
+                giftCount: state.gifts.length,
+                tripUnread: state.trips.where((n) => !n.isRead).length,
+                rechargeUnread: state.recharges.where((n) => !n.isRead).length,
+                giftUnread: state.gifts.where((n) => !n.isRead).length,
+                onTap: (cat) => setState(() => _activeCategory = cat),
+              );
+            }
+            final items = _activeCategory == 'trip'
+                ? state.trips
+                : _activeCategory == 'recharge'
+                ? state.recharges
+                : state.gifts;
+            return _NotificationList(items: items, userId: _userId);
+          }
+          return const SizedBox.shrink();
+>>>>>>> origin/dev-mario-branez
         },
       ),
     );
@@ -330,7 +356,11 @@ class _CategoryCard extends StatelessWidget {
                 style: const TextStyle(color: Colors.black54, fontSize: 13),
               ),
             const SizedBox(width: 8),
-            const Icon(Icons.arrow_forward_ios, color: Colors.black54, size: 16),
+            const Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.black54,
+              size: 16,
+            ),
           ],
         ),
       ),
@@ -354,14 +384,18 @@ class _NotificationList extends StatelessWidget {
             Icon(
               Icons.notifications_none_outlined,
               size: 64,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 12),
             Text(
               'Sin notificaciones',
               style: TextStyle(
                 fontSize: 16,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
           ],
@@ -372,10 +406,7 @@ class _NotificationList extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       itemCount: items.length,
       separatorBuilder: (context, i) => const SizedBox(height: 10),
-      itemBuilder: (context, i) => _NotifTile(
-        notif: items[i],
-        userId: userId,
-      ),
+      itemBuilder: (context, i) => _NotifTile(notif: items[i], userId: userId),
     );
   }
 }
@@ -400,8 +431,8 @@ class _NotifTile extends StatelessWidget {
   void _onTap(BuildContext context) {
     if (!notif.isRead) {
       context.read<NotificationBloc>().add(
-            MarkNotificationRead(userId, notif.id),
-          );
+        MarkNotificationRead(userId, notif.id),
+      );
     }
     if (notif.type == NotificationType.gift) {
       _showGiftDetail(context);
@@ -427,17 +458,13 @@ class _NotifTile extends StatelessWidget {
     final isUnread = !notif.isRead;
     return InkWell(
       onTap: () => _onTap(context),
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isUnread
-              ? const Color(0xFFFFC12F).withValues(alpha: 0.12)
-              : colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(14),
-          border: isUnread
-              ? Border.all(color: const Color(0xFFFFC12F).withValues(alpha: 0.4))
-              : null,
+          color: const Color(0xFFFFC12F),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFFFC12F), width: 1.2),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,9 +472,10 @@ class _NotifTile extends StatelessWidget {
             Container(
               width: 40,
               height: 40,
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFC12F),
+              decoration: BoxDecoration(
+                color: Colors.white,
                 shape: BoxShape.circle,
+                border: Border.all(color: Colors.black12, width: 1),
               ),
               child: Icon(_icon, color: Colors.black, size: 20),
             ),
@@ -461,10 +489,10 @@ class _NotifTile extends StatelessWidget {
                       Expanded(
                         child: Text(
                           notif.title,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: colorScheme.onSurface,
+                            color: Colors.black,
                           ),
                         ),
                       ),
@@ -473,10 +501,27 @@ class _NotifTile extends StatelessWidget {
                           width: 8,
                           height: 8,
                           decoration: const BoxDecoration(
-                            color: Color(0xFFFFC12F),
+                            color: Colors.red,
                             shape: BoxShape.circle,
                           ),
                         ),
+                      const SizedBox(width: 4),
+                      InkWell(
+                        onTap: () {
+                          context.read<NotificationBloc>().add(
+                            DeleteNotification(userId, notif.id),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 3),
@@ -484,7 +529,7 @@ class _NotifTile extends StatelessWidget {
                     notif.body,
                     style: TextStyle(
                       fontSize: 13,
-                      color: colorScheme.onSurface.withValues(alpha: 0.6),
+                      color: colorScheme.onSurface.withValues(alpha: 0.75),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -492,7 +537,7 @@ class _NotifTile extends StatelessWidget {
                     _formatDate(notif.createdAt),
                     style: TextStyle(
                       fontSize: 11,
-                      color: colorScheme.onSurface.withValues(alpha: 0.4),
+                      color: colorScheme.onSurface.withValues(alpha: 0.55),
                     ),
                   ),
                 ],
@@ -516,7 +561,20 @@ class _NotifTile extends StatelessWidget {
     if (diff.inMinutes < 1) return 'Ahora';
     if (diff.inHours < 1) return 'Hace ${diff.inMinutes} min';
     if (diff.inDays < 1) return 'Hace ${diff.inHours}h';
-    const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    const months = [
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'sep',
+      'oct',
+      'nov',
+      'dic',
+    ];
     return '${d.day} ${months[d.month - 1]}';
   }
 }
@@ -583,12 +641,14 @@ class _GiftDetail extends StatelessWidget {
                   ? null
                   : () {
                       context.read<NotificationBloc>().add(
-                            MarkGiftUsed(userId, notif.id),
-                          );
+                        MarkGiftUsed(userId, notif.id),
+                      );
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('¡Descuento aplicado! Muestra esta pantalla en el negocio.'),
+                          content: Text(
+                            '¡Descuento aplicado! Muestra esta pantalla en el negocio.',
+                          ),
                           backgroundColor: Colors.green,
                         ),
                       );
@@ -617,7 +677,20 @@ class _GiftDetail extends StatelessWidget {
   }
 
   String _fmt(DateTime d) {
-    const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    const months = [
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'sep',
+      'oct',
+      'nov',
+      'dic',
+    ];
     return '${d.day} ${months[d.month - 1]}. ${d.year}';
   }
 }

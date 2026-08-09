@@ -8,7 +8,11 @@ import 'package:mi_ruta/features/user/domain/services/trip_history_service.dart'
 import 'package:mi_ruta/features/user/presentation/bloc/trip_history_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_history_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_history_state.dart';
+<<<<<<< HEAD
 import 'package:mi_ruta/features/user/presentation/pages/detalle_viaje_page.dart';
+=======
+import 'package:mi_ruta/features/user/presentation/pages/download_success_screen.dart';
+>>>>>>> origin/dev-mario-branez
 
 class HistorialViajesPage extends StatelessWidget {
   const HistorialViajesPage({super.key});
@@ -30,6 +34,37 @@ class HistorialViajesPage extends StatelessWidget {
 class _HistorialView extends StatelessWidget {
   const _HistorialView();
 
+  Future<void> _downloadDriverHistory(BuildContext context) async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthLoaded) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes iniciar sesión para descargar')),
+      );
+      return;
+    }
+
+    final filePayload = await getIt<TripHistoryService>()
+        .downloadDriverTripHistory(authState.user.uid);
+
+    if (filePayload.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay historial para descargar')),
+      );
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DownloadSuccessScreen(
+          fileName: 'historial_${authState.user.uid}.csv',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -39,6 +74,13 @@ class _HistorialView extends StatelessWidget {
           'Historial de viajes',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Descargar historial',
+            onPressed: () => _downloadDriverHistory(context),
+            icon: const Icon(Icons.download_outlined),
+          ),
+        ],
       ),
       body: BlocBuilder<TripHistoryBloc, TripHistoryState>(
         builder: (context, state) {
@@ -62,7 +104,8 @@ class _HistorialView extends StatelessWidget {
           if (state is TripHistoryLoaded) {
             if (state.trips.isEmpty) return const _EmptyState();
             return OrientationBuilder(
-              builder: (context, orientation) => orientation == Orientation.landscape
+              builder: (context, orientation) =>
+                  orientation == Orientation.landscape
                   ? _LandscapeList(trips: state.trips)
                   : _PortraitList(trips: state.trips),
             );
@@ -86,7 +129,9 @@ class _EmptyState extends StatelessWidget {
           Icon(
             Icons.directions_bus_outlined,
             size: 72,
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
           Text(
@@ -94,7 +139,9 @@ class _EmptyState extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
           const SizedBox(height: 8),
@@ -103,7 +150,9 @@ class _EmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.45),
             ),
           ),
         ],
@@ -153,8 +202,18 @@ class _TripCard extends StatelessWidget {
 
   String _formatDate(DateTime d) {
     const months = [
-      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'sep',
+      'oct',
+      'nov',
+      'dic',
     ];
     return '${d.day} ${months[d.month - 1]}. ${d.year}';
   }
@@ -192,7 +251,11 @@ class _TripCard extends StatelessWidget {
               color: Color(0xFFFFC12F),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.directions_bus, color: Colors.black, size: 22),
+            child: const Icon(
+              Icons.directions_bus,
+              color: Colors.black,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -202,7 +265,10 @@ class _TripCard extends StatelessWidget {
               children: [
                 Text(
                   entry.routeName,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),

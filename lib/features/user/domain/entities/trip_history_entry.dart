@@ -8,6 +8,7 @@ class TripHistoryEntry extends Equatable {
   final String destinationName;
   final Duration elapsed;
   final DateTime date;
+  final double farePaid;
 
   const TripHistoryEntry({
     required this.id,
@@ -17,8 +18,10 @@ class TripHistoryEntry extends Equatable {
     required this.destinationName,
     required this.elapsed,
     required this.date,
+    this.farePaid = 0.0,
   });
 
   @override
-  List<Object?> get props => [id, userId, routeName, destinationName, elapsed, date];
+  List<Object?> get props =>
+      [id, userId, routeName, destinationName, elapsed, date, farePaid];
 }

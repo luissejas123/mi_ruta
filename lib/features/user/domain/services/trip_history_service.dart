@@ -13,6 +13,7 @@ class TripHistoryService {
     required String originName,
     required String destinationName,
     required Duration elapsed,
+    double farePaid = 0.0,
   }) async {
     final entry = TripHistoryEntry(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -22,6 +23,7 @@ class TripHistoryService {
       destinationName: destinationName,
       elapsed: elapsed,
       date: DateTime.now(),
+      farePaid: farePaid,
     );
     await _datasource.saveTrip(entry);
   }

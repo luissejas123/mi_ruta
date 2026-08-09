@@ -14,6 +14,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/editar_perfil_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/notificaciones_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/preferencias_notificacion_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/planificar_viaje_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
@@ -314,6 +315,17 @@ class _PerfilPageState extends State<PerfilPage> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => const NotificacionesPage(),
+                    ),
+                  ),
+                ),
+                _buildMenuItem(
+                  icon: Icons.tune,
+                  title: 'Preferencias de notificación',
+                  subtitle: 'Elige qué notificaciones quieres recibir',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PreferenciasNotificacionPage(),
                     ),
                   ),
                 ),

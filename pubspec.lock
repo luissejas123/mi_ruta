@@ -57,6 +57,8 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.1"
+<<<<<<< HEAD
+=======
   checked_yaml:
     dependency: transitive
     description:
@@ -73,6 +75,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.4.2"
+>>>>>>> origin
   clock:
     dependency: transitive
     description:
@@ -696,6 +699,8 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.18.0"
+<<<<<<< HEAD
+=======
   mime:
     dependency: transitive
     description:
@@ -712,6 +717,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.2.3"
+>>>>>>> origin
   nested:
     dependency: transitive
     description:

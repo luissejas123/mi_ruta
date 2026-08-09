@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:mi_ruta/firebase_options.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
@@ -22,7 +21,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Firebase.initializeApp();
   setupDependencies();
 
   unawaited(getIt<RouteDataSyncService>().ensureDataReady());

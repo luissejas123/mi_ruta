@@ -18,6 +18,7 @@ import 'dart:async';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -195,6 +196,10 @@ class _AuthGate extends StatelessWidget {
           );
         }
         if (state is AuthLoaded) {
+          final role = state.user.role;
+          if (role == 'driver' || role == 'presidente') {
+            return const DriverHomePage();
+          }
           return const MiRutaScreen();
         }
         return const IniciarSesionPage();

@@ -32,6 +32,7 @@ dependencies:
   path: ^1.9.1
   permission_handler: ^11.3.1
   shared_preferences: ^2.3.1
+  firebase_messaging: ^16.5.0
 
 dev_dependencies:
   flutter_test:
@@ -47,8 +48,10 @@ flutter:
     - assets/cochabamba_gtfs/routes.txt
     - assets/cochabamba_gtfs/trips.txt
     - assets/cochabamba_gtfs/shapes.txt
-
-
+    - assets/cochabamba_gtfs/stops.txt
+    - assets/cochabamba_gtfs/stop_times.txt
+    - assets/cochabamba_gtfs/frequencies.txt
+    - assets/cochabamba_gtfs/calendar.txt
 
 flutter_launcher_icons:
   android: true

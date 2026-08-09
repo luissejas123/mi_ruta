@@ -126,6 +126,15 @@ Follow the data → domain → presentation layering above. Register datasources
 - **Location permissions** — geolocator requires runtime permissions on Android 6.0+.
 - **Language** — User-facing strings are in **Spanish (es-BO)**.
 
+## Rules for AI Agents Working in This Repo
+
+These rules exist because of real mistakes/incidents in this repo. Follow them even if a task seems to ask otherwise — ask the user first if a task conflicts with one of these.
+
+1. **Reuse existing Firestore/GTFS fields — never invent parallel ones.** Before adding a field to any Firestore write, check [FIRESTORE_COLLECTIONS_GUIDE.md](FIRESTORE_COLLECTIONS_GUIDE.md) for the collection's actual schema. Do not create a new field that duplicates an existing one under a different name (e.g. adding `name` when `fullName`/`full_name` already exists, or `nombre` alongside `name`). The `users` collection already has a documented `snake_case`/`camelCase` inconsistency — don't add a third variant; match whichever schema the specific datasource you're editing already uses, and read both keys when consuming the field.
+2. **Route/stop data must come from the real GTFS-seeded source** (`routes` / `routes_bbox` Firestore collections, synced to SQLite via `RouteDataSyncService`, see [lib/core/local_db/route_local_database.dart](lib/core/local_db/route_local_database.dart)) — not hardcoded placeholder strings (e.g. a fixed `'A 1.2 km'` or `'Tráfico moderado'` regardless of the actual stop/route). If real-time distance/traffic data isn't available yet, say so explicitly in the PR/review rather than faking it silently.
+3. **Never create or commit `firebase_options.dart`, `google-services.json`, `GoogleService-Info.plist`, or `.env`.** They're git-ignored on purpose (see [SECURITY.md](SECURITY.md)). If one is missing locally and blocks a build, regenerate/copy it locally to unblock the run, but never add it to git or remove it from `.gitignore`.
+4. **Revert any temporary debug changes before ending a task** — e.g. temporarily changing `home:` in `main.dart` to preview a screen, adding a debug button, hardcoding a test value. Confirm the file matches its pre-debug state (via `git diff`) before considering the task done.
+
 ## Reference Docs
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — Architecture explanation with data flow

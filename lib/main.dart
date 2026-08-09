@@ -97,16 +97,12 @@ class MyApp extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         // ✅ ThemeCubit para modo oscuro
-<<<<<<< HEAD
         BlocProvider<ThemeCubit>(
           create: (context) => ThemeCubit(),
         ),
         BlocProvider<NotificationPreferencesCubit>(
           create: (context) => NotificationPreferencesCubit(),
         ),
-=======
-        BlocProvider<ThemeCubit>(create: (context) => ThemeCubit()),
->>>>>>> origin/dev-mario-branez
         BlocProvider<AuthBloc>(
           create: (context) =>
               getIt<AuthBloc>()..add(const GetCurrentUserEvent()),
@@ -120,6 +116,7 @@ class MyApp extends StatelessWidget {
         BlocProvider<BenefitRequestBLoC>(
           create: (context) => getIt<BenefitRequestBLoC>(),
         ),
+        BlocProvider<MiRutaBloc>(create: (context) => getIt<MiRutaBloc>()),
         BlocProvider<MiRutaBloc>(create: (context) => getIt<MiRutaBloc>()),
       ],
       // ✅ BlocBuilder para aplicar tema en toda la app
@@ -267,3 +264,4 @@ class _AuthGate extends StatelessWidget {
     );
   }
 }
+

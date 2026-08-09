@@ -8,11 +8,12 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
   final NotificationService _service;
 
   NotificationBloc({required NotificationService service})
-      : _service = service,
-        super(NotificationInitial()) {
+    : _service = service,
+      super(NotificationInitial()) {
     on<LoadNotifications>(_onLoad);
     on<MarkNotificationRead>(_onMarkRead);
     on<MarkAllNotificationsRead>(_onMarkAllRead);
+    on<DeleteNotification>(_onDelete);
     on<MarkGiftUsed>(_onMarkGiftUsed);
   }
 
@@ -36,8 +37,9 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
     await _service.markRead(event.userId, event.notifId);
     final current = state;
     if (current is NotificationLoaded) {
-      final updated = current.all.map((n) =>
-          n.id == event.notifId ? n.copyWith(isRead: true) : n).toList();
+      final updated = current.all
+          .map((n) => n.id == event.notifId ? n.copyWith(isRead: true) : n)
+          .toList();
       emit(NotificationLoaded(updated));
     }
   }
@@ -49,8 +51,19 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
     await _service.markAllRead(event.userId);
     final current = state;
     if (current is NotificationLoaded) {
-      final updated =
-          current.all.map((n) => n.copyWith(isRead: true)).toList();
+      final updated = current.all.map((n) => n.copyWith(isRead: true)).toList();
+      emit(NotificationLoaded(updated));
+    }
+  }
+
+  Future<void> _onDelete(
+    DeleteNotification event,
+    Emitter<NotificationState> emit,
+  ) async {
+    await _service.deleteNotification(event.userId, event.notifId);
+    final current = state;
+    if (current is NotificationLoaded) {
+      final updated = current.all.where((n) => n.id != event.notifId).toList();
       emit(NotificationLoaded(updated));
     }
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:mi_ruta/firebase_options.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
@@ -21,7 +22,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   setupDependencies();
 
   unawaited(getIt<RouteDataSyncService>().ensureDataReady());
@@ -37,9 +38,7 @@ class MyApp extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         // ✅ ThemeCubit para modo oscuro
-        BlocProvider<ThemeCubit>(
-          create: (context) => ThemeCubit(),
-        ),
+        BlocProvider<ThemeCubit>(create: (context) => ThemeCubit()),
         BlocProvider<AuthBloc>(
           create: (context) =>
               getIt<AuthBloc>()..add(const GetCurrentUserEvent()),
@@ -53,9 +52,7 @@ class MyApp extends StatelessWidget {
         BlocProvider<BenefitRequestBLoC>(
           create: (context) => getIt<BenefitRequestBLoC>(),
         ),
-        BlocProvider<MiRutaBloc>(
-          create: (context) => getIt<MiRutaBloc>(),
-        ),
+        BlocProvider<MiRutaBloc>(create: (context) => getIt<MiRutaBloc>()),
       ],
       // ✅ BlocBuilder para aplicar tema en toda la app
       child: BlocBuilder<ThemeCubit, bool>(

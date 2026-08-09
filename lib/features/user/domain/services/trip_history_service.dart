@@ -5,7 +5,7 @@ class TripHistoryService {
   final TripHistoryDatasource _datasource;
 
   TripHistoryService({required TripHistoryDatasource datasource})
-      : _datasource = datasource;
+    : _datasource = datasource;
 
   Future<void> saveTrip({
     required String userId,
@@ -28,4 +28,20 @@ class TripHistoryService {
 
   Future<List<TripHistoryEntry>> getTrips(String userId) =>
       _datasource.getTrips(userId);
+
+  Future<String> generateDriverTripHistoryFile(String userId) async {
+    final trips = await _datasource.getTrips(userId);
+    final content = <String>[
+      'Ruta,Origen,Destino,Duracion,Fecha',
+      for (final trip in trips)
+        '${trip.routeName},${trip.originName},${trip.destinationName},${trip.elapsed.inMinutes},${trip.date.toIso8601String()}',
+    ].join('\n');
+
+    return content;
+  }
+
+  Future<String> downloadDriverTripHistory(String userId) async {
+    final payload = await generateDriverTripHistoryFile(userId);
+    return payload;
+  }
 }

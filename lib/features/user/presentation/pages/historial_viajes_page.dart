@@ -8,11 +8,8 @@ import 'package:mi_ruta/features/user/domain/services/trip_history_service.dart'
 import 'package:mi_ruta/features/user/presentation/bloc/trip_history_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_history_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_history_state.dart';
-<<<<<<< HEAD
 import 'package:mi_ruta/features/user/presentation/pages/detalle_viaje_page.dart';
-=======
 import 'package:mi_ruta/features/user/presentation/pages/download_success_screen.dart';
->>>>>>> origin/dev-mario-branez
 
 class HistorialViajesPage extends StatelessWidget {
   const HistorialViajesPage({super.key});

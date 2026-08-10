@@ -98,7 +98,6 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
                   context.read<NotificationPreferencesCubit>().setMasterEnabled(true),
             );
           }
-<<<<<<< HEAD
           return BlocBuilder<NotificationBloc, NotificationState>(
             builder: (context, state) {
               if (state is NotificationLoading) {
@@ -145,33 +144,8 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
               }
               return const SizedBox.shrink();
             },
-          );
-=======
-          if (state is NotificationError) {
-            return Center(child: Text(state.message));
-          }
-          if (state is NotificationLoaded) {
-            if (_activeCategory == null) {
-              return _CategoryPicker(
-                tripCount: state.trips.length,
-                rechargeCount: state.recharges.length,
-                giftCount: state.gifts.length,
-                tripUnread: state.trips.where((n) => !n.isRead).length,
-                rechargeUnread: state.recharges.where((n) => !n.isRead).length,
-                giftUnread: state.gifts.where((n) => !n.isRead).length,
-                onTap: (cat) => setState(() => _activeCategory = cat),
-              );
-            }
-            final items = _activeCategory == 'trip'
-                ? state.trips
-                : _activeCategory == 'recharge'
-                ? state.recharges
-                : state.gifts;
-            return _NotificationList(items: items, userId: _userId);
-          }
-          return const SizedBox.shrink();
->>>>>>> origin/dev-mario-branez
-        },
+          );          
+        }
       ),
     );
   }

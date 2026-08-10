@@ -49,6 +49,12 @@ import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 import 'package:mi_ruta/features/user/domain/services/user_preferences_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_bloc.dart';
+import 'package:mi_ruta/features/routes/domain/services/gtfs_schedule_service.dart';
+import 'package:mi_ruta/features/driver/data/datasources/driver_datasource.dart';
+import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
+import 'package:mi_ruta/features/user/domain/services/user_preferences_service.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_bloc.dart';
+
 
 
 final getIt = GetIt.instance;

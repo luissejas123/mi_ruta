@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
-import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
-import 'package:mi_ruta/features/driver/presentation/bloc/driver_approval_bloc.dart';
-import 'package:mi_ruta/features/driver/presentation/bloc/driver_approval_event.dart';
-import 'package:mi_ruta/features/driver/presentation/bloc/driver_approval_state.dart';
+import 'package:mi_ruta/features/admin/domain/services/user_management_service.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/user_management_bloc.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/user_management_event.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/user_management_state.dart';
 import 'package:mi_ruta/features/user/domain/entities/user_entity.dart';
 
 class DriverApprovalPage extends StatelessWidget {
@@ -13,8 +13,8 @@ class DriverApprovalPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => DriverApprovalBloc(service: getIt<DriverService>())
-        ..add(const LoadDriverUsers()),
+      create: (_) => UserManagementBloc(service: getIt<UserManagementService>())
+        ..add(const LoadManagedUsers(userTypeFilter: 'driver')),
       child: const _DriverApprovalView(),
     );
   }
@@ -35,14 +35,14 @@ class _DriverApprovalView extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
       ),
-      body: BlocBuilder<DriverApprovalBloc, DriverApprovalState>(
+      body: BlocBuilder<UserManagementBloc, UserManagementState>(
         builder: (context, state) {
-          if (state is DriverApprovalLoading) {
+          if (state is UserManagementLoading) {
             return const Center(
               child: CircularProgressIndicator(color: _amarillo),
             );
           }
-          if (state is DriverApprovalError) {
+          if (state is UserManagementError) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -56,8 +56,8 @@ class _DriverApprovalView extends StatelessWidget {
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () => context
-                        .read<DriverApprovalBloc>()
-                        .add(const LoadDriverUsers()),
+                        .read<UserManagementBloc>()
+                        .add(const LoadManagedUsers(userTypeFilter: 'driver')),
                     style: ElevatedButton.styleFrom(backgroundColor: _amarillo),
                     child: const Text('Reintentar', style: TextStyle(color: Colors.black)),
                   ),
@@ -65,15 +65,15 @@ class _DriverApprovalView extends StatelessWidget {
               ),
             );
           }
-          if (state is DriverApprovalLoaded) {
-            if (state.drivers.isEmpty) return const _EmptyState();
+          if (state is UserManagementLoaded) {
+            if (state.users.isEmpty) return const _EmptyState();
             return ListView.separated(
               padding: const EdgeInsets.all(16),
-              itemCount: state.drivers.length,
+              itemCount: state.users.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, i) => _DriverTile(
-                driver: state.drivers[i],
-                isUpdating: state.updatingUid == state.drivers[i].uid,
+                driver: state.users[i],
+                isUpdating: state.updatingUid == state.users[i].uid,
               ),
             );
           }
@@ -188,8 +188,8 @@ class _DriverTile extends StatelessWidget {
               : Switch(
                   value: driver.isActive,
                   activeThumbColor: Colors.green,
-                  onChanged: (value) => context.read<DriverApprovalBloc>().add(
-                        SetDriverActiveState(driver.uid, value),
+                  onChanged: (value) => context.read<UserManagementBloc>().add(
+                        SetManagedUserActiveState(driver.uid, value),
                       ),
                 ),
         ],

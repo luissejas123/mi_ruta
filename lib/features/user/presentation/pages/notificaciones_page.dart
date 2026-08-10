@@ -399,6 +399,8 @@ class _NotifTile extends StatelessWidget {
         return Icons.account_balance_wallet_outlined;
       case NotificationType.gift:
         return Icons.card_giftcard_outlined;
+      case NotificationType.operational:
+        return Icons.campaign_outlined;
     }
   }
 

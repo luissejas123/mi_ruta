@@ -14,6 +14,9 @@ class UserEntity extends Equatable {
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
+  // Acceso libre a los 5 perfiles para pruebas de QA (ver
+  // super_admin_config.dart) — activado/desactivado desde el panel de Admin.
+  final bool qaAccess;
 
   const UserEntity({
     required this.uid,
@@ -28,6 +31,7 @@ class UserEntity extends Equatable {
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
+    this.qaAccess = false,
   });
 
   @override
@@ -44,5 +48,6 @@ class UserEntity extends Equatable {
         isActive,
         createdAt,
         updatedAt,
+        qaAccess,
       ];
 }

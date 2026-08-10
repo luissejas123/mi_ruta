@@ -15,6 +15,7 @@ class UserModel extends UserEntity {
     required super.isActive,
     required super.createdAt,
     required super.updatedAt,
+    super.qaAccess,
   });
 
   /// Convertir JSON de Firestore a UserModel
@@ -30,6 +31,7 @@ class UserModel extends UserEntity {
       reviewsCount: json['reviewsCount'] as int? ?? 0,
       walletBalance: (json['wallet']?['current_balance'] ?? json['wallet']?['balance'] as num?)?.toDouble() ?? 0.0,
       isActive: json['isActive'] as bool? ?? true,
+      qaAccess: json['qa_access'] as bool? ?? false,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : json['createdAt'] != null
@@ -60,6 +62,7 @@ class UserModel extends UserEntity {
       'isActive': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'qa_access': qaAccess,
     };
   }
 }

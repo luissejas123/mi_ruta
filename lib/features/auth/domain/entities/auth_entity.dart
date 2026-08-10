@@ -11,6 +11,9 @@ class AuthEntity extends Equatable {
   final DateTime createdAt;
   final Map<String, dynamic>? wallet;
   final Map<String, dynamic>? settings;
+  // Acceso libre a los 5 perfiles para pruebas de QA (ver
+  // super_admin_config.dart) — activado/desactivado desde el panel de Admin.
+  final bool qaAccess;
 
   const AuthEntity({
     required this.uid,
@@ -23,6 +26,7 @@ class AuthEntity extends Equatable {
     required this.createdAt,
     this.wallet,
     this.settings,
+    this.qaAccess = false,
   });
 
   @override
@@ -37,5 +41,6 @@ class AuthEntity extends Equatable {
     createdAt,
     wallet,
     settings,
+    qaAccess,
   ];
 }

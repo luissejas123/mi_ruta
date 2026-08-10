@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
@@ -27,7 +28,11 @@ import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/legal_bottom_sheet.dart';
 
 class PerfilPage extends StatefulWidget {
-  const PerfilPage({super.key});
+  /// A qué pantalla vuelve la pestaña "Inicio" del pie de navegación.
+  /// Nulo = MiRutaScreen (pasajero); los demás perfiles pasan su propio home.
+  final WidgetBuilder? homeBuilder;
+
+  const PerfilPage({super.key, this.homeBuilder});
 
   @override
   State<PerfilPage> createState() => _PerfilPageState();
@@ -58,7 +63,7 @@ class _PerfilPageState extends State<PerfilPage> {
   }
 
   void _onNavTap(int index) {
-    navigateBottomNav(context, index);
+    navigateBottomNav(context, index, homeBuilder: widget.homeBuilder);
   }
 
   void _navigateToEditarPerfil(
@@ -194,6 +199,7 @@ class _PerfilPageState extends State<PerfilPage> {
               fontSize: 20,
             ),
           ),
+          actions: const [SwitchProfileButton()],
         ),
         body: BlocConsumer<UserBloc, UserState>(
           buildWhen: (previous, current) =>

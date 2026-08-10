@@ -63,6 +63,26 @@ class NotificationService {
   /// Returns true with 60% probability — used to simulate gift drops.
   bool shouldGiveGift() => _rng.nextDouble() < 0.6;
 
+  /// Aviso operacional del chofer (p.ej. proximidad a una parada) a un
+  /// pasajero que ya está a bordo (RQ-66).
+  Future<void> saveOperationalNotification(
+    String userId,
+    String title,
+    String body,
+  ) async {
+    await _datasource.save(
+      AppNotification(
+        id: _id(),
+        userId: userId,
+        type: NotificationType.operational,
+        title: title,
+        body: body,
+        isRead: false,
+        createdAt: DateTime.now(),
+      ),
+    );
+  }
+
   Future<List<AppNotification>> getAll(String userId) =>
       _datasource.getAll(userId);
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -20,6 +21,10 @@ import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.
 import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/super_admin_switcher_page.dart';
+import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_home_page.dart';
+import 'package:mi_ruta/core/config/super_admin_config.dart';
 
 /// Handler de nivel superior para mensajes FCM recibidos en segundo plano
 /// o cuando la app está terminada. Debe ser una función de nivel superior
@@ -253,9 +258,21 @@ class _AuthGate extends StatelessWidget {
           );
         }
         if (state is AuthLoaded) {
+          final firebaseEmail = FirebaseAuth.instance.currentUser?.email;
+          if (isSuperAdminEmail(state.user.email) ||
+              isSuperAdminEmail(firebaseEmail) ||
+              state.user.qaAccess) {
+            return const SuperAdminSwitcherPage();
+          }
           final role = state.user.role;
           if (role == 'driver' || role == 'presidente') {
             return const DriverHomePage();
+          }
+          if (role == 'admin') {
+            return const AdminHomePage();
+          }
+          if (role == 'tickeador') {
+            return const TickeadorHomePage();
           }
           return const MiRutaScreen();
         }

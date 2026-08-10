@@ -29,6 +29,12 @@ class VehicleEntity extends Equatable {
   final VehicleStatus status;
   final bool inService;
   final DateTime? serviceStartedAt;
+  // legal_documentation: URLs a Storage (FIRESTORE_COLLECTIONS_GUIDE.md)
+  final String? soatUrl;
+  final String? vehicleInspectionUrl;
+  final String? driverLicenseUrl;
+  final String? municipalOperationCardUrl;
+  final String? ruatUrl;
 
   const VehicleEntity({
     required this.vehicleId,
@@ -43,28 +49,48 @@ class VehicleEntity extends Equatable {
     required this.status,
     required this.inService,
     this.serviceStartedAt,
+    this.soatUrl,
+    this.vehicleInspectionUrl,
+    this.driverLicenseUrl,
+    this.municipalOperationCardUrl,
+    this.ruatUrl,
   });
 
   VehicleEntity copyWith({
     bool? inService,
     DateTime? serviceStartedAt,
     bool clearServiceStartedAt = false,
+    String? internalNumber,
+    String? brand,
+    String? model,
+    String? color,
+    String? soatUrl,
+    String? vehicleInspectionUrl,
+    String? driverLicenseUrl,
+    String? municipalOperationCardUrl,
+    String? ruatUrl,
   }) {
     return VehicleEntity(
       vehicleId: vehicleId,
       ownerUid: ownerUid,
       vehicleType: vehicleType,
       lineNumber: lineNumber,
-      internalNumber: internalNumber,
-      brand: brand,
-      model: model,
-      color: color,
+      internalNumber: internalNumber ?? this.internalNumber,
+      brand: brand ?? this.brand,
+      model: model ?? this.model,
+      color: color ?? this.color,
       passengerCapacity: passengerCapacity,
       status: status,
       inService: inService ?? this.inService,
       serviceStartedAt: clearServiceStartedAt
           ? null
           : (serviceStartedAt ?? this.serviceStartedAt),
+      soatUrl: soatUrl ?? this.soatUrl,
+      vehicleInspectionUrl: vehicleInspectionUrl ?? this.vehicleInspectionUrl,
+      driverLicenseUrl: driverLicenseUrl ?? this.driverLicenseUrl,
+      municipalOperationCardUrl:
+          municipalOperationCardUrl ?? this.municipalOperationCardUrl,
+      ruatUrl: ruatUrl ?? this.ruatUrl,
     );
   }
 
@@ -82,5 +108,10 @@ class VehicleEntity extends Equatable {
         status,
         inService,
         serviceStartedAt,
+        soatUrl,
+        vehicleInspectionUrl,
+        driverLicenseUrl,
+        municipalOperationCardUrl,
+        ruatUrl,
       ];
 }

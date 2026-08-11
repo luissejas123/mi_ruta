@@ -1,0 +1,97 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:mi_ruta/core/theme/map_styles.dart';
+import 'package:mi_ruta/core/theme/theme_cubit.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
+
+class MapsPage extends StatefulWidget {
+  const MapsPage({super.key});
+
+  @override
+  State<MapsPage> createState() => _MapsPageState();
+}
+
+class _MapsPageState extends State<MapsPage> {
+  // ✅ Color consistente
+  static const _amarillo = Color(0xFFFFC12F);
+
+  late GoogleMapController mapController;
+  final int _currentNavIndex = 0;
+
+  static const LatLng _initialPosition = LatLng(-17.3895, -66.1568);
+
+  final Set<Marker> _markers = {
+    const Marker(
+      markerId: MarkerId('marker_1'),
+      position: LatLng(-17.3895, -66.1568),
+      infoWindow: InfoWindow(
+        title: 'Cochabamba',
+        snippet: 'Cochabamba, Bolivia',
+      ),
+    ),
+  };
+
+  void _onMapCreated(GoogleMapController controller) {
+    mapController = controller;
+  }
+
+  void _onNavTap(int index) {
+    navigateBottomNav(context, index);
+  }
+
+  @override
+  void dispose() {
+    mapController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = context.watch<ThemeCubit>().state;
+    return Scaffold(
+      body: Stack(
+        children: [
+          GoogleMap(
+            style: isDark ? MapStyles.dark : null,
+            onMapCreated: _onMapCreated,
+            initialCameraPosition: const CameraPosition(
+              target: _initialPosition,
+              zoom: 12.0,
+            ),
+            markers: _markers,
+            myLocationEnabled: false,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+          ),
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: FloatingActionButton.small(
+              heroTag: 'center',
+              // ✅ Color amarillo consistente
+              backgroundColor: _amarillo,
+              foregroundColor: Colors.black,
+              onPressed: () {
+                mapController.animateCamera(
+                  CameraUpdate.newCameraPosition(
+                    const CameraPosition(
+                      target: _initialPosition,
+                      zoom: 15.0,
+                    ),
+                  ),
+                );
+              },
+              child: const Icon(Icons.my_location),
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: _currentNavIndex,
+        onTap: _onNavTap,
+      ),
+    );
+  }
+}

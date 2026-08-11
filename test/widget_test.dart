@@ -1,30 +1,52 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// Tests de widgets que NO dependen de Firebase ni BLoC.
+// InsertarCorreoPage requiere AuthBloc, por lo que se omite aquí.
+// Para tests de integración con Firebase, usar integration_test/.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:proyecto/main.dart';
+import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
+import 'package:mi_ruta/features/auth/presentation/widgets/boton_amarillo.dart';
+import 'package:mi_ruta/features/auth/presentation/widgets/input_con_sombra.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('IniciarSesionPage muestra título y botones', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: IniciarSesionPage()));
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('MiRuta'), findsOneWidget);
+    expect(find.text('Tu ruta, tu viaje,\ntu pago.'), findsOneWidget);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
+    expect(find.text('Registrarte'), findsOneWidget);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('BotonAmarillo ejecuta callback al presionar', (
+    WidgetTester tester,
+  ) async {
+    bool presionado = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BotonAmarillo(
+            texto: 'Prueba',
+            alPresionar: () => presionado = true,
+          ),
+        ),
+      ),
+    );
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    await tester.tap(find.text('Prueba'));
+    expect(presionado, isTrue);
+  });
+
+  testWidgets('InputConSombra muestra hint text', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: InputConSombra(hint: 'Test hint')),
+      ),
+    );
+
+    expect(find.widgetWithText(TextField, 'Test hint'), findsOneWidget);
   });
 }

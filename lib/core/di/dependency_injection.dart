@@ -46,12 +46,22 @@ import 'package:mi_ruta/features/user/data/repositories/location_repository_impl
 import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
 import 'package:mi_ruta/features/user/domain/usecases/reverse_geocode_usecase.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/features/user/domain/services/user_preferences_service.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_bloc.dart';
+
 
 final getIt = GetIt.instance;
 
 /// Configurar todas las dependencias de la aplicación
 /// Llamar esta función en main.dart antes de runApp()
 void setupDependencies() {
+   // ============================================
+  // USER PREFERENCES
+  // ============================================
+  getIt.registerSingleton<UserPreferencesService>(
+    UserPreferencesService(),
+  );
   // ============================================
   // FIRESTORE & EXTERNAL DEPENDENCIES
   // ============================================
@@ -185,7 +195,11 @@ void setupDependencies() {
       getUserStreamUseCase: getIt<GetUserStreamUseCase>(),
     ),
   );
-
+  getIt.registerSingleton<UserPreferencesBloc>(
+    UserPreferencesBloc(
+      preferencesService: getIt<UserPreferencesService>(),
+    ),
+  );
   // ============================================
   // TRIP HISTORY FEATURE
   // ============================================

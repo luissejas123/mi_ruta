@@ -12,6 +12,7 @@ class AuthModel extends AuthEntity {
     required super.createdAt,
     super.wallet,
     super.settings,
+    super.qaAccess,
   });
 
   factory AuthModel.fromJson(Map<String, dynamic> json) {
@@ -37,6 +38,7 @@ class AuthModel extends AuthEntity {
       createdAt: parseCreatedAt(json['created_at']),
       wallet: json['wallet'] as Map<String, dynamic>?,
       settings: json['settings'] as Map<String, dynamic>?,
+      qaAccess: json['qa_access'] as bool? ?? false,
     );
   }
 
@@ -53,6 +55,7 @@ class AuthModel extends AuthEntity {
       'wallet': wallet ?? {'current_balance': 0.0, 'currency': 'Bs'},
       'settings':
           settings ?? {'dark_mode_enabled': false, 'is_driver_mode': false},
+      'qa_access': qaAccess,
     };
   }
 }

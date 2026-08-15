@@ -148,6 +148,36 @@ class GtfsDatasource {
     return result;
   }
 
+  /// Lee stops.txt del GTFS
+  Future<List<Map<String, String>>> parseStops() async {
+    final csv = await rootBundle.loadString('$_base/stops.txt');
+    return _parseCSV(csv);
+  }
+
+  /// Lee stop_times.txt del GTFS
+  Future<List<Map<String, String>>> parseStopTimes() async {
+    final csv = await rootBundle.loadString('$_base/stop_times.txt');
+    return _parseCSV(csv);
+  }
+  
+  /// Lee trips.txt del GTFS
+  Future<List<Map<String, String>>> parseTrips() async {
+    final csv = await rootBundle.loadString('$_base/trips.txt');
+    return _parseCSV(csv);
+  }
+
+  /// Lee frequencies.txt del GTFS
+  Future<List<Map<String, String>>> parseFrequencies() async {
+    final csv = await rootBundle.loadString('$_base/frequencies.txt');
+    return _parseCSV(csv);
+  }
+
+  /// Lee calendar.txt del GTFS
+  Future<List<Map<String, String>>> parseCalendar() async {
+    final csv = await rootBundle.loadString('$_base/calendar.txt');
+    return _parseCSV(csv);
+  }
+
   /// Parsea CSV desde un string
   List<Map<String, String>> _parseCSV(String csvContent) {
     final lines = const LineSplitter().convert(csvContent);

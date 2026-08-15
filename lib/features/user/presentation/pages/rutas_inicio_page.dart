@@ -26,20 +26,26 @@ import 'package:mi_ruta/features/user/presentation/widgets/rutas_inicio_top_bar.
 enum _PinFor { origin, destination }
 
 class RutasInicioPage extends StatelessWidget {
-  const RutasInicioPage({super.key});
+  /// A qué pantalla vuelve la pestaña "Inicio" del pie de navegación.
+  /// Nulo = MiRutaScreen (pasajero); los demás perfiles pasan su propio home.
+  final WidgetBuilder? homeBuilder;
+
+  const RutasInicioPage({super.key, this.homeBuilder});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) =>
           RouteSearchBloc(syncService: getIt<RouteDataSyncService>()),
-      child: const _RutasInicioView(),
+      child: _RutasInicioView(homeBuilder: homeBuilder),
     );
   }
 }
 
 class _RutasInicioView extends StatefulWidget {
-  const _RutasInicioView();
+  final WidgetBuilder? homeBuilder;
+
+  const _RutasInicioView({this.homeBuilder});
 
   @override
   State<_RutasInicioView> createState() => _RutasInicioViewState();
@@ -410,7 +416,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
       ),
       bottomNavigationBar: CustomBottomNav(
         currentIndex: _navIndexRoutes,
-        onTap: (index) => navigateBottomNav(context, index),
+        onTap: (index) => navigateBottomNav(context, index, homeBuilder: widget.homeBuilder),
       ),
     );
   }

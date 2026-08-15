@@ -14,7 +14,11 @@ import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dar
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
 class WalletPage extends StatefulWidget {
-  const WalletPage({super.key});
+  /// A qué pantalla vuelve la pestaña "Inicio" del pie de navegación.
+  /// Nulo = MiRutaScreen (pasajero); los demás perfiles pasan su propio home.
+  final WidgetBuilder? homeBuilder;
+
+  const WalletPage({super.key, this.homeBuilder});
 
   @override
   State<WalletPage> createState() => _WalletPageState();
@@ -51,7 +55,7 @@ class _WalletPageState extends State<WalletPage> {
   }
 
   void _onNavTap(int index) {
-    navigateBottomNav(context, index);
+    navigateBottomNav(context, index, homeBuilder: widget.homeBuilder);
   }
 
   void _navigateToRecargaSaldo() {

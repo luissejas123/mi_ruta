@@ -49,6 +49,16 @@ import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 import 'package:mi_ruta/features/user/domain/services/user_preferences_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_bloc.dart';
+import 'package:mi_ruta/features/routes/domain/services/gtfs_schedule_service.dart';
+import 'package:mi_ruta/features/driver/data/datasources/driver_datasource.dart';
+import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
+import 'package:mi_ruta/features/admin/data/datasources/user_management_datasource.dart';
+import 'package:mi_ruta/features/admin/domain/services/user_management_service.dart';
+import 'package:mi_ruta/features/admin/domain/services/admin_service.dart';
+import 'package:mi_ruta/features/tickeador/domain/services/tickeador_service.dart';
+import 'package:mi_ruta/features/user/domain/services/user_preferences_service.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_bloc.dart';
+
 
 
 final getIt = GetIt.instance;
@@ -350,6 +360,10 @@ void setupDependencies() {
     ),
   );
 
+  getIt.registerSingleton<GtfsScheduleService>(
+    GtfsScheduleService(getIt<GtfsDatasource>()),
+  );
+
   // ============================================
   // TRIP PLANNER FEATURE
   // ============================================
@@ -362,5 +376,46 @@ void setupDependencies() {
       datasource: getIt<PlannedTripDatasource>(),
       syncService: getIt<RouteDataSyncService>(),
     ),
+  );
+
+  // ============================================
+  // DRIVER FEATURE - DATA + DOMAIN LAYER
+  // ============================================
+  getIt.registerSingleton<DriverDatasource>(
+    DriverDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  getIt.registerSingleton<DriverService>(
+    DriverService(
+      datasource: getIt<DriverDatasource>(),
+      routeService: getIt<RouteService>(),
+      notificationService: getIt<NotificationService>(),
+    ),
+  );
+
+  // ============================================
+  // ADMIN FEATURE - DATA + DOMAIN LAYER
+  // ============================================
+  getIt.registerSingleton<UserManagementDatasource>(
+    UserManagementDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  getIt.registerSingleton<UserManagementService>(
+    UserManagementService(datasource: getIt<UserManagementDatasource>()),
+  );
+
+  getIt.registerSingleton<AdminService>(
+    AdminService(
+      userManagementService: getIt<UserManagementService>(),
+      driverDatasource: getIt<DriverDatasource>(),
+    ),
+  );
+
+  // ============================================
+  // TICKEADOR FEATURE - DOMAIN LAYER
+  // (sin datasource propio: reusa DriverDatasource para `trips`)
+  // ============================================
+  getIt.registerSingleton<TickeadorService>(
+    TickeadorService(driverDatasource: getIt<DriverDatasource>()),
   );
 }

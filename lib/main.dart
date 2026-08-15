@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
@@ -13,16 +15,79 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/notification_preferences_cubit.dart';
 import 'dart:async';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/super_admin_switcher_page.dart';
+import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_home_page.dart';
+import 'package:mi_ruta/core/config/super_admin_config.dart';
+
+/// Handler de nivel superior para mensajes FCM recibidos en segundo plano
+/// o cuando la app está terminada. Debe ser una función de nivel superior
+/// (no un método de una clase) y estar anotada con @pragma('vm:entry-point').
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(
+  RemoteMessage message,
+) async {
+  await Firebase.initializeApp();
+  final title = message.notification?.title;
+  final body = message.notification?.body;
+  debugPrint('[FCM] Mensaje recibido en background: ${message.messageId}');
+  debugPrint('[FCM] Título: $title | Cuerpo: $body');
+  if (message.data.isNotEmpty) {
+    debugPrint('[FCM] Data: ${message.data}');
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
   await Firebase.initializeApp();
   setupDependencies();
+
+  // ── Inicialización mínima de Firebase Cloud Messaging (RQ-44) ──
+  debugPrint('[FCM] Inicializando Firebase Messaging');
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Solicitar permiso de notificaciones (Android 13+ requiere runtime).
+  final permission = await FirebaseMessaging.instance.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+  debugPrint('[FCM] Permiso solicitado: ${permission.toString()}');
+
+  // Obtener el token de registro (solo se muestra por log, no se almacena).
+  final token = await FirebaseMessaging.instance.getToken();
+  debugPrint('[FCM] Token: ${token ?? 'null'}');
+
+  // Escuchar mensajes en primer plano.
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    final title = message.notification?.title;
+    final body = message.notification?.body;
+    debugPrint('[FCM] Mensaje recibido en foreground: ${message.messageId}');
+    debugPrint('[FCM] Título: $title | Cuerpo: $body');
+    if (message.data.isNotEmpty) {
+      debugPrint('[FCM] Data: ${message.data}');
+    }
+  });
+
+// Escuchar renovación del token (solo se muestra por log).
+  FirebaseMessaging.instance.onTokenRefresh.listen((String newToken) {
+    debugPrint('[FCM] Token actualizado: $newToken');
+  });
+
+  // Manejar apertura de la app desde una notificación (app terminada).
+  final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+  if (initialMessage != null) {
+    debugPrint(
+      '[FCM] App abierta desde notificación: ${initialMessage.messageId}',
+    );
+  }
 
   unawaited(getIt<RouteDataSyncService>().ensureDataReady());
 
@@ -40,6 +105,9 @@ class MyApp extends StatelessWidget {
         BlocProvider<ThemeCubit>(
           create: (context) => ThemeCubit(),
         ),
+        BlocProvider<NotificationPreferencesCubit>(
+          create: (context) => NotificationPreferencesCubit(),
+        ),
         BlocProvider<AuthBloc>(
           create: (context) =>
               getIt<AuthBloc>()..add(const GetCurrentUserEvent()),
@@ -53,9 +121,8 @@ class MyApp extends StatelessWidget {
         BlocProvider<BenefitRequestBLoC>(
           create: (context) => getIt<BenefitRequestBLoC>(),
         ),
-        BlocProvider<MiRutaBloc>(
-          create: (context) => getIt<MiRutaBloc>(),
-        ),
+        BlocProvider<MiRutaBloc>(create: (context) => getIt<MiRutaBloc>()),
+        BlocProvider<MiRutaBloc>(create: (context) => getIt<MiRutaBloc>()),
       ],
       // ✅ BlocBuilder para aplicar tema en toda la app
       child: BlocBuilder<ThemeCubit, bool>(
@@ -191,6 +258,22 @@ class _AuthGate extends StatelessWidget {
           );
         }
         if (state is AuthLoaded) {
+          final firebaseEmail = FirebaseAuth.instance.currentUser?.email;
+          if (isSuperAdminEmail(state.user.email) ||
+              isSuperAdminEmail(firebaseEmail) ||
+              state.user.qaAccess) {
+            return const SuperAdminSwitcherPage();
+          }
+          final role = state.user.role;
+          if (role == 'driver' || role == 'presidente') {
+            return const DriverHomePage();
+          }
+          if (role == 'admin') {
+            return const AdminHomePage();
+          }
+          if (role == 'tickeador') {
+            return const TickeadorHomePage();
+          }
           return const MiRutaScreen();
         }
         return const IniciarSesionPage();
@@ -198,3 +281,4 @@ class _AuthGate extends StatelessWidget {
     );
   }
 }
+

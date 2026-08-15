@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
@@ -19,13 +20,19 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/editar_perfil_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/notificaciones_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/preferencias_notificacion_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/planificar_viaje_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/legal_bottom_sheet.dart';
 
 class PerfilPage extends StatefulWidget {
-  const PerfilPage({super.key});
+  /// A qué pantalla vuelve la pestaña "Inicio" del pie de navegación.
+  /// Nulo = MiRutaScreen (pasajero); los demás perfiles pasan su propio home.
+  final WidgetBuilder? homeBuilder;
+
+  const PerfilPage({super.key, this.homeBuilder});
 
   @override
   State<PerfilPage> createState() => _PerfilPageState();
@@ -56,7 +63,7 @@ class _PerfilPageState extends State<PerfilPage> {
   }
 
   void _onNavTap(int index) {
-    navigateBottomNav(context, index);
+    navigateBottomNav(context, index, homeBuilder: widget.homeBuilder);
   }
 
   void _navigateToEditarPerfil(
@@ -105,9 +112,7 @@ class _PerfilPageState extends State<PerfilPage> {
               );
 
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (_) => const IniciarSesionPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const IniciarSesionPage()),
                 (route) => false,
               );
             },
@@ -149,19 +154,10 @@ class _PerfilPageState extends State<PerfilPage> {
       ),
       title: Text(
         title,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: titleColor,
-        ),
+        style: TextStyle(fontWeight: FontWeight.w600, color: titleColor),
       ),
-      subtitle: subtitle != null
-          ? Text(subtitle)
-          : null,
-      trailing: trailing ??
-          const Icon(
-            Icons.arrow_forward_ios,
-            size: 14,
-          ),
+      subtitle: subtitle != null ? Text(subtitle) : null,
+      trailing: trailing ?? const Icon(Icons.arrow_forward_ios, size: 14),
       onTap: onTap,
     );
   }
@@ -203,6 +199,7 @@ class _PerfilPageState extends State<PerfilPage> {
               fontSize: 20,
             ),
           ),
+          actions: const [SwitchProfileButton()],
         ),
         body: BlocConsumer<UserBloc, UserState>(
           buildWhen: (previous, current) =>

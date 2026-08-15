@@ -178,6 +178,7 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
           originName: widget.originName,
           destinationName: widget.destination.name,
           elapsed: elapsed,
+          farePaid: 2.5,
         );
         await notifService.saveTripNotification(userId, widget.route.name);
         if (notifService.shouldGiveGift()) {

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
+import 'package:mi_ruta/features/routes/presentation/pages/stop_detail_page.dart';
 import 'package:mi_ruta/features/user/domain/entities/osm_route.dart';
 import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
@@ -11,6 +14,16 @@ class RutaAbordajePage extends StatelessWidget {
   final PlaceResult? destination;
 
   const RutaAbordajePage({super.key, this.route, this.destination});
+
+  Future<void> _openStopDetail(BuildContext context) async {
+    final stopName = destination?.name ?? 'Parada principal';
+    final stopInfo = await getIt<RouteService>().getStopInfo(stopName);
+    if (!context.mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => StopDetailPage(stopInfo: stopInfo)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,8 +54,14 @@ class RutaAbordajePage extends StatelessWidget {
               RouteInfoCard(
                 routeName: routeName,
                 destination: destName,
+                stopName: '$destName · Línea ${route?.ref ?? routeName}',
+                routeLines: const ['Línea 1', 'Línea 2'],
+                distance: 'A 1.2 km',
+                trafficStatus: 'Tráfico moderado',
+                status: 'A bordo',
                 eta: '3 min',
-                status: 'Abordaje en curso',
+                estimatedArrival: '3 min',
+                onTap: () => _openStopDetail(context),
               ),
               const SizedBox(height: 24),
               SizedBox(

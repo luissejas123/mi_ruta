@@ -7,12 +7,10 @@ class NotificationDatasource {
   final _rng = Random();
 
   NotificationDatasource({required FirebaseFirestore firestore})
-      : _firestore = firestore;
+    : _firestore = firestore;
 
-  CollectionReference _col(String userId) => _firestore
-      .collection('notifications')
-      .doc(userId)
-      .collection('items');
+  CollectionReference _col(String userId) =>
+      _firestore.collection('notifications').doc(userId).collection('items');
 
   Future<void> save(AppNotification n) async {
     final data = <String, dynamic>{
@@ -32,18 +30,16 @@ class NotificationDatasource {
   }
 
   Future<List<AppNotification>> getAll(String userId) async {
-    final snap = await _col(userId)
-        .orderBy('created_at', descending: true)
-        .limit(100)
-        .get();
+    final snap = await _col(
+      userId,
+    ).orderBy('created_at', descending: true).limit(100).get();
     return snap.docs.map((doc) => _fromDoc(doc, userId)).toList();
   }
 
   Future<int> getUnreadCount(String userId) async {
-    final snap = await _col(userId)
-        .where('is_read', isEqualTo: false)
-        .count()
-        .get();
+    final snap = await _col(
+      userId,
+    ).where('is_read', isEqualTo: false).count().get();
     return snap.count ?? 0;
   }
 
@@ -58,6 +54,10 @@ class NotificationDatasource {
       batch.update(doc.reference, {'is_read': true});
     }
     await batch.commit();
+  }
+
+  Future<void> delete(String userId, String notifId) async {
+    await _col(userId).doc(notifId).delete();
   }
 
   Future<void> markGiftUsed(String userId, String notifId) async {

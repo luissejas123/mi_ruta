@@ -16,8 +16,12 @@ class NotificationLoaded extends NotificationState {
 
   const NotificationLoaded(this.all);
 
-  List<AppNotification> get trips =>
-      all.where((n) => n.type == NotificationType.trip).toList();
+  // Las notificaciones operacionales (aviso de parada del chofer) se
+  // muestran junto con las de viaje: son avisos del mismo contexto.
+  List<AppNotification> get trips => all
+      .where((n) =>
+          n.type == NotificationType.trip || n.type == NotificationType.operational)
+      .toList();
 
   List<AppNotification> get recharges =>
       all.where((n) => n.type == NotificationType.recharge).toList();

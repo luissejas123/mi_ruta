@@ -7,6 +7,7 @@ import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/routes/domain/entities/planned_trip.dart';
+import 'package:mi_ruta/features/routes/domain/services/gtfs_schedule_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/planned_trip_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_entity_converter.dart';
@@ -36,12 +37,50 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
   // Real polyline points per leg loaded from GTFS (null = not loaded yet)
   final List<List<LatLng>?> _legPolylines = [];
 
+  // Upcoming departures (RQ-36)
+  List<Map<String, dynamic>> _departures = [];
+  bool _isLoadingDepartures = false;
+
   @override
   void initState() {
     super.initState();
     _completedLegs.addAll(List.filled(widget.trip.legs.length, false));
     _legPolylines.addAll(List.filled(widget.trip.legs.length, null));
     _loadPolylines();
+    _loadUpcomingDepartures();
+  }
+
+  /// Loads upcoming departures for the first bus leg's boarding point (RQ-36).
+  Future<void> _loadUpcomingDepartures() async {
+    final busLegs = widget.trip.busLegs;
+    if (busLegs.isEmpty) return;
+
+    setState(() => _isLoadingDepartures = true);
+
+    try {
+      final service = getIt<GtfsScheduleService>();
+
+      final nearest = await service.resolveNearestStop(
+        busLegs.first.boardingPoint,
+      );
+      if (nearest == null) {
+        if (mounted) setState(() => _isLoadingDepartures = false);
+        return;
+      }
+
+      final departures = await service.getUpcomingDepartures(
+        stopId: nearest['stop_id'] ?? '',
+        now: DateTime.now(),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _departures = departures;
+        _isLoadingDepartures = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingDepartures = false);
+    }
   }
 
   /// Loads real transit polylines for each leg in the background so the
@@ -53,9 +92,7 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
     for (int i = 0; i < widget.trip.legs.length; i++) {
       final leg = widget.trip.legs[i];
       final isLast = i == widget.trip.legs.length - 1;
-      final dest = isLast
-          ? widget.trip.destinationLatLng
-          : leg.alightingPoint;
+      final dest = isLast ? widget.trip.destinationLatLng : leg.alightingPoint;
 
       try {
         final osmRoute = await _findRouteForLeg(leg, dest, syncService);
@@ -149,9 +186,9 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
     // Find the destination: the alighting point of THIS bus leg, or
     // final dest if it's the last bus leg.
     final busLegs = widget.trip.busLegs;
-    final busIdx = busLegs.indexWhere((b) =>
-        b.boardingPoint == leg.boardingPoint &&
-        b.routeRef == leg.routeRef);
+    final busIdx = busLegs.indexWhere(
+      (b) => b.boardingPoint == leg.boardingPoint && b.routeRef == leg.routeRef,
+    );
     final isLastBus = busIdx == busLegs.length - 1;
     final actualDest = isLastBus
         ? widget.trip.destinationLatLng
@@ -171,7 +208,8 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       if (matchedRoute == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('No se pudo cargar la ruta. Intenta de nuevo.')),
+            content: Text('No se pudo cargar la ruta. Intenta de nuevo.'),
+          ),
         );
         return;
       }
@@ -181,8 +219,8 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       final destName = isLastBus
           ? widget.trip.destinationName
           : nextBusAfter < widget.trip.legs.length
-              ? 'Transbordo — ${widget.trip.legs[nextBusAfter].routeName}'
-              : widget.trip.destinationName;
+          ? 'Transbordo — ${widget.trip.legs[nextBusAfter].routeName}'
+          : widget.trip.destinationName;
 
       final destination = PlaceResult(latLng: actualDest, name: destName);
 
@@ -196,8 +234,7 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
             route: matchedRoute,
             destination: destination,
             origin: leg.boardingPoint,
-            originName:
-                isBusLegFirst ? widget.trip.originName : 'Transbordo',
+            originName: isBusLegFirst ? widget.trip.originName : 'Transbordo',
           ),
         ),
       );
@@ -228,9 +265,9 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -245,6 +282,7 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       originName: widget.trip.originName,
       destinationName: widget.trip.destinationName,
       elapsed: Duration(minutes: widget.trip.totalMinutes),
+      farePaid: widget.trip.totalCostBs,
     );
 
     final notifService = getIt<NotificationService>();
@@ -278,8 +316,10 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
                 Navigator.of(context).pop();
                 Navigator.of(context).pop();
               },
-              child: const Text('OK',
-                  style: TextStyle(color: Color(0xFFFFC12F))),
+              child: const Text(
+                'OK',
+                style: TextStyle(color: Color(0xFFFFC12F)),
+              ),
             ),
           ],
         ),
@@ -314,41 +354,47 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       final color = isActive
           ? const Color(0xFFFFC12F)
           : isCompleted
-              ? Colors.blueGrey
-              : Colors.blueGrey.withValues(alpha: 0.5);
+          ? Colors.blueGrey
+          : Colors.blueGrey.withValues(alpha: 0.5);
 
       // Use real transit points when loaded; fall back to straight line
       final pts = _legPolylines[i];
-      final polylinePoints =
-          (pts != null && pts.length >= 2) ? pts : [leg.boardingPoint, leg.alightingPoint];
+      final polylinePoints = (pts != null && pts.length >= 2)
+          ? pts
+          : [leg.boardingPoint, leg.alightingPoint];
 
-      polylines.add(Polyline(
-        polylineId: PolylineId('leg_$i'),
-        points: polylinePoints,
-        color: color,
-        width: isActive ? 5 : 3,
-        patterns: isCompleted
-            ? [PatternItem.dash(10), PatternItem.gap(6)]
-            : [],
-      ));
+      polylines.add(
+        Polyline(
+          polylineId: PolylineId('leg_$i'),
+          points: polylinePoints,
+          color: color,
+          width: isActive ? 5 : 3,
+          patterns: isCompleted
+              ? [PatternItem.dash(10), PatternItem.gap(6)]
+              : [],
+        ),
+      );
 
-      markers.add(Marker(
-        markerId: MarkerId('board_$i'),
-        position: leg.boardingPoint,
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-            isActive
-                ? BitmapDescriptor.hueYellow
-                : BitmapDescriptor.hueCyan),
-        infoWindow: InfoWindow(title: 'Abordar ${leg.routeName}'),
-      ));
+      markers.add(
+        Marker(
+          markerId: MarkerId('board_$i'),
+          position: leg.boardingPoint,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            isActive ? BitmapDescriptor.hueYellow : BitmapDescriptor.hueCyan,
+          ),
+          infoWindow: InfoWindow(title: 'Abordar ${leg.routeName}'),
+        ),
+      );
     }
 
-    markers.add(Marker(
-      markerId: const MarkerId('destination'),
-      position: trip.destinationLatLng,
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-      infoWindow: InfoWindow(title: trip.destinationName),
-    ));
+    markers.add(
+      Marker(
+        markerId: const MarkerId('destination'),
+        position: trip.destinationLatLng,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        infoWindow: InfoWindow(title: trip.destinationName),
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -389,7 +435,9 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
                       Text(
                         trip.routesSummary,
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -405,17 +453,25 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
                   ),
                 ),
                 _InfoChip(
-                    label: '${trip.totalMinutes} min',
-                    icon: Icons.access_time),
+                  label: '${trip.totalMinutes} min',
+                  icon: Icons.access_time,
+                ),
                 const SizedBox(width: 8),
                 _InfoChip(
-                    label: 'Bs ${trip.totalCostBs.toStringAsFixed(0)}',
-                    icon: Icons.payments_outlined),
+                  label: 'Bs ${trip.totalCostBs.toStringAsFixed(0)}',
+                  icon: Icons.payments_outlined,
+                ),
               ],
             ),
           ),
 
           const Divider(height: 1),
+
+          // Upcoming departures (RQ-36)
+          _UpcomingDeparturesCard(
+            departures: _departures,
+            isLoading: _isLoadingDepartures,
+          ),
 
           // Legs list
           Expanded(
@@ -425,18 +481,12 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
               itemBuilder: (context, i) {
                 final leg = trip.legs[i];
                 if (leg.isWalking) {
-                  return _WalkCard(
-                    leg: leg,
-                    isCompleted: _completedLegs[i],
-                  );
+                  return _WalkCard(leg: leg, isCompleted: _completedLegs[i]);
                 }
                 return _LegCard(
                   leg: leg,
                   legIndex: i,
-                  busIndex: trip.legs
-                      .take(i + 1)
-                      .where((l) => l.isBus)
-                      .length,
+                  busIndex: trip.legs.take(i + 1).where((l) => l.isBus).length,
                   totalBusLegs: trip.busLegs.length,
                   isActive: i == _currentLeg,
                   isCompleted: _completedLegs[i],
@@ -474,9 +524,148 @@ class _InfoChip extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-                fontSize: 12,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFFFC12F),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Upcoming departures card (RQ-36) ─────────────────────────────────────────
+
+class _UpcomingDeparturesCard extends StatelessWidget {
+  final List<Map<String, dynamic>> departures;
+  final bool isLoading;
+
+  const _UpcomingDeparturesCard({
+    required this.departures,
+    required this.isLoading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.schedule, size: 18, color: const Color(0xFFFFC12F)),
+              const SizedBox(width: 8),
+              Text(
+                'Próximas salidas',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFFFFC12F),
+                  ),
+                ),
+              ),
+            )
+          else if (departures.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                'No hay salidas próximas para esta parada.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+            )
+          else
+            ...departures.map((d) => _DepartureRow(departure: d)),
+        ],
+      ),
+    );
+  }
+}
+
+class _DepartureRow extends StatelessWidget {
+  final Map<String, dynamic> departure;
+
+  const _DepartureRow({required this.departure});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final time = departure['time'] ?? '--:--';
+    final routeId = departure['route_id'] ?? '—';
+    final headsign = departure['trip_headsign'] ?? '—';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFC12F).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '$time',
+              style: const TextStyle(
+                fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFFFFC12F)),
+                color: Color(0xFFFFC12F),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ruta $routeId',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                Text(
+                  '$headsign',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -488,8 +677,8 @@ class _InfoChip extends StatelessWidget {
 
 class _LegCard extends StatelessWidget {
   final PlannedTripLeg leg;
-  final int legIndex;   // index in full legs list (for _currentLeg tracking)
-  final int busIndex;   // 1-based index among bus-only legs
+  final int legIndex; // index in full legs list (for _currentLeg tracking)
+  final int busIndex; // 1-based index among bus-only legs
   final int totalBusLegs;
   final bool isActive;
   final bool isCompleted;
@@ -519,15 +708,15 @@ class _LegCard extends StatelessWidget {
         color: isActive
             ? const Color(0xFFFFC12F).withValues(alpha: 0.1)
             : isCompleted
-                ? Colors.green.withValues(alpha: 0.08)
-                : colorScheme.surfaceContainerHighest,
+            ? Colors.green.withValues(alpha: 0.08)
+            : colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isActive
               ? const Color(0xFFFFC12F).withValues(alpha: 0.5)
               : isCompleted
-                  ? Colors.green.withValues(alpha: 0.3)
-                  : colorScheme.onSurface.withValues(alpha: 0.08),
+              ? Colors.green.withValues(alpha: 0.3)
+              : colorScheme.onSurface.withValues(alpha: 0.08),
         ),
       ),
       child: Row(
@@ -540,8 +729,8 @@ class _LegCard extends StatelessWidget {
               color: isCompleted
                   ? Colors.green
                   : isActive
-                      ? const Color(0xFFFFC12F)
-                      : colorScheme.onSurface.withValues(alpha: 0.1),
+                  ? const Color(0xFFFFC12F)
+                  : colorScheme.onSurface.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -593,21 +782,25 @@ class _LegCard extends StatelessWidget {
                         foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                       child: isLoading
                           ? const SizedBox(
                               height: 18,
                               width: 18,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.black),
+                                strokeWidth: 2,
+                                color: Colors.black,
+                              ),
                             )
                           : Text(
                               busIndex == 1
                                   ? 'Iniciar viaje'
                                   : 'Abordar línea $busIndex',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                     ),
                   ),

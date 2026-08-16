@@ -7,7 +7,6 @@ import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/data/datasources/geocoding_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/location_datasource.dart';
-import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 import 'package:mi_ruta/features/user/domain/services/route_finder_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/route_search_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/route_search_event.dart';
@@ -51,8 +50,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
 
   final _locationDatasource = LocationDatasource();
   final _geocodingDatasource = GeocodingDatasource();
-  late final RouteDataSyncService _syncService =
-      getIt<RouteDataSyncService>();
+  late final RouteDataSyncService _syncService = getIt<RouteDataSyncService>();
 
   GoogleMapController? _mapController;
   LatLng? _userLocation;
@@ -111,10 +109,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
 
     if (mounted) {
       context.read<RouteSearchBloc>().add(
-        SearchRoutesRequested(
-          origin: originLatLng,
-          destination: _destination!,
-        ),
+        SearchRoutesRequested(origin: originLatLng, destination: _destination!),
       );
     }
   }
@@ -227,8 +222,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
 
   Future<void> _reverseGeocode() async {
     if (_cameraCenter == null) return;
-    final address =
-        await _geocodingDatasource.reverseGeocode(_cameraCenter!);
+    final address = await _geocodingDatasource.reverseGeocode(_cameraCenter!);
     if (!mounted) return;
     setState(() => _pinAddress = address ?? 'Dirección no disponible');
   }
@@ -267,8 +261,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
             ),
             onMapCreated: (controller) {
               _mapController = controller;
-              _cameraCenter =
-                  _userLocation ?? LocationDatasource.defaultCenter;
+              _cameraCenter = _userLocation ?? LocationDatasource.defaultCenter;
             },
             onCameraMove: (pos) {
               _cameraCenter = pos.target;
@@ -308,8 +301,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
               onOriginTap: _onOriginTap,
               onDestinationTap: _onDestinationTap,
               onOriginPinTap: () => _togglePinMode(_PinFor.origin),
-              onDestinationPinTap: () =>
-                  _togglePinMode(_PinFor.destination),
+              onDestinationPinTap: () => _togglePinMode(_PinFor.destination),
               onSearchTap: _findRoutes,
             ),
           ),

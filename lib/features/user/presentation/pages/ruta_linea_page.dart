@@ -106,9 +106,7 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
 
   Widget _buildLoadingScaffold() => Scaffold(
     appBar: _buildAppBar(),
-    body: const Center(
-      child: CircularProgressIndicator(color: _amarillo),
-    ),
+    body: const Center(child: CircularProgressIndicator(color: _amarillo)),
   );
 
   Widget _buildSummary({
@@ -140,36 +138,30 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
     required List<LatLng> transitSegment,
     required List<LatLng> walkStartPoints,
     required List<LatLng> walkEndPoints,
-  }) =>
-      SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: () => _navigateToNavegacion(
-            boardingStop: boardingStop,
-            alightingStop: alightingStop,
-            transitSegment: transitSegment,
-            walkStartPoints: walkStartPoints,
-            walkEndPoints: walkEndPoints,
-          ),
-          style: ElevatedButton.styleFrom(
-            // ✅ Color amarillo consistente
-            backgroundColor: _amarillo,
-            foregroundColor: Colors.black,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-          child: const Text(
-            'Abordar línea',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      );
+  }) => SizedBox(
+    width: double.infinity,
+    child: ElevatedButton(
+      onPressed: () => _navigateToNavegacion(
+        boardingStop: boardingStop,
+        alightingStop: alightingStop,
+        transitSegment: transitSegment,
+        walkStartPoints: walkStartPoints,
+        walkEndPoints: walkEndPoints,
+      ),
+      style: ElevatedButton.styleFrom(
+        // ✅ Color amarillo consistente
+        backgroundColor: _amarillo,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      child: const Text(
+        'Abordar línea',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -186,16 +178,9 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 60,
-                    color: Colors.red,
-                  ),
+                  const Icon(Icons.error_outline, size: 60, color: Colors.red),
                   const SizedBox(height: 16),
-                  Text(
-                    state.message,
-                    textAlign: TextAlign.center,
-                  ),
+                  Text(state.message, textAlign: TextAlign.center),
                 ],
               ),
             ),
@@ -227,7 +212,7 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
           return Scaffold(
             appBar: _buildAppBar(),
             body: SafeArea(
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
                   vertical: 16,
@@ -245,7 +230,7 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
                       boardingStop: state.tripSegment.boardingStop,
                       alightingStop: state.tripSegment.alightingStop,
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 16),
                     _buildBoardButton(
                       boardingStop: state.tripSegment.boardingStop,
                       alightingStop: state.tripSegment.alightingStop,

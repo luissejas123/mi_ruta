@@ -25,8 +25,9 @@ class NavBottomPanel extends StatelessWidget {
         return _PhaseDisplay(
           icon: Icons.directions_walk,
           color: Colors.blue,
-          title: 'Caminando a la parada',
-          subtitle: 'Dirígete al punto de abordaje',
+          title: 'Caminando',
+          subtitle: 'Dirígete a la parada',
+          statusText: 'A pie',
         );
       case TripPhase.onBus:
         return _PhaseDisplay(
@@ -34,27 +35,37 @@ class NavBottomPanel extends StatelessWidget {
           color: const Color(0xFFFBC02D),
           title: 'En el bus',
           subtitle: routeName,
+          statusText: 'A bordo',
         );
       case TripPhase.walkEnd:
         return _PhaseDisplay(
           icon: Icons.directions_walk,
           color: Colors.blue,
-          title: 'Caminando al destino',
+          title: 'Llegando',
           subtitle: 'Ya bajaste del bus',
+          statusText: 'Último tramo',
         );
       case TripPhase.arrived:
         return _PhaseDisplay(
           icon: Icons.check_circle,
           color: Colors.green,
-          title: '¡Llegaste!',
+          title: 'Llegaste',
           subtitle: destinationName,
+          statusText: 'Finalizado',
         );
     }
   }
 
   String _fmtDist(double meters) {
-    if (meters >= 1000) return '${(meters / 1000).toStringAsFixed(1)} km';
-    return '${meters.round()} m';
+    if (meters >= 1000) return 'A ${(meters / 1000).toStringAsFixed(1)} km';
+    return 'A ${meters.round()} m';
+  }
+
+  String _arrivalText() {
+    if (phase == TripPhase.arrived) return 'Ya llegaste';
+    if (phase == TripPhase.onBus) return 'Tiempo de llegada aprox. 25 min';
+    if (phase == TripPhase.walkEnd) return 'Tiempo de llegada aprox. 5 min';
+    return 'Tiempo de llegada aprox. 15 min';
   }
 
   @override
@@ -78,73 +89,142 @@ class NavBottomPanel extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Fila de fase
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: info.color.withAlpha(30),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(info.icon, color: info.color, size: 28),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4F4F4),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.black12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          info.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                        Expanded(
+                          child: Text(
+                            'Transporte',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 2),
                         Text(
-                          info.subtitle,
+                          'Usuario',
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                             fontSize: 13,
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                            fontWeight: FontWeight.w600,
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        _fmtDist(remainingMeters),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                          color: info.color,
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: info.color.withAlpha(30),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(info.icon, color: info.color, size: 24),
                         ),
-                      ),
-                      Text(
-                        'restante',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            info.title,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        Text(
+                          _fmtDist(remainingMeters),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Icon(Icons.traffic_outlined, size: 18, color: Colors.black54),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Tráfico moderado',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFC12F).withOpacity(0.25),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            info.statusText,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Icon(Icons.check_circle_outline, size: 18, color: Colors.green),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Estado: ${info.statusText}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Icon(Icons.access_time_outlined, size: 18, color: Colors.black54),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _arrivalText(),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
-              // Botón finalizar
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: arrived ? null : onFinalize,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade600,
+                    backgroundColor: arrived ? Colors.green : Colors.red.shade600,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.green,
                     disabledForegroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -173,11 +253,13 @@ class _PhaseDisplay {
   final Color color;
   final String title;
   final String subtitle;
+  final String statusText;
 
   const _PhaseDisplay({
     required this.icon,
     required this.color,
     required this.title,
     required this.subtitle,
+    required this.statusText,
   });
 }

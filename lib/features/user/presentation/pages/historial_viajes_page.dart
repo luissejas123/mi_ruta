@@ -65,20 +65,7 @@ class _HistorialView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: const Text(
-          'Historial de viajes',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Descargar historial',
-            onPressed: () => _downloadDriverHistory(context),
-            icon: const Icon(Icons.download_outlined),
-          ),
-        ],
-      ),
+      backgroundColor: const Color(0xFFD9D9D9),
       body: BlocBuilder<TripHistoryBloc, TripHistoryState>(
         builder: (context, state) {
           if (state is TripHistoryLoading) {
@@ -100,15 +87,192 @@ class _HistorialView extends StatelessWidget {
           }
           if (state is TripHistoryLoaded) {
             if (state.trips.isEmpty) return const _EmptyState();
-            return OrientationBuilder(
-              builder: (context, orientation) =>
-                  orientation == Orientation.landscape
-                  ? _LandscapeList(trips: state.trips)
-                  : _PortraitList(trips: state.trips),
-            );
+            return TripHistoryListWidget(trips: state.trips);
           }
           return const SizedBox.shrink();
         },
+      ),
+    );
+  }
+}
+
+class TripHistoryListWidget extends StatefulWidget {
+  final List<TripHistoryEntry> trips;
+
+  const TripHistoryListWidget({super.key, required this.trips});
+
+  @override
+  State<TripHistoryListWidget> createState() => _TripHistoryListWidgetState();
+}
+
+class _TripHistoryListWidgetState extends State<TripHistoryListWidget> {
+  static const _filterOptions = ['Hoy', 'Semanal', 'Mensual', 'Todos'];
+  String _selectedFilter = 'Todos';
+
+  List<TripHistoryEntry> get _filteredTrips {
+    final sortedTrips = [...widget.trips]
+      ..sort((a, b) => b.date.compareTo(a.date));
+
+    if (_selectedFilter == 'Todos') return sortedTrips;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    return sortedTrips.where((trip) {
+      final tripDay = DateTime(trip.date.year, trip.date.month, trip.date.day);
+      switch (_selectedFilter) {
+        case 'Hoy':
+          return tripDay == today;
+        case 'Semanal':
+          final weekAgo = today.subtract(const Duration(days: 7));
+          return !tripDay.isBefore(weekAgo) && !tripDay.isAfter(today);
+        case 'Mensual':
+          return trip.date.year == now.year && trip.date.month == now.month;
+        default:
+          return true;
+      }
+    }).toList();
+  }
+
+  String _formatTripDate(DateTime date) {
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    return '${date.day} ${months[date.month - 1]} ${date.year} - $hour:$minute';
+  }
+
+  String _formatAmount(TripHistoryEntry trip) =>
+      '- Bs ${trip.farePaid > 0 ? trip.farePaid.toStringAsFixed(2) : '0.00'}';
+
+  @override
+  Widget build(BuildContext context) {
+    final filteredTrips = _filteredTrips;
+
+    return Container(
+      color: const Color(0xFFD9D9D9),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              const Text(
+                'MOVIMIENTOS',
+                style: TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 42,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _filterOptions.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final filter = _filterOptions[index];
+                    final selected = filter == _selectedFilter;
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedFilter = filter),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: selected ? const Color(0xFFFFC12F) : const Color(0xFFFFD14D),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 2,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          filter,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 18),
+              if (filteredTrips.isEmpty)
+                const Expanded(
+                  child: Center(
+                    child: Text(
+                      'No hay viajes registrados',
+                      style: TextStyle(fontSize: 16, color: Colors.black54),
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: filteredTrips.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final trip = filteredTrips[index];
+                      final title = 'Pago Transporte ${trip.routeName}';
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    title,
+                                    style: const TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _formatTripDate(trip.date),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              _formatAmount(trip),
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFE0A209),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

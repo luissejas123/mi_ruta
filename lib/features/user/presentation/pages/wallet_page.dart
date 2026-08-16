@@ -5,8 +5,9 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
-import 'package:mi_ruta/features/user/presentation/pages/movimientos_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/pago_qr_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/historial_beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recarga_saldo_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/balance_card.dart';
@@ -68,7 +69,7 @@ class _WalletPageState extends State<WalletPage> {
   void _navigateToMovimientos() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const MovimientosPage()),
+      MaterialPageRoute(builder: (_) => const HistorialViajesPage()),
     );
   }
 
@@ -83,6 +84,13 @@ class _WalletPageState extends State<WalletPage> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const SolicitudBeneficioPage()),
+    );
+  }
+
+  void _navigateToHistorialBeneficios() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const HistorialBeneficiosPage()),
     );
   }
 
@@ -152,6 +160,12 @@ class _WalletPageState extends State<WalletPage> {
           label: 'ACCEDER A BENEFICIOS',
           icon: Icons.star_outline,
           onPressed: _navigateToSolicitudBeneficio,
+        ),
+        const SizedBox(height: 12),
+        _ActionButton(
+          label: 'HISTORIAL DE BENEFICIOS',
+          icon: Icons.history,
+          onPressed: _navigateToHistorialBeneficios,
         ),
       ],
     );

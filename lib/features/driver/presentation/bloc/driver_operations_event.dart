@@ -65,3 +65,13 @@ class NotifyStop extends DriverOperationsEvent {
   @override
   List<Object?> get props => [stopName];
 }
+
+class TripPaymentReceived extends DriverOperationsEvent {
+  final String tripId;
+  final double amount;
+
+  const TripPaymentReceived(this.tripId, this.amount);
+
+  @override
+  List<Object?> get props => [tripId, amount];
+}

@@ -13,14 +13,16 @@ import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dar
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
 class PagoQRPage extends StatelessWidget {
-  const PagoQRPage({super.key});
+  final WidgetBuilder? homeBuilder;
+  const PagoQRPage({super.key, this.homeBuilder});
 
   @override
-  Widget build(BuildContext context) => const _PagoQRView();
+  Widget build(BuildContext context) => _PagoQRView(homeBuilder: homeBuilder);
 }
 
 class _PagoQRView extends StatefulWidget {
-  const _PagoQRView();
+  final WidgetBuilder? homeBuilder;
+  const _PagoQRView({this.homeBuilder});
 
   @override
   State<_PagoQRView> createState() => _PagoQRViewState();
@@ -39,7 +41,11 @@ class _PagoQRViewState extends State<_PagoQRView> {
     return authState is AuthLoaded ? authState.user.uid : null;
   }
 
-  void _onNavTap(int index) => navigateBottomNav(context, index);
+  void _onNavTap(int index) => navigateBottomNav(
+        context, 
+        index,
+        homeBuilder: widget.homeBuilder,
+      );
 
   Future<void> _scanQr() async {
     final userId = _getUserId();
@@ -125,15 +131,17 @@ class _PagoQRViewState extends State<_PagoQRView> {
   void _showSuccess(TripPaymentSuccess state) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(state.message),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            Text('¡Pago de Bs. ${state.amount.toStringAsFixed(2)} exitoso!'),
+          ],
+        ),
         backgroundColor: Colors.green.shade700,
       ),
     );
-    final navigator = Navigator.of(context);
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      navigator.pop();
-    });
+    // Ya no hacemos pop automático para que el usuario pueda ver el recibo.
   }
 
   Widget _buildSuccessMessage(TripPaymentSuccess state) => Container(

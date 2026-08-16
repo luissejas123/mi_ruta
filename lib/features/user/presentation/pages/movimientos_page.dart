@@ -12,7 +12,9 @@ import 'package:mi_ruta/features/user/presentation/widgets/period_filter_button.
 import 'package:mi_ruta/features/user/presentation/widgets/transaction_card.dart';
 
 class MovimientosPage extends StatefulWidget {
-  const MovimientosPage({super.key});
+  final WidgetBuilder? homeBuilder;
+  
+  const MovimientosPage({super.key, this.homeBuilder});
 
   @override
   State<MovimientosPage> createState() => _MovimientosPageState();
@@ -51,7 +53,11 @@ class _MovimientosPageState extends State<MovimientosPage> {
     context.read<WalletBloc>().add(LoadTransactionHistoryEvent(_userId));
   }
 
-  void _onNavTap(int index) => navigateBottomNav(context, index);
+  void _onNavTap(int index) => navigateBottomNav(
+        context, 
+        index,
+        homeBuilder: widget.homeBuilder,
+      );
 
   void _selectFilter(String filter) {
     setState(() => _selectedFilter = filter);
@@ -161,31 +167,53 @@ class _MovimientosPageState extends State<MovimientosPage> {
     final amount = (transaction['amount'] ?? 0.0).toDouble().abs();
     final timestamp = transaction['timestamp'];
     final transactionType = transaction['transaction_type'] ?? '';
-    final isTopUp = transactionType.contains('top_up') ||
-        transactionType.contains('recharge');
+    
+    final isTopUp = transactionType.contains('top_up') || transactionType.contains('recharge');
+    final isTripIncome = transactionType == 'trip_payment_received';
+    final isPositive = isTopUp || isTripIncome;
+    
     final date = _parseTransactionDate(timestamp);
 
+    IconData iconData;
+    String subtitle;
+    
+    if (isTopUp) {
+      iconData = Icons.add_circle;
+      subtitle = 'Recarga de saldo';
+    } else if (isTripIncome) {
+      iconData = Icons.local_taxi; // Icono representativo para choferes
+      subtitle = 'Cobro de pasaje';
+    } else {
+      iconData = Icons.remove_circle;
+      subtitle = 'Pago de viaje';
+    }
+
     return GestureDetector(
-      onTap: () => _showReceiptSheet(transaction, isTopUp, amount, date),
+      onTap: () => _showReceiptSheet(transaction, isPositive, amount, date),
       child: TransactionCard(
-        icon: isTopUp ? Icons.add_circle : Icons.remove_circle,
+        icon: iconData,
         title: title,
-        subtitle: isTopUp ? 'Recarga de saldo' : 'Pago de viaje',
-        amount: '${isTopUp ? '+' : '-'} Bs. ${amount.toStringAsFixed(2)}',
+        subtitle: subtitle,
+        amount: '${isPositive ? '+' : '-'} Bs. ${amount.toStringAsFixed(2)}',
         date: date,
-        iconBackgroundColor: const Color(0xFFFFF9C4),
-        iconColor: _amarillo,
-        amountColor: isTopUp ? Colors.green : _amarillo,
+        iconBackgroundColor: isTripIncome ? Colors.green.shade50 : const Color(0xFFFFF9C4),
+        iconColor: isTripIncome ? Colors.green.shade700 : _amarillo,
+        amountColor: isPositive ? Colors.green : _amarillo,
       ),
     );
   }
 
   void _showReceiptSheet(
     Map<String, dynamic> transaction,
-    bool isTopUp,
+    bool isPositive,
     double amount,
     DateTime date,
   ) {
+    final isTripIncome = transaction['transaction_type'] == 'trip_payment_received';
+    final subtitle = isTripIncome 
+        ? 'Cobro de pasaje' 
+        : (isPositive ? 'Recarga de saldo' : 'Pago de viaje');
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -193,9 +221,9 @@ class _MovimientosPageState extends State<MovimientosPage> {
       ),
       builder: (sheetContext) => _ReceiptSheet(
         title: transaction['description'] ?? 'Transacción',
-        subtitle: isTopUp ? 'Recarga de saldo' : 'Pago de viaje',
+        subtitle: subtitle,
         amount: amount,
-        isTopUp: isTopUp,
+        isTopUp: isPositive, // isPositive usa el estilo verde en el comprobante
         date: date,
         onDownload: () => _downloadReceipt(sheetContext, transaction),
       ),

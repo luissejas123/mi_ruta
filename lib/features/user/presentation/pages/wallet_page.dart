@@ -58,25 +58,29 @@ class _WalletPageState extends State<WalletPage> {
     navigateBottomNav(context, index, homeBuilder: widget.homeBuilder);
   }
 
-  void _navigateToRecargaSaldo() {
-    Navigator.push(
+  void _navigateToRecargaSaldo() async {
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const RecargaSaldoPage()),
     );
+    if (!mounted) return;
+    _loadWalletData();
   }
 
   void _navigateToMovimientos() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const MovimientosPage()),
+      MaterialPageRoute(builder: (_) => MovimientosPage(homeBuilder: widget.homeBuilder)),
     );
   }
 
-  void _navigateToPagoQR() {
-    Navigator.push(
+  void _navigateToPagoQR() async {
+    await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const PagoQRPage()),
+      MaterialPageRoute(builder: (_) => PagoQRPage(homeBuilder: widget.homeBuilder)),
     );
+    if (!mounted) return;
+    _loadWalletData();
   }
 
   void _navigateToSolicitudBeneficio() {

@@ -603,13 +603,38 @@ class _DriverOperationsSections extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 1. Obtener el vehículo más actualizado desde DriverServiceBloc
+    final serviceState = context.watch<DriverServiceBloc>().state;
+    final freshVehicle = serviceState is DriverServiceLoaded ? serviceState.vehicle : null;
+
     return BlocConsumer<DriverOperationsBloc, DriverOperationsState>(
-      listenWhen: (previous, current) => current is DriverOperationsError,
+      listenWhen: (previous, current) {
+        if (current is DriverOperationsError) return true;
+        if (previous is DriverOperationsLoaded && current is DriverOperationsLoaded) {
+          return current.lastPaymentReceivedAmount != previous.lastPaymentReceivedAmount;
+        }
+        return false;
+      },
       listener: (context, state) {
         if (state is DriverOperationsError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.message), backgroundColor: Colors.red.shade700),
           );
+        } else if (state is DriverOperationsLoaded && state.lastPaymentReceivedAmount != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text('¡Pago de Bs. ${state.lastPaymentReceivedAmount!.toStringAsFixed(2)} recibido!'),
+                ],
+              ),
+              backgroundColor: Colors.green.shade700,
+            ),
+          );
+          // Opcionalmente podemos "limpiar" este valor del estado disparando un evento,
+          // o simplemente confiar en que el listenWhen no se volverá a disparar a menos que cambie.
         }
       },
       builder: (context, state) {
@@ -619,9 +644,37 @@ class _DriverOperationsSections extends StatelessWidget {
             child: Center(child: CircularProgressIndicator(color: DriverHomePage._amarillo)),
           );
         }
+
+        if (state is DriverOperationsError) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Column(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                  const SizedBox(height: 10),
+                  Text('Error al cargar datos:\n${state.message}', textAlign: TextAlign.center),
+                  const SizedBox(height: 10),
+                  TextButton.icon(
+                    onPressed: () {
+                      if (freshVehicle != null) {
+                        context.read<DriverOperationsBloc>().add(LoadDriverOperations(freshVehicle));
+                      }
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Reintentar'),
+                  )
+                ],
+              ),
+            ),
+          );
+        }
+
         if (state is! DriverOperationsLoaded) return const SizedBox.shrink();
 
-        final canOperate = state.vehicle.status == VehicleStatus.approved;
+        // Usar el vehículo fresco si está disponible, sino el del state
+        final activeVehicle = freshVehicle ?? state.vehicle;
+        final canOperate = activeVehicle.status == VehicleStatus.approved;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -635,15 +688,13 @@ class _DriverOperationsSections extends StatelessWidget {
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                     )
                   : Text(
-                      'No se encontró una ruta activa con línea "${state.vehicle.lineNumber}".',
+                      'No se encontró una ruta activa con línea "${activeVehicle.lineNumber}".',
                       style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
                     ),
             ),
-            _VehicleInfoEditSection(vehicle: state.vehicle, isBusy: state.isBusy),
-            if (canOperate && state.vehicle.inService) ...[
-              _ChargeSection(state: state),
-              _NotifyStopSection(state: state),
-            ],
+            _VehicleInfoEditSection(vehicle: activeVehicle, isBusy: state.isBusy),
+            _ChargeSection(state: state),
+            _NotifyStopSection(state: state),
             _PerformanceSection(state: state),
             _TripHistorySection(trips: state.trips),
             _IncomeHistorySection(income: state.incomeTransactions),
@@ -995,36 +1046,55 @@ class _TripHistorySection extends StatelessWidget {
               children: trips
                   .take(5)
                   .map(
-                    (t) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
+                    (t) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: (t.isPaid ? Colors.green : Colors.orange).withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              t.isPaid ? Icons.check_circle : Icons.pending,
+                              size: 16,
+                              color: t.isPaid ? Colors.green.shade700 : Colors.orange.shade700,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              t.routeName.isNotEmpty ? t.routeName : t.routeRef,
-                              style: const TextStyle(fontSize: 13),
-                              overflow: TextOverflow.ellipsis,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  t.routeName.isNotEmpty ? t.routeName : t.routeRef,
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  t.isPaid ? 'Cobro completado' : 'Pendiente de pago',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: t.isPaid ? Colors.green.shade700 : Colors.orange.shade700,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           Text(
-                            'Bs. ${(t.paymentAmount ?? t.baseFare).toStringAsFixed(2)}',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: (t.isPaid ? Colors.green : Colors.orange).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              t.isPaid ? 'Pagado' : 'Pendiente',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: t.isPaid ? Colors.green.shade700 : Colors.orange.shade700,
-                              ),
+                            '+ Bs. ${(t.paymentAmount ?? t.baseFare).toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: t.isPaid ? Colors.green.shade700 : Colors.black87,
                             ),
                           ),
                         ],

@@ -137,6 +137,11 @@ class DriverService {
     return {'tripId': tripId, 'qrData': qrData, 'amount': amount};
   }
 
+  /// Escucha en tiempo real los cambios de estado de un viaje
+  Stream<Map<String, dynamic>?> streamTripStatus(String tripId) {
+    return _datasource.streamTrip(tripId).map((doc) => doc.data() as Map<String, dynamic>?);
+  }
+
   /// Avisa a los pasajeros que abordaron esta unidad recientemente que el
   /// chofer se aproxima a una parada (RQ-66). Devuelve cuántos fueron notificados.
   Future<int> notifyStop(VehicleEntity vehicle, String stopName) async {

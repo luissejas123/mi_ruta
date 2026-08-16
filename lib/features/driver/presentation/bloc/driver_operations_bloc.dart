@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_operations_event.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_operations_state.dart';
+import 'package:mi_ruta/features/driver/domain/entities/driver_trip_entity.dart';
 
 class DriverOperationsBloc extends Bloc<DriverOperationsEvent, DriverOperationsState> {
   final DriverService _service;
+  StreamSubscription? _tripSubscription;
 
   DriverOperationsBloc({required DriverService service})
       : _service = service,
@@ -15,6 +19,13 @@ class DriverOperationsBloc extends Bloc<DriverOperationsEvent, DriverOperationsS
     on<UpdateVehicleInfo>(_onUpdateVehicleInfo);
     on<DownloadTripHistory>(_onDownloadHistory);
     on<NotifyStop>(_onNotifyStop);
+    on<TripPaymentReceived>(_onTripPaymentReceived);
+  }
+
+  @override
+  Future<void> close() {
+    _tripSubscription?.cancel();
+    return super.close();
   }
 
   Future<void> _onLoad(
@@ -24,8 +35,21 @@ class DriverOperationsBloc extends Bloc<DriverOperationsEvent, DriverOperationsS
     emit(const DriverOperationsLoading());
     try {
       final route = await _service.getAssignedRoute(event.vehicle);
-      final trips = await _service.getTripHistory(event.vehicle.ownerUid);
-      final income = await _service.getIncomeTransactions(event.vehicle.ownerUid);
+      
+      List<DriverTripEntity> trips = [];
+      try {
+        trips = await _service.getTripHistory(event.vehicle.ownerUid);
+      } catch (e) {
+        print('Error cargando historial de viajes: $e');
+      }
+
+      List<Map<String, dynamic>> income = [];
+      try {
+        income = await _service.getIncomeTransactions(event.vehicle.ownerUid);
+      } catch (e) {
+        print('Error cargando ingresos: $e');
+      }
+
       emit(DriverOperationsLoaded(
         vehicle: event.vehicle,
         assignedRoute: route,
@@ -34,7 +58,7 @@ class DriverOperationsBloc extends Bloc<DriverOperationsEvent, DriverOperationsS
         performance: _service.buildPerformanceSummary(trips),
       ));
     } catch (e) {
-      emit(DriverOperationsError('No se pudo cargar la información: $e'));
+      emit(DriverOperationsError('No se pudo cargar la información del vehículo o ruta: $e'));
     }
   }
 
@@ -56,15 +80,38 @@ class DriverOperationsBloc extends Bloc<DriverOperationsEvent, DriverOperationsS
         activeChargeAmount: charge['amount'] as double,
         isBusy: false,
       ));
+
+      _tripSubscription?.cancel();
+      _tripSubscription = _service.streamTripStatus(charge['tripId']).listen((statusMap) {
+        if (statusMap != null && statusMap['payment_status'] == 'paid') {
+          add(TripPaymentReceived(charge['tripId'], charge['amount'] as double));
+        }
+      });
     } catch (e) {
       emit(DriverOperationsError('No se pudo generar el cobro: $e'));
     }
   }
 
   void _onClearCharge(ClearTripCharge event, Emitter<DriverOperationsState> emit) {
+    _tripSubscription?.cancel();
     final current = state;
     if (current is! DriverOperationsLoaded) return;
     emit(current.copyWith(clearActiveCharge: true));
+  }
+
+  void _onTripPaymentReceived(TripPaymentReceived event, Emitter<DriverOperationsState> emit) {
+    _tripSubscription?.cancel();
+    final current = state;
+    if (current is! DriverOperationsLoaded) return;
+    
+    // Oculta el QR y guarda el monto para mostrar el snackbar
+    emit(current.copyWith(
+      clearActiveCharge: true,
+      lastPaymentReceivedAmount: event.amount,
+    ));
+    
+    // Recarga la data del chofer para actualizar ingresos e historial
+    add(LoadDriverOperations(current.vehicle));
   }
 
   Future<void> _onUpdateVehicleInfo(

@@ -45,7 +45,13 @@ class TripPaymentService {
       }
 
       final userData = userDoc.data() as Map<String, dynamic>;
-      final currentBalance = (userData['wallet_balance'] ?? 0).toDouble();
+      final passengerName = userData['fullName'] ?? userData['full_name'] ?? userData['name'] ?? 'Desconocido';
+      final walletData = userData['wallet'] as Map<String, dynamic>?;
+      
+      final driverDoc = await _firestore.collection('users').doc(driverId).get();
+      final driverData = driverDoc.data() as Map<String, dynamic>?;
+      final driverName = driverData?['fullName'] ?? driverData?['full_name'] ?? driverData?['name'] ?? 'Desconocido';
+      final currentBalance = (walletData?['current_balance'] ?? 0).toDouble();
 
       if (currentBalance < amount) {
         throw Exception(
@@ -57,12 +63,14 @@ class TripPaymentService {
       await _firestore.runTransaction((transaction) async {
         // Descontar de billetera del usuario
         transaction.update(_firestore.collection('users').doc(userId), {
-          'wallet_balance': FieldValue.increment(-amount),
+          'wallet.current_balance': FieldValue.increment(-amount),
+          'wallet.updated_at': FieldValue.serverTimestamp(),
         });
 
         // Acreditar al chofer
         transaction.update(_firestore.collection('users').doc(driverId), {
-          'wallet_balance': FieldValue.increment(amount),
+          'wallet.current_balance': FieldValue.increment(amount),
+          'wallet.updated_at': FieldValue.serverTimestamp(),
         });
 
         // Actualizar estado del viaje
@@ -80,7 +88,7 @@ class TripPaymentService {
         'user_id': userId,
         'transaction_type': 'trip_payment',
         'amount': -amount,
-        'description': 'Pago de viaje con chofer $driverId',
+        'description': 'Pago a chofer $driverName',
         'timestamp': FieldValue.serverTimestamp(),
         'payment_method': 'qr',
         'status': 'completed',
@@ -93,7 +101,7 @@ class TripPaymentService {
         'user_id': driverId,
         'transaction_type': 'trip_payment_received',
         'amount': amount,
-        'description': 'Pago de viaje del pasajero $userId',
+        'description': 'Cobro a pasajero $passengerName',
         'timestamp': FieldValue.serverTimestamp(),
         'payment_method': 'qr',
         'status': 'completed',

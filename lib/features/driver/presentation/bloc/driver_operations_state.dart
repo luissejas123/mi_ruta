@@ -27,6 +27,7 @@ class DriverOperationsLoaded extends DriverOperationsState {
   final DriverPerformanceSummary performance;
   final String? activeChargeQr;
   final double? activeChargeAmount;
+  final double? lastPaymentReceivedAmount;
   final int? lastStopNotifiedCount;
   final bool isBusy;
 
@@ -38,6 +39,7 @@ class DriverOperationsLoaded extends DriverOperationsState {
     required this.performance,
     this.activeChargeQr,
     this.activeChargeAmount,
+    this.lastPaymentReceivedAmount,
     this.lastStopNotifiedCount,
     this.isBusy = false,
   });
@@ -51,6 +53,8 @@ class DriverOperationsLoaded extends DriverOperationsState {
     String? activeChargeQr,
     double? activeChargeAmount,
     bool clearActiveCharge = false,
+    double? lastPaymentReceivedAmount,
+    bool clearLastPayment = false,
     int? lastStopNotifiedCount,
     bool? isBusy,
   }) {
@@ -63,6 +67,8 @@ class DriverOperationsLoaded extends DriverOperationsState {
       activeChargeQr: clearActiveCharge ? null : (activeChargeQr ?? this.activeChargeQr),
       activeChargeAmount:
           clearActiveCharge ? null : (activeChargeAmount ?? this.activeChargeAmount),
+      lastPaymentReceivedAmount: 
+          clearLastPayment ? null : (lastPaymentReceivedAmount ?? this.lastPaymentReceivedAmount),
       lastStopNotifiedCount: lastStopNotifiedCount ?? this.lastStopNotifiedCount,
       isBusy: isBusy ?? this.isBusy,
     );
@@ -77,6 +83,7 @@ class DriverOperationsLoaded extends DriverOperationsState {
         performance,
         activeChargeQr,
         activeChargeAmount,
+        lastPaymentReceivedAmount,
         lastStopNotifiedCount,
         isBusy,
       ];

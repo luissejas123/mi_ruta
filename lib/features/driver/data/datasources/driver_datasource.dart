@@ -161,6 +161,11 @@ class DriverDatasource {
     return doc.id;
   }
 
+  /// Escucha en tiempo real los cambios de un viaje (ej. para saber cuando se pagó)
+  Stream<DocumentSnapshot> streamTrip(String tripId) {
+    return _firestore.collection('trips').doc(tripId).snapshots();
+  }
+
   /// Historial de viajes generados por el chofer (RQ-67), más recientes primero.
   Future<List<DriverTripEntity>> getDriverTrips(String driverId, {int limit = 50}) async {
     final snap = await _firestore

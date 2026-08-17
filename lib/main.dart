@@ -17,6 +17,7 @@ import 'dart:async';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/core/connectivity/connectivity_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,13 @@ void main() async {
   setupDependencies();
 
   unawaited(getIt<RouteDataSyncService>().ensureDataReady());
+
+  // RQ-57: al restablecerse la conexión, reanudar la sincronización de rutas.
+  unawaited(
+    getIt<ConnectivityService>().listenForReconnection(() {
+      getIt<RouteDataSyncService>().ensureDataReady();
+    }),
+  );
 
   runApp(const MyApp());
 }

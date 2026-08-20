@@ -17,7 +17,7 @@
 | `transactions` | Ledger de movimientos de dinero (recargas, beneficios, pagos) | auto-id | ✅ |
 | `config` | Documentos de configuración global de la app | clave fija (`qr_recarga`, `routes_meta`) | ✅ |
 | `trips` | Registro de viajes de conductor (ingresos, pasajeros) | `trip_id` | ✅ (leído por `TripPaymentService`) |
-| `vehicles` | Datos técnicos/documentación legal de vehículos | `vehicle_id` (placa) | ⚠️ Sin referencias en código — datos demo para futuro módulo conductor |
+| `vehicles` | Datos técnicos/documentación legal de vehículos | `vehicle_id` (placa) | ✅ (leído/escrito por `VehicleRemoteDataSourceImpl`, features `driver`/`admin`) |
 | `ratings` | Calificaciones de pasajero → conductor | `rating_id` | ⚠️ Sin referencias en código |
 | `claims` | Reclamos/denuncias | `claim_id` | ⚠️ Sin referencias en código |
 | `station_logs` | Registro de salidas/llegadas en terminal | `log_id` | ⚠️ Sin referencias en código |
@@ -311,12 +311,23 @@ Los campos `discount_percent`, `business_name`, `is_used`, `valid_until` solo ex
 
 ---
 
+## ✅ vehicles (implementado — features `driver`/`admin`)
+
+ID = placa del vehículo. Campos: `vehicle_id`, `owner_uid` (uid del chofer dueño-operador, asignado por el admin), `vehicle_type` (`taxitrufi`/`micro`/...), `line_number`, `internal_number`, `brand`, `model`, `color`, `passenger_capacity`, `status` (`approved`/`pending_review`/`rejected`), `legal_documentation` (URLs a Storage: `soat_url`, `vehicle_inspection_url`, `driver_license_url`, `municipal_operation_card_url`, `ruat_url`), `updated_at`.
+
+Campos nuevos añadidos para la feature "unidades activas":
+- `is_on_duty` (bool, default `false`) — toggle manual que el chofer activa/desactiva desde su panel (`DriverHomePage`) para marcar su unidad como "en servicio ahora". No es presencia real (no hay heartbeat/Cloud Functions); permanece activo hasta que el chofer lo desactive manualmente.
+- `is_on_duty_updated_at` (string ISO8601) — timestamp del último cambio del toggle.
+
+El admin (`AdminHomePage`) consulta en tiempo real `vehicles` filtrando `is_on_duty == true` para ver qué unidades están activas.
+
+Leído/escrito por: `lib/features/driver/data/datasources/vehicle_remote_datasource_impl.dart`.
+
+---
+
 ## ⚠️ Colecciones sin referencias en código (datos demo del futuro módulo conductor)
 
-Estas colecciones tienen datos en Firestore pero **ningún archivo en `lib/` las lee o escribe**. Coinciden con el feature `driver/` que en el repo es solo un placeholder (`.gitkeep`, ver CLAUDE.md). Documentadas aquí tal como existen hoy en la base, para cuando se implemente el módulo:
-
-### vehicles
-ID = placa del vehículo. Campos: `vehicle_id`, `owner_uid`, `vehicle_type` (`taxitrufi`/`micro`/...), `line_number`, `internal_number`, `brand`, `model`, `color`, `passenger_capacity`, `status` (`approved`/`pending_review`/`rejected`), `legal_documentation` (URLs a Storage: `soat_url`, `vehicle_inspection_url`, `driver_license_url`, `municipal_operation_card_url`, `ruat_url`), `updated_at`.
+Estas colecciones tienen datos en Firestore pero **ningún archivo en `lib/` las lee o escribe**. Documentadas aquí tal como existen hoy en la base, para cuando se implemente el módulo:
 
 ### ratings
 ID = `rating_id`. Campos: `trip_id`, `reviewer_uid`, `target_uid`, `stars` (1-5), `selected_tags` (array de strings predefinidos), `created_at`.

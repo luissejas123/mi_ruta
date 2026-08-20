@@ -71,14 +71,14 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
   // ✅ Colores consistentes
   static const _amarillo = Color(0xFFFFC12F);
 
-  void _navigateToNavegacion({
+  Future<void> _navigateToNavegacion({
     required LatLng boardingStop,
     required LatLng alightingStop,
     required List<LatLng> transitSegment,
     required List<LatLng> walkStartPoints,
     required List<LatLng> walkEndPoints,
-  }) {
-    Navigator.push(
+  }) async {
+    final boarded = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => RutaNavegacionPage(
@@ -94,6 +94,11 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
         ),
       ),
     );
+
+    if (!mounted) return;
+    if (boarded == true) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   PreferredSizeWidget _buildAppBar() => AppBar(

@@ -46,6 +46,13 @@ import 'package:mi_ruta/features/user/data/repositories/location_repository_impl
 import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
 import 'package:mi_ruta/features/user/domain/usecases/reverse_geocode_usecase.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/features/driver/data/datasources/vehicle_remote_datasource.dart';
+import 'package:mi_ruta/features/driver/data/datasources/vehicle_remote_datasource_impl.dart';
+import 'package:mi_ruta/features/driver/data/repositories/vehicle_repository_impl.dart';
+import 'package:mi_ruta/features/driver/domain/repositories/vehicle_repository.dart';
+import 'package:mi_ruta/features/driver/domain/usecases/vehicle_usecases.dart';
+import 'package:mi_ruta/features/driver/presentation/bloc/driver_vehicle_bloc.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/admin_active_vehicles_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -347,6 +354,49 @@ void setupDependencies() {
     PlannedTripService(
       datasource: getIt<PlannedTripDatasource>(),
       syncService: getIt<RouteDataSyncService>(),
+    ),
+  );
+
+  // ============================================
+  // VEHICLE FEATURE (driver + admin) - DATA LAYER
+  // ============================================
+  getIt.registerSingleton<VehicleRemoteDataSource>(
+    VehicleRemoteDataSourceImpl(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  getIt.registerSingleton<VehicleRepository>(
+    VehicleRepositoryImpl(remoteDataSource: getIt<VehicleRemoteDataSource>()),
+  );
+
+  // VEHICLE FEATURE - DOMAIN LAYER (UseCases)
+  getIt.registerSingleton<GetMyVehicleUseCase>(
+    GetMyVehicleUseCase(repository: getIt<VehicleRepository>()),
+  );
+
+  getIt.registerSingleton<GetMyVehicleStreamUseCase>(
+    GetMyVehicleStreamUseCase(repository: getIt<VehicleRepository>()),
+  );
+
+  getIt.registerSingleton<SetVehicleOnDutyUseCase>(
+    SetVehicleOnDutyUseCase(repository: getIt<VehicleRepository>()),
+  );
+
+  getIt.registerSingleton<GetActiveVehiclesStreamUseCase>(
+    GetActiveVehiclesStreamUseCase(repository: getIt<VehicleRepository>()),
+  );
+
+  // VEHICLE FEATURE - PRESENTATION LAYER (BLoC)
+  getIt.registerFactory<DriverVehicleBloc>(
+    () => DriverVehicleBloc(
+      getMyVehicleStreamUseCase: getIt<GetMyVehicleStreamUseCase>(),
+      setVehicleOnDutyUseCase: getIt<SetVehicleOnDutyUseCase>(),
+    ),
+  );
+
+  getIt.registerFactory<AdminActiveVehiclesBloc>(
+    () => AdminActiveVehiclesBloc(
+      getActiveVehiclesStreamUseCase: getIt<GetActiveVehiclesStreamUseCase>(),
+      getUsersByIdsUseCase: getIt<GetUsersByIdsUseCase>(),
     ),
   );
 }

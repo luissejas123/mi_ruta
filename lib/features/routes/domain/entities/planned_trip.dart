@@ -92,6 +92,18 @@ class PlannedTrip extends Equatable {
     this.isCompleted = false,
   });
 
+  PlannedTrip copyWith({String? id}) => PlannedTrip(
+        id: id ?? this.id,
+        userId: userId,
+        originName: originName,
+        originLatLng: originLatLng,
+        destinationName: destinationName,
+        destinationLatLng: destinationLatLng,
+        legs: legs,
+        createdAt: createdAt,
+        isCompleted: isCompleted,
+      );
+
   List<PlannedTripLeg> get busLegs => legs.where((l) => l.isBus).toList();
 
   int get totalMinutes => legs.fold(0, (s, l) => s + l.estimatedMinutes);

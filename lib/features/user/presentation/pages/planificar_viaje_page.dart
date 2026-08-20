@@ -15,20 +15,22 @@ import 'package:mi_ruta/features/user/presentation/pages/map_search_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/plan_detalle_page.dart';
 
 class PlanificarViajePage extends StatelessWidget {
-  const PlanificarViajePage({super.key});
+  final PlannedTrip? tripToReschedule;
+  const PlanificarViajePage({super.key, this.tripToReschedule});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) =>
           TripPlannerBloc(service: getIt<PlannedTripService>()),
-      child: const _PlanificarViajeView(),
+      child: _PlanificarViajeView(tripToReschedule: tripToReschedule),
     );
   }
 }
 
 class _PlanificarViajeView extends StatefulWidget {
-  const _PlanificarViajeView();
+  final PlannedTrip? tripToReschedule;
+  const _PlanificarViajeView({this.tripToReschedule});
   @override
   State<_PlanificarViajeView> createState() => _PlanificarViajeViewState();
 }
@@ -54,6 +56,15 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
         context.read<TripPlannerBloc>().add(LoadMyPlans(_userId));
       }
     });
+    final reschedule = widget.tripToReschedule;
+    if (reschedule != null) {
+      _origin = PlaceResult(
+          latLng: reschedule.originLatLng, name: reschedule.originName);
+      _destination = PlaceResult(
+          latLng: reschedule.destinationLatLng,
+          name: reschedule.destinationName);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _search());
+    }
   }
 
   @override
@@ -222,6 +233,7 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
             onPickDestination: _pickDestination,
             onSearch: _search,
             userId: _userId,
+            rescheduleId: widget.tripToReschedule?.id,
           ),
           _MyPlansTab(userId: _userId),
         ],
@@ -242,6 +254,7 @@ class _SearchTab extends StatelessWidget {
   final VoidCallback onPickDestination;
   final VoidCallback onSearch;
   final String userId;
+  final String? rescheduleId;
 
   const _SearchTab({
     required this.origin,
@@ -251,6 +264,7 @@ class _SearchTab extends StatelessWidget {
     required this.onPickDestination,
     required this.onSearch,
     required this.userId,
+    this.rescheduleId,
   });
 
   @override
@@ -360,6 +374,7 @@ class _SearchTab extends StatelessWidget {
                 return _ResultsList(
                   options: state.options,
                   userId: userId,
+                  rescheduleId: rescheduleId,
                 );
               }
               if (state is TripPlannerError) {
@@ -451,8 +466,10 @@ class _LocationPicker extends StatelessWidget {
 class _ResultsList extends StatelessWidget {
   final List<PlannedTrip> options;
   final String userId;
+  final String? rescheduleId;
 
-  const _ResultsList({required this.options, required this.userId});
+  const _ResultsList(
+      {required this.options, required this.userId, this.rescheduleId});
 
   @override
   Widget build(BuildContext context) {
@@ -463,6 +480,7 @@ class _ResultsList extends StatelessWidget {
       itemBuilder: (context, i) => _TripOptionCard(
         trip: options[i],
         userId: userId,
+        rescheduleId: rescheduleId,
       ),
     );
   }
@@ -471,8 +489,10 @@ class _ResultsList extends StatelessWidget {
 class _TripOptionCard extends StatelessWidget {
   final PlannedTrip trip;
   final String userId;
+  final String? rescheduleId;
 
-  const _TripOptionCard({required this.trip, required this.userId});
+  const _TripOptionCard(
+      {required this.trip, required this.userId, this.rescheduleId});
 
   @override
   Widget build(BuildContext context) {
@@ -580,9 +600,14 @@ class _TripOptionCard extends StatelessWidget {
             children: [
               Expanded(
                 child: TextButton(
-                  onPressed: () => context
-                      .read<TripPlannerBloc>()
-                      .add(SaveTripPlan(trip)),
+                  onPressed: () {
+                    final tripToSave = rescheduleId != null
+                        ? trip.copyWith(id: rescheduleId)
+                        : trip;
+                    context
+                        .read<TripPlannerBloc>()
+                        .add(SaveTripPlan(tripToSave));
+                  },
                   child: const Text(
                     'Guardar',
                     style: TextStyle(color: Color(0xFFFFC12F)),
@@ -800,6 +825,39 @@ class _SavedPlanCard extends StatelessWidget {
                       size: 16, color: Colors.red),
                   label: const Text('Eliminar',
                       style: TextStyle(color: Colors.red, fontSize: 13)),
+                ),
+              ),
+              Container(
+                  width: 1,
+                  height: 36,
+                  color: colorScheme.onSurface.withValues(alpha: 0.08)),
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: trip.isCompleted
+                      ? null
+                      : () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  PlanificarViajePage(tripToReschedule: trip),
+                            ),
+                          ),
+                  icon: Icon(
+                    Icons.edit_calendar_outlined,
+                    size: 16,
+                    color: trip.isCompleted
+                        ? colorScheme.onSurface.withValues(alpha: 0.3)
+                        : colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                  label: Text(
+                    'Reprogramar',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: trip.isCompleted
+                          ? colorScheme.onSurface.withValues(alpha: 0.3)
+                          : colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
                 ),
               ),
               Container(

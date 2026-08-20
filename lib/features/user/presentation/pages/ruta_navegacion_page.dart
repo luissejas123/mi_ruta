@@ -159,7 +159,7 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
 
   void _onBackPressed() {
     _navBloc.add(const NavigationStopped());
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(false);
   }
 
   bool _tripSaved = false;
@@ -209,7 +209,7 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
         onClose: () {
           Navigator.of(ctx).pop();
           _navBloc.add(const NavigationStopped());
-          Navigator.of(context).popUntil((r) => r.isFirst);
+          Navigator.of(context).pop(true);
         },
       ),
     );

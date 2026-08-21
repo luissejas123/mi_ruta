@@ -179,6 +179,18 @@ class RouteLocalDatabase {
     };
   }
 
+  /// Metadatos ligeros de todas las rutas sincronizadas, SIN polyline_json.
+  /// Usar para listados (ej. panel Presidente) que no necesitan dibujar el mapa —
+  /// evita cargar las polylines completas en memoria.
+  Future<List<Map<String, dynamic>>> getAllRoutesMeta() async {
+    final db = await _database;
+    return db.query(
+      _tableRoutes,
+      columns: ['id', 'name', 'ref', 'color', 'direction_id'],
+      orderBy: 'name ASC',
+    );
+  }
+
   /// Elimina todas las rutas (antes de re-sincronizar).
   Future<void> clearRoutes() async {
     final db = await _database;

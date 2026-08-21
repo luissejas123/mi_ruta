@@ -46,6 +46,9 @@ import 'package:mi_ruta/features/user/data/repositories/location_repository_impl
 import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
 import 'package:mi_ruta/features/user/domain/usecases/reverse_geocode_usecase.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/features/driver/data/datasources/driver_income_datasource.dart';
+import 'package:mi_ruta/features/driver/domain/services/driver_income_service.dart';
+import 'package:mi_ruta/features/presidente/domain/services/presidente_dashboard_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -348,5 +351,23 @@ void setupDependencies() {
       datasource: getIt<PlannedTripDatasource>(),
       syncService: getIt<RouteDataSyncService>(),
     ),
+  );
+
+  // ============================================
+  // DRIVER INCOME FEATURE
+  // ============================================
+  getIt.registerSingleton<DriverIncomeDatasource>(
+    DriverIncomeDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  getIt.registerSingleton<DriverIncomeService>(
+    DriverIncomeService(datasource: getIt<DriverIncomeDatasource>()),
+  );
+
+  // ============================================
+  // PRESIDENTE FEATURE - DOMAIN LAYER (Services)
+  // ============================================
+  getIt.registerSingleton<PresidenteDashboardService>(
+    PresidenteDashboardService(localDb: getIt<RouteLocalDatabase>()),
   );
 }

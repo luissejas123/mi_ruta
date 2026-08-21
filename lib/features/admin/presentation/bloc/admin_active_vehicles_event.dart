@@ -11,3 +11,8 @@ abstract class AdminActiveVehiclesEvent extends Equatable {
 class WatchActiveVehicles extends AdminActiveVehiclesEvent {
   const WatchActiveVehicles();
 }
+
+/// TEMPORAL — modo prueba: carga unidades fijas en memoria, sin Firestore.
+class WatchStaticDemoVehicles extends AdminActiveVehiclesEvent {
+  const WatchStaticDemoVehicles();
+}

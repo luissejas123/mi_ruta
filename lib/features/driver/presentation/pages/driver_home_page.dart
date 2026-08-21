@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mi_ruta/core/demo/demo_constants.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
@@ -17,10 +18,13 @@ class DriverHomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final authState = context.read<AuthBloc>().state;
     final ownerUid = authState is AuthLoaded ? authState.user.uid : '';
+    final isStaticDemo = ownerUid == kStaticDemoDriverUid;
 
     return BlocProvider(
       create: (_) => getIt<DriverVehicleBloc>()
-        ..add(StartMyVehicleStream(ownerUid: ownerUid)),
+        ..add(isStaticDemo
+            ? const LoadStaticDemoVehicle()
+            : StartMyVehicleStream(ownerUid: ownerUid)),
       child: const _DriverHomeView(),
     );
   }

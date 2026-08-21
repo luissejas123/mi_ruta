@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mi_ruta/core/demo/demo_constants.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_active_vehicles_event.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_active_vehicles_state.dart';
 import 'package:mi_ruta/features/driver/domain/entities/vehicle_entity.dart';
@@ -30,6 +31,49 @@ class AdminActiveVehiclesBloc
     required this.getUsersByIdsUseCase,
   }) : super(const AdminVehiclesInitial()) {
     on<WatchActiveVehicles>(_onWatchActiveVehicles);
+    on<WatchStaticDemoVehicles>(_onWatchStaticDemoVehicles);
+  }
+
+  /// TEMPORAL — modo prueba: lista fija en memoria, sin Firestore.
+  void _onWatchStaticDemoVehicles(
+    WatchStaticDemoVehicles event,
+    Emitter<AdminActiveVehiclesState> emit,
+  ) {
+    final now = DateTime.now();
+    final demoVehicle = VehicleEntity(
+      vehicleId: kStaticDemoVehicleId,
+      ownerUid: kStaticDemoDriverUid,
+      vehicleType: 'micro',
+      lineNumber: '101',
+      internalNumber: '01',
+      brand: 'Volkswagen',
+      model: 'Crafter',
+      color: 'Blanco',
+      passengerCapacity: 20,
+      status: 'approved',
+      legalDocumentation: const {},
+      isOnDuty: true,
+      isOnDutyUpdatedAt: now,
+      updatedAt: now,
+    );
+    final demoDriver = UserEntity(
+      uid: kStaticDemoDriverUid,
+      fullName: 'Demo (Chofer)',
+      email: '',
+      phoneNumber: '',
+      userType: 'driver',
+      profileImageUrl: '',
+      rating: 0,
+      reviewsCount: 0,
+      walletBalance: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    );
+    emit(AdminVehiclesLoaded(
+      vehicles: [demoVehicle],
+      driversByUid: {kStaticDemoDriverUid: demoDriver},
+    ));
   }
 
   Future<void> _onWatchActiveVehicles(

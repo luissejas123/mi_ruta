@@ -103,17 +103,9 @@ void setupDependencies() {
     ResetPasswordUseCase(getIt<AuthRepository>()),
   );
 
-  // ============================================
-  // AUTH FEATURE - PRESENTATION LAYER (BLoC)
-  // ============================================
-  getIt.registerSingleton<AuthBloc>(
-    AuthBloc(
-      registerUseCase: getIt<RegisterUseCase>(),
-      loginUseCase: getIt<LoginUseCase>(),
-      logoutUseCase: getIt<LogoutUseCase>(),
-      getCurrentUserUseCase: getIt<GetCurrentAuthUserUseCase>(),
-      resetPasswordUseCase: getIt<ResetPasswordUseCase>(),
-    ),
+  // TEMPORAL — modo prueba, ver AuthRepository.loginAsDemo
+  getIt.registerSingleton<LoginAsDemoUseCase>(
+    LoginAsDemoUseCase(getIt<AuthRepository>()),
   );
 
   // ============================================
@@ -397,6 +389,20 @@ void setupDependencies() {
     () => AdminActiveVehiclesBloc(
       getActiveVehiclesStreamUseCase: getIt<GetActiveVehiclesStreamUseCase>(),
       getUsersByIdsUseCase: getIt<GetUsersByIdsUseCase>(),
+    ),
+  );
+
+  // ============================================
+  // AUTH FEATURE - PRESENTATION LAYER (BLoC)
+  // ============================================
+  getIt.registerSingleton<AuthBloc>(
+    AuthBloc(
+      registerUseCase: getIt<RegisterUseCase>(),
+      loginUseCase: getIt<LoginUseCase>(),
+      logoutUseCase: getIt<LogoutUseCase>(),
+      getCurrentUserUseCase: getIt<GetCurrentAuthUserUseCase>(),
+      resetPasswordUseCase: getIt<ResetPasswordUseCase>(),
+      loginAsDemoUseCase: getIt<LoginAsDemoUseCase>(),
     ),
   );
 }

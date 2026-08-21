@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mi_ruta/core/demo/demo_constants.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_active_vehicles_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_active_vehicles_event.dart';
@@ -15,9 +17,15 @@ class AdminHomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authState = context.read<AuthBloc>().state;
+    final uid = authState is AuthLoaded ? authState.user.uid : '';
+    final isStaticDemo = uid == kStaticDemoAdminUid;
+
     return BlocProvider(
-      create: (_) =>
-          getIt<AdminActiveVehiclesBloc>()..add(const WatchActiveVehicles()),
+      create: (_) => getIt<AdminActiveVehiclesBloc>()
+        ..add(isStaticDemo
+            ? const WatchStaticDemoVehicles()
+            : const WatchActiveVehicles()),
       child: const _AdminHomeView(),
     );
   }

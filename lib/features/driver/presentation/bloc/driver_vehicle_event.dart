@@ -18,6 +18,11 @@ class StartMyVehicleStream extends DriverVehicleEvent {
   List<Object> get props => [ownerUid];
 }
 
+/// TEMPORAL — modo prueba: carga una unidad fija en memoria, sin Firestore.
+class LoadStaticDemoVehicle extends DriverVehicleEvent {
+  const LoadStaticDemoVehicle();
+}
+
 /// Activa/desactiva "en servicio" para la unidad [vehicleId].
 class ToggleOnDuty extends DriverVehicleEvent {
   final String vehicleId;

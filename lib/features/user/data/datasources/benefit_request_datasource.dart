@@ -65,11 +65,12 @@ class BenefitRequestDatasource {
       final snapshot = await _firestore
           .collection('benefit_requests')
           .where('user_id', isEqualTo: userId)
-          .orderBy('created_at', descending: true)
           .limit(50)
           .get();
 
-      return snapshot.docs.map((doc) => _mapToBenefitRequest(doc)).toList();
+      final requests = snapshot.docs.map(_mapToBenefitRequest).toList();
+      requests.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return requests;
     } catch (e) {
       throw Exception('Error al obtener solicitudes de beneficio: $e');
     }

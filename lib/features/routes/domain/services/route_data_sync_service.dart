@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:mi_ruta/core/local_db/route_local_database.dart';
 import 'package:mi_ruta/features/routes/data/datasources/gtfs_datasource.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
@@ -24,6 +25,15 @@ class RouteDataSyncService {
 
   static const _keyVersion = 'routes_version';
   static const _firestoreVersionDoc = 'config/routes_meta';
+  final ValueNotifier<RouteSyncStatus> _syncStatus = ValueNotifier(
+    RouteSyncStatus.idle,
+  );
+  Timer? _updatedMessageTimer;
+  Future<void>? _initializationFuture;
+  Future<void>? _versionCheckFuture;
+
+  /// Estado observable para informar una actualización real de rutas.
+  ValueListenable<RouteSyncStatus> get syncStatus => _syncStatus;
 
   RouteDataSyncService({
     required RouteLocalDatabase localDb,
@@ -40,7 +50,18 @@ class RouteDataSyncService {
   /// Punto de entrada principal. Llamar en initState antes de buscar rutas.
   /// - Si SQLite está vacío O no tiene polylines: parsea GTFS y puebla la BD.
   /// - Luego verifica si hay una versión más nueva en Firestore (en background).
-  Future<void> ensureDataReady() async {
+  Future<void> ensureDataReady() {
+    final pendingInitialization = _initializationFuture;
+    if (pendingInitialization != null) return pendingInitialization;
+
+    final initialization = _ensureDataReady().whenComplete(() {
+      _initializationFuture = null;
+    });
+    _initializationFuture = initialization;
+    return initialization;
+  }
+
+  Future<void> _ensureDataReady() async {
     final withPolyline = await _localDb.countRoutesWithPolyline();
     if (withPolyline == 0) {
       print(
@@ -53,7 +74,7 @@ class RouteDataSyncService {
     }
 
     // Verificar actualización del admin panel en background (no bloquea la búsqueda)
-    unawaited(_checkAndSyncVersion());
+    unawaited(_versionCheckFuture ??= _checkAndSyncVersion());
   }
 
   // ──────────────────────────────────────────────────────────────────────
@@ -123,7 +144,10 @@ class RouteDataSyncService {
 
   Future<void> _checkAndSyncVersion() async {
     try {
-      final snap = await _firestore.doc(_firestoreVersionDoc).get();
+      // Si no hay conexión, Source.server falla y se conserva el caché SQLite.
+      final snap = await _firestore
+          .doc(_firestoreVersionDoc)
+          .get(const GetOptions(source: Source.server));
       if (!snap.exists) return; // Admin panel no configurado aún
 
       final firestoreVersion = snap.data()?['version']?.toString();
@@ -138,8 +162,11 @@ class RouteDataSyncService {
       print(
         '🔄 Nueva versión detectada: $localVersion → $firestoreVersion. Sincronizando...',
       );
+      _setSyncStatus(RouteSyncStatus.syncing);
       await _syncFromFirestore(firestoreVersion);
+      _setSyncStatus(RouteSyncStatus.updated);
     } catch (e) {
+      _setSyncStatus(RouteSyncStatus.idle);
       // No bloquear la app si hay problemas de red
       print('⚠️ No se pudo verificar versión de rutas: $e');
     }
@@ -152,7 +179,7 @@ class RouteDataSyncService {
     final snap = await _firestore
         .collection('routes_bbox')
         .where('active', isEqualTo: true)
-        .get();
+        .get(const GetOptions(source: Source.server));
 
     if (snap.docs.isEmpty) {
       print('⚠️ routes_bbox vacía en Firestore, cancelando sync');
@@ -182,6 +209,16 @@ class RouteDataSyncService {
     print(
       '✅ ${rows.length} rutas sincronizadas desde Firestore (v$version), $withPoly con polyline preservadas',
     );
+  }
+
+  void _setSyncStatus(RouteSyncStatus status) {
+    _updatedMessageTimer?.cancel();
+    _syncStatus.value = status;
+    if (status == RouteSyncStatus.updated) {
+      _updatedMessageTimer = Timer(const Duration(seconds: 2), () {
+        _syncStatus.value = RouteSyncStatus.idle;
+      });
+    }
   }
 
   // ──────────────────────────────────────────────────────────────────────
@@ -261,3 +298,5 @@ class RouteDataSyncService {
     );
   }
 }
+
+enum RouteSyncStatus { idle, syncing, updated }

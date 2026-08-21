@@ -18,6 +18,7 @@ import 'package:mi_ruta/features/user/presentation/pages/planificar_viaje_page.d
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -40,11 +41,9 @@ class _PerfilPageState extends State<PerfilPage> {
     final authState = context.read<AuthBloc>().state;
     if (authState is AuthLoaded) {
       context.read<UserBloc>().add(
-        GetUserByIdEvent(uid: authState.user.uid),
+        StartUserStreamEvent(uid: authState.user.uid),
       );
-      context.read<WalletBloc>().add(
-        LoadWalletEvent(authState.user.uid),
-      );
+      context.read<WalletBloc>().add(LoadWalletEvent(authState.user.uid));
     }
   }
 
@@ -92,9 +91,7 @@ class _PerfilPageState extends State<PerfilPage> {
               Navigator.pop(ctx);
               context.read<AuthBloc>().add(const LogoutEvent());
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (_) => const IniciarSesionPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const IniciarSesionPage()),
                 (route) => false,
               );
             },
@@ -132,19 +129,10 @@ class _PerfilPageState extends State<PerfilPage> {
       ),
       title: Text(
         title,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: titleColor,
-        ),
+        style: TextStyle(fontWeight: FontWeight.w600, color: titleColor),
       ),
-      subtitle: subtitle != null
-          ? Text(subtitle)
-          : null,
-      trailing: trailing ??
-          const Icon(
-            Icons.arrow_forward_ios,
-            size: 14,
-          ),
+      subtitle: subtitle != null ? Text(subtitle) : null,
+      trailing: trailing ?? const Icon(Icons.arrow_forward_ios, size: 14),
       onTap: onTap,
     );
   }
@@ -173,10 +161,7 @@ class _PerfilPageState extends State<PerfilPage> {
         centerTitle: true,
         title: const Text(
           'Mi Perfil',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
       ),
       body: BlocConsumer<UserBloc, UserState>(
@@ -213,18 +198,17 @@ class _PerfilPageState extends State<PerfilPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline,
-                      size: 60, color: Colors.red),
+                  const Icon(Icons.error_outline, size: 60, color: Colors.red),
                   const SizedBox(height: 16),
                   Text(state.message),
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: _loadUser,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _amarillo,
+                    style: ElevatedButton.styleFrom(backgroundColor: _amarillo),
+                    child: const Text(
+                      'Reintentar',
+                      style: TextStyle(color: Colors.black),
                     ),
-                    child: const Text('Reintentar',
-                        style: TextStyle(color: Colors.black)),
                   ),
                 ],
               ),
@@ -234,8 +218,8 @@ class _PerfilPageState extends State<PerfilPage> {
           final user = state is UserLoaded
               ? state.user
               : state is UserStreamLoaded
-                  ? state.user
-                  : null;
+              ? state.user
+              : null;
 
           if (user == null) {
             return const Center(
@@ -359,20 +343,30 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () => navigateBottomNav(context, 1),
                 ),
 
+                _buildSectionTitle('SUPERVISIÓN'),
+                _buildMenuItem(
+                  icon: Icons.assessment_outlined,
+                  title: 'Reportes operativos',
+                  subtitle: 'Estado y desempeño de choferes',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ReportesOperativosPage(),
+                    ),
+                  ),
+                ),
+
                 // ── Apariencia ──
                 _buildSectionTitle('APARIENCIA'),
                 // ✅ Botón modo oscuro con switch
                 _buildMenuItem(
-                  icon: isDarkMode
-                      ? Icons.dark_mode
-                      : Icons.light_mode,
+                  icon: isDarkMode ? Icons.dark_mode : Icons.light_mode,
                   title: 'Modo oscuro',
                   subtitle: isDarkMode ? 'Activado' : 'Desactivado',
                   onTap: () => context.read<ThemeCubit>().toggleTheme(),
                   trailing: Switch(
                     value: isDarkMode,
-                    onChanged: (_) =>
-                        context.read<ThemeCubit>().toggleTheme(),
+                    onChanged: (_) => context.read<ThemeCubit>().toggleTheme(),
                     activeColor: _amarillo,
                   ),
                 ),

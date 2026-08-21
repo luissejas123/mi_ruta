@@ -7,8 +7,8 @@ class TripPlannerBloc extends Bloc<TripPlannerEvent, TripPlannerState> {
   final PlannedTripService _service;
 
   TripPlannerBloc({required PlannedTripService service})
-      : _service = service,
-        super(TripPlannerInitial()) {
+    : _service = service,
+      super(TripPlannerInitial()) {
     on<SearchTripOptions>(_onSearch);
     on<SaveTripPlan>(_onSave);
     on<LoadMyPlans>(_onLoadMyPlans);
@@ -29,6 +29,7 @@ class TripPlannerBloc extends Bloc<TripPlannerEvent, TripPlannerState> {
         destination: event.destination,
         originName: event.originName,
         destinationName: event.destinationName,
+        scheduledAt: event.scheduledAt,
       );
       if (options.isEmpty) {
         emit(TripSearchEmpty());

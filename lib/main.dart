@@ -9,6 +9,7 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/user_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_bloc.dart';
@@ -17,6 +18,7 @@ import 'dart:async';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/core/widgets/route_update_banner.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,9 +39,7 @@ class MyApp extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         // ✅ ThemeCubit para modo oscuro
-        BlocProvider<ThemeCubit>(
-          create: (context) => ThemeCubit(),
-        ),
+        BlocProvider<ThemeCubit>(create: (context) => ThemeCubit()),
         BlocProvider<AuthBloc>(
           create: (context) =>
               getIt<AuthBloc>()..add(const GetCurrentUserEvent()),
@@ -53,126 +53,139 @@ class MyApp extends StatelessWidget {
         BlocProvider<BenefitRequestBLoC>(
           create: (context) => getIt<BenefitRequestBLoC>(),
         ),
-        BlocProvider<MiRutaBloc>(
-          create: (context) => getIt<MiRutaBloc>(),
-        ),
+        BlocProvider<MiRutaBloc>(create: (context) => getIt<MiRutaBloc>()),
       ],
       // ✅ BlocBuilder para aplicar tema en toda la app
-      child: BlocBuilder<ThemeCubit, bool>(
-        builder: (context, isDarkMode) {
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            title: 'MiRuta',
-            theme: ThemeData(
-              brightness: Brightness.light,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFFFFC12F),
-                brightness: Brightness.light,
-              ),
-              scaffoldBackgroundColor: Colors.white,
-              appBarTheme: const AppBarTheme(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                elevation: 0,
-                titleTextStyle: TextStyle(
-                  color: Colors.black,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-                iconTheme: IconThemeData(color: Colors.black),
-              ),
-              bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-                backgroundColor: Colors.white,
-                selectedItemColor: Color(0xFFFFC12F),
-                unselectedItemColor: Colors.grey,
-              ),
-              cardTheme: const CardThemeData(
-                color: Colors.white,
-                surfaceTintColor: Colors.transparent,
-              ),
-              listTileTheme: const ListTileThemeData(
-                textColor: Colors.black87,
-                iconColor: Colors.black54,
-              ),
-              inputDecorationTheme: InputDecorationTheme(
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-                hintStyle: const TextStyle(color: Colors.black38),
-              ),
-              textTheme: const TextTheme(
-                bodyLarge: TextStyle(color: Colors.black87),
-                bodyMedium: TextStyle(color: Colors.black87),
-                bodySmall: TextStyle(color: Colors.black54),
-                titleLarge: TextStyle(color: Colors.black),
-                titleMedium: TextStyle(color: Colors.black87),
-                titleSmall: TextStyle(color: Colors.black54),
-              ),
-              iconTheme: const IconThemeData(color: Colors.black87),
-              dividerColor: Colors.grey,
-            ),
-            darkTheme: ThemeData(
-              brightness: Brightness.dark,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFFFFC12F),
-                brightness: Brightness.dark,
-              ),
-              scaffoldBackgroundColor: const Color(0xFF121212),
-              appBarTheme: const AppBarTheme(
-                backgroundColor: Color(0xFF1E1E1E),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                titleTextStyle: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-                iconTheme: IconThemeData(color: Colors.white),
-              ),
-              bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-                backgroundColor: Color(0xFF1E1E1E),
-                selectedItemColor: Color(0xFFFFC12F),
-                unselectedItemColor: Colors.grey,
-              ),
-              cardTheme: const CardThemeData(
-                color: Color(0xFF1E1E1E),
-                surfaceTintColor: Colors.transparent,
-              ),
-              listTileTheme: ListTileThemeData(
-                tileColor: Colors.transparent,
-                textColor: Colors.white70,
-                iconColor: Colors.grey.shade400,
-              ),
-              inputDecorationTheme: InputDecorationTheme(
-                filled: true,
-                fillColor: const Color(0xFF2C2C2C),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-                hintStyle: const TextStyle(color: Colors.white38),
-                labelStyle: const TextStyle(color: Colors.white70),
-              ),
-              textTheme: const TextTheme(
-                bodyLarge: TextStyle(color: Colors.white70),
-                bodyMedium: TextStyle(color: Colors.white70),
-                bodySmall: TextStyle(color: Colors.white54),
-                titleLarge: TextStyle(color: Colors.white),
-                titleMedium: TextStyle(color: Colors.white70),
-                titleSmall: TextStyle(color: Colors.white54),
-              ),
-              iconTheme: const IconThemeData(color: Colors.white70),
-              dividerColor: Color(0xFF2C2C2C),
-              cardColor: const Color(0xFF1E1E1E),
-            ),
-            // ✅ Aplica el tema según el estado
-            themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-            home: const _AuthGate(),
-          );
+      child: BlocListener<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state is AuthLoaded) {
+            context.read<UserBloc>().add(
+              StartUserStreamEvent(uid: state.user.uid),
+            );
+          } else if (state is AuthUnauthenticated) {
+            context.read<UserBloc>().add(const StopUserStreamEvent());
+          }
         },
+        child: BlocBuilder<ThemeCubit, bool>(
+          builder: (context, isDarkMode) {
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              title: 'MiRuta',
+              theme: ThemeData(
+                brightness: Brightness.light,
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: const Color(0xFFFFC12F),
+                  brightness: Brightness.light,
+                ),
+                scaffoldBackgroundColor: Colors.white,
+                appBarTheme: const AppBarTheme(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                  elevation: 0,
+                  titleTextStyle: TextStyle(
+                    color: Colors.black,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  iconTheme: IconThemeData(color: Colors.black),
+                ),
+                bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+                  backgroundColor: Colors.white,
+                  selectedItemColor: Color(0xFFFFC12F),
+                  unselectedItemColor: Colors.grey,
+                ),
+                cardTheme: const CardThemeData(
+                  color: Colors.white,
+                  surfaceTintColor: Colors.transparent,
+                ),
+                listTileTheme: const ListTileThemeData(
+                  textColor: Colors.black87,
+                  iconColor: Colors.black54,
+                ),
+                inputDecorationTheme: InputDecorationTheme(
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  hintStyle: const TextStyle(color: Colors.black38),
+                ),
+                textTheme: const TextTheme(
+                  bodyLarge: TextStyle(color: Colors.black87),
+                  bodyMedium: TextStyle(color: Colors.black87),
+                  bodySmall: TextStyle(color: Colors.black54),
+                  titleLarge: TextStyle(color: Colors.black),
+                  titleMedium: TextStyle(color: Colors.black87),
+                  titleSmall: TextStyle(color: Colors.black54),
+                ),
+                iconTheme: const IconThemeData(color: Colors.black87),
+                dividerColor: Colors.grey,
+              ),
+              darkTheme: ThemeData(
+                brightness: Brightness.dark,
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: const Color(0xFFFFC12F),
+                  brightness: Brightness.dark,
+                ),
+                scaffoldBackgroundColor: const Color(0xFF121212),
+                appBarTheme: const AppBarTheme(
+                  backgroundColor: Color(0xFF1E1E1E),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  titleTextStyle: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  iconTheme: IconThemeData(color: Colors.white),
+                ),
+                bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+                  backgroundColor: Color(0xFF1E1E1E),
+                  selectedItemColor: Color(0xFFFFC12F),
+                  unselectedItemColor: Colors.grey,
+                ),
+                cardTheme: const CardThemeData(
+                  color: Color(0xFF1E1E1E),
+                  surfaceTintColor: Colors.transparent,
+                ),
+                listTileTheme: ListTileThemeData(
+                  tileColor: Colors.transparent,
+                  textColor: Colors.white70,
+                  iconColor: Colors.grey.shade400,
+                ),
+                inputDecorationTheme: InputDecorationTheme(
+                  filled: true,
+                  fillColor: const Color(0xFF2C2C2C),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  hintStyle: const TextStyle(color: Colors.white38),
+                  labelStyle: const TextStyle(color: Colors.white70),
+                ),
+                textTheme: const TextTheme(
+                  bodyLarge: TextStyle(color: Colors.white70),
+                  bodyMedium: TextStyle(color: Colors.white70),
+                  bodySmall: TextStyle(color: Colors.white54),
+                  titleLarge: TextStyle(color: Colors.white),
+                  titleMedium: TextStyle(color: Colors.white70),
+                  titleSmall: TextStyle(color: Colors.white54),
+                ),
+                iconTheme: const IconThemeData(color: Colors.white70),
+                dividerColor: Color(0xFF2C2C2C),
+                cardColor: const Color(0xFF1E1E1E),
+              ),
+              // ✅ Aplica el tema según el estado
+              themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
+              builder: (context, child) => RouteUpdateBanner(
+                status: getIt<RouteDataSyncService>().syncStatus,
+                child: child ?? const SizedBox.shrink(),
+              ),
+              home: const _AuthGate(),
+            );
+          },
+        ),
       ),
     );
   }

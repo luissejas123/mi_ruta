@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:mi_ruta/features/user/domain/entities/user_entity.dart';
 
 /// Eventos del BLoC de Usuario
 abstract class UserEvent extends Equatable {
@@ -67,4 +68,22 @@ class StartUserStreamEvent extends UserEvent {
 /// Detener stream
 class StopUserStreamEvent extends UserEvent {
   const StopUserStreamEvent();
+}
+
+class UserStreamUpdatedEvent extends UserEvent {
+  final UserEntity user;
+
+  const UserStreamUpdatedEvent(this.user);
+
+  @override
+  List<Object> get props => [user];
+}
+
+class UserStreamFailedEvent extends UserEvent {
+  final String message;
+
+  const UserStreamFailedEvent(this.message);
+
+  @override
+  List<Object> get props => [message];
 }

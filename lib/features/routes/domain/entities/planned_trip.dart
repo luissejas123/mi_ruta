@@ -43,30 +43,29 @@ class PlannedTripLeg extends Equatable {
     required LatLng from,
     required LatLng to,
     required double meters,
-  }) =>
-      PlannedTripLeg(
-        type: LegType.walking,
-        routeId: '',
-        routeName: 'Caminando',
-        routeRef: '',
-        boardingPoint: from,
-        alightingPoint: to,
-        transitMeters: meters,
-      );
+  }) => PlannedTripLeg(
+    type: LegType.walking,
+    routeId: '',
+    routeName: 'Caminando',
+    routeRef: '',
+    boardingPoint: from,
+    alightingPoint: to,
+    transitMeters: meters,
+  );
 
   @override
   List<Object?> get props => [
-        type,
-        routeId,
-        routeName,
-        routeRef,
-        directionId,
-        boardingPoint,
-        alightingPoint,
-        walkToMeters,
-        transitMeters,
-        walkFromMeters,
-      ];
+    type,
+    routeId,
+    routeName,
+    routeRef,
+    directionId,
+    boardingPoint,
+    alightingPoint,
+    walkToMeters,
+    transitMeters,
+    walkFromMeters,
+  ];
 }
 
 class PlannedTrip extends Equatable {
@@ -78,6 +77,7 @@ class PlannedTrip extends Equatable {
   final LatLng destinationLatLng;
   final List<PlannedTripLeg> legs;
   final DateTime createdAt;
+  final DateTime? scheduledAt;
   final bool isCompleted;
 
   const PlannedTrip({
@@ -89,6 +89,7 @@ class PlannedTrip extends Equatable {
     required this.destinationLatLng,
     required this.legs,
     required this.createdAt,
+    this.scheduledAt,
     this.isCompleted = false,
   });
 
@@ -97,13 +98,13 @@ class PlannedTrip extends Equatable {
   int get totalMinutes => legs.fold(0, (s, l) => s + l.estimatedMinutes);
   double get totalDistanceKm =>
       legs.fold(
-              0.0,
-              (s, l) =>
-                  s + l.walkToMeters + l.transitMeters + l.walkFromMeters) /
+        0.0,
+        (s, l) => s + l.walkToMeters + l.transitMeters + l.walkFromMeters,
+      ) /
       1000;
   double get totalCostBs => busLegs.length * 2.5;
   String get routesSummary => busLegs.map((l) => l.routeName).join(' + ');
 
   @override
-  List<Object?> get props => [id, userId, legs, isCompleted];
+  List<Object?> get props => [id, userId, legs, scheduledAt, isCompleted];
 }

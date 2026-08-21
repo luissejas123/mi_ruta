@@ -4,6 +4,7 @@ import 'package:mi_ruta/features/tickeador/domain/services/tickeador_service.dar
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_event.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_state.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 
 /// BLoC de la feature Tickeador.
 ///
@@ -147,9 +148,9 @@ class TickeadorBloc extends Bloc<TickeadorEvent, TickeadorState> {
     emit(const TickeadorLoading());
     try {
       // We need to get the uid from the auth state
-      final authState = context.read<AuthBloc>().state;
-      if (authState is AuthLoaded) {
-        final history = await _service.loadVerificationHistory(authState.user.uid);
+      // Since we can't access context here, we'll use the uid passed in the event
+      if (event.uid != null) {
+        final history = await _service.loadVerificationHistory(event.uid!);
         emit(VerificationHistoryLoaded(history: history));
       } else {
         emit(TickeadorError(message: 'Usuario no autenticado'));

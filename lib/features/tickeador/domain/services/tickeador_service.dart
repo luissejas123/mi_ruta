@@ -12,9 +12,9 @@ class TickeadorService {
   final TickeadorRepository _repository;
   final DriverDatasource _driverDatasource;
 
-  TickeadorService({required TickeadorRepository repository, DriverDatasource? driverDatasource})
+  TickeadorService({required TickeadorRepository repository, required DriverDatasource driverDatasource})
     : _repository = repository,
-      _driverDatasource = driverDatasource ?? getIt<DriverDatasource>();
+      _driverDatasource = driverDatasource;
 
   /// Lee `tickeador_info` del usuario autenticado.
   Future<TickeadorEntity?> getTickeadorInfo(String uid) {

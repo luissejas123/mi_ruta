@@ -83,8 +83,10 @@ class ValidateTripQr extends TickeadorEvent {
 
 /// Carga el historial de verificaciones.
 class LoadVerificationHistory extends TickeadorEvent {
-  const LoadVerificationHistory();
+  final String? uid;
+
+  const LoadVerificationHistory({this.uid});
 
   @override
-  List<Object?> get props => [];
+  List<Object?> get props => [uid];
 }

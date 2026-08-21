@@ -430,7 +430,10 @@ void setupDependencies() {
   // TICKEADOR FEATURE - DOMAIN LAYER (Services)
   // ============================================
   getIt.registerSingleton<TickeadorService>(
-    TickeadorService(repository: getIt<TickeadorRepository>()),
+    TickeadorService(
+      repository: getIt<TickeadorRepository>(),
+      driverDatasource: getIt<DriverDatasource>(),
+    ),
   );
 
   // ============================================

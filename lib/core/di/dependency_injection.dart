@@ -48,7 +48,13 @@ import 'package:mi_ruta/features/user/domain/usecases/reverse_geocode_usecase.da
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 import 'package:mi_ruta/features/driver/data/datasources/driver_income_datasource.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_income_service.dart';
+import 'package:mi_ruta/features/driver/data/datasources/driver_assigned_routes_datasource.dart';
+import 'package:mi_ruta/features/driver/domain/services/driver_assigned_routes_service.dart';
+import 'package:mi_ruta/features/driver/data/datasources/tickeador_operations_datasource.dart';
+import 'package:mi_ruta/features/driver/domain/services/tickeador_operations_service.dart';
 import 'package:mi_ruta/features/presidente/domain/services/presidente_dashboard_service.dart';
+import 'package:mi_ruta/features/admin/data/datasources/admin_privileges_datasource.dart';
+import 'package:mi_ruta/features/admin/domain/services/admin_privileges_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -362,6 +368,46 @@ void setupDependencies() {
 
   getIt.registerSingleton<DriverIncomeService>(
     DriverIncomeService(datasource: getIt<DriverIncomeDatasource>()),
+  );
+
+  // ============================================
+  // DRIVER ASSIGNED ROUTES FEATURE
+  // ============================================
+  getIt.registerSingleton<DriverAssignedRoutesDatasource>(
+    DriverAssignedRoutesDatasource(
+      firestore: getIt<FirebaseFirestore>(),
+      routeDatasource: getIt<RouteDatasource>(),
+    ),
+  );
+
+  getIt.registerSingleton<DriverAssignedRoutesService>(
+    DriverAssignedRoutesService(
+      datasource: getIt<DriverAssignedRoutesDatasource>(),
+    ),
+  );
+
+  // ============================================
+  // TICKEADOR OPERATIONS FEATURE
+  // ============================================
+  getIt.registerSingleton<TickeadorOperationsDatasource>(
+    TickeadorOperationsDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  getIt.registerSingleton<TickeadorOperationsService>(
+    TickeadorOperationsService(
+      datasource: getIt<TickeadorOperationsDatasource>(),
+    ),
+  );
+
+  // ============================================
+  // ADMIN PRIVILEGES FEATURE
+  // ============================================
+  getIt.registerSingleton<AdminPrivilegesDatasource>(
+    AdminPrivilegesDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  getIt.registerSingleton<AdminPrivilegesService>(
+    AdminPrivilegesService(datasource: getIt<AdminPrivilegesDatasource>()),
   );
 
   // ============================================

@@ -16,6 +16,7 @@ import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.d
 import 'package:mi_ruta/features/driver/presentation/pages/historial_ingresos_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/notificaciones_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/planificar_viaje_page.dart';
+import 'package:mi_ruta/features/stops/presentation/pages/paradas_cercanas_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
@@ -338,6 +339,17 @@ class _PerfilPageState extends State<PerfilPage> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => const PlanificarViajePage(),
+                    ),
+                  ),
+                ),
+                _buildMenuItem(
+                  icon: Icons.pin_drop_outlined,
+                  title: 'Paradas cercanas',
+                  subtitle: 'Encuentra paradas de bus cerca de ti',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ParadasCercanasPage(),
                     ),
                   ),
                 ),

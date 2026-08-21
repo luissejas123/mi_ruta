@@ -49,6 +49,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 import 'package:mi_ruta/features/driver/data/datasources/driver_income_datasource.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_income_service.dart';
 import 'package:mi_ruta/features/presidente/domain/services/presidente_dashboard_service.dart';
+import 'package:mi_ruta/features/stops/domain/services/bus_stop_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -369,5 +370,12 @@ void setupDependencies() {
   // ============================================
   getIt.registerSingleton<PresidenteDashboardService>(
     PresidenteDashboardService(localDb: getIt<RouteLocalDatabase>()),
+  );
+
+  // ============================================
+  // STOPS FEATURE
+  // ============================================
+  getIt.registerSingleton<BusStopService>(
+    BusStopService(localDb: getIt<RouteLocalDatabase>()),
   );
 }

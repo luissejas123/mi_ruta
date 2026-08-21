@@ -7,9 +7,10 @@ import 'package:sqflite/sqflite.dart';
 /// Almacena metadatos + bbox + polylines para búsqueda offline instantánea.
 class RouteLocalDatabase {
   static const _dbName = 'mi_ruta_routes.db';
-  static const _dbVersion = 3; // Increment to rebuild with polyline_json
+  static const _dbVersion = 4; // v4: agrega tabla stops_meta
   static const _tableRoutes = 'routes_meta';
   static const _tableConfig = 'app_config';
+  static const _tableStops = 'stops_meta';
 
   Database? _db;
 
@@ -33,6 +34,8 @@ class RouteLocalDatabase {
         await db.execute('DROP TABLE IF EXISTS $_tableRoutes');
         await db.execute('DROP TABLE IF EXISTS $_tableConfig');
         await _createTables(db);
+        // stops_meta es nueva en v4: no dropear (no existia antes, y
+        // _createTables ya usa CREATE TABLE IF NOT EXISTS para ella).
       },
     );
   }
@@ -57,6 +60,17 @@ class RouteLocalDatabase {
       CREATE TABLE $_tableConfig (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
+      )
+    ''');
+    // IF NOT EXISTS: en onUpgrade no se dropea (a diferencia de routes_meta/config)
+    // para no perder cache de rutas en instalaciones que solo suman esta tabla.
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $_tableStops (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        lat REAL NOT NULL,
+        lng REAL NOT NULL,
+        route_refs TEXT
       )
     ''');
   }
@@ -188,6 +202,66 @@ class RouteLocalDatabase {
       _tableRoutes,
       columns: ['id', 'name', 'ref', 'color', 'direction_id'],
       orderBy: 'name ASC',
+    );
+  }
+
+  // ── Paradas (stops) ───────────────────────────────────────────────────
+
+  /// Inserta o reemplaza paradas en batch.
+  Future<void> upsertStops(List<Map<String, dynamic>> stops) async {
+    final db = await _database;
+    final batch = db.batch();
+    for (final stop in stops) {
+      batch.insert(
+        _tableStops,
+        stop,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Numero de paradas almacenadas.
+  Future<int> countStops() async {
+    final db = await _database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as cnt FROM $_tableStops',
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  /// Paradas dentro de un rango cuadrado alrededor del punto dado.
+  /// radiusDeg ~ 0.01 -> ~1.1 km en Cochabamba (lat ~-17°).
+  Future<List<Map<String, dynamic>>> getStopsNearPoint(
+    double lat,
+    double lng, {
+    double radiusDeg = 0.01,
+  }) async {
+    final db = await _database;
+    return db.query(
+      _tableStops,
+      where: 'lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?',
+      whereArgs: [
+        lat - radiusDeg,
+        lat + radiusDeg,
+        lng - radiusDeg,
+        lng + radiusDeg,
+      ],
+    );
+  }
+
+  /// Obtiene metadatos de rutas por su ref (para enriquecer refs de parada
+  /// con el nombre real de la linea, cuando exista en routes_meta).
+  Future<List<Map<String, dynamic>>> getRoutesByRefs(List<String> refs) async {
+    if (refs.isEmpty) return [];
+    final db = await _database;
+    final placeholders = List.filled(refs.length, '?').join(',');
+    return db.query(
+      _tableRoutes,
+      distinct: true,
+      columns: ['name', 'ref'],
+      where: 'ref IN ($placeholders)',
+      whereArgs: refs,
     );
   }
 

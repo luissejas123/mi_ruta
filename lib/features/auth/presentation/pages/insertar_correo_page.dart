@@ -5,7 +5,7 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/pages/register_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recuperar_acceso_page.dart';
-import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
+import 'package:mi_ruta/core/navigation/home_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_textfield.dart';
 
 class InsertarCorreoPage extends StatefulWidget {
@@ -66,7 +66,7 @@ class _InsertarCorreoPageState extends State<InsertarCorreoPage> {
         if (state is AuthLoaded) {
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (_) => const MiRutaScreen()),
+            MaterialPageRoute(builder: (_) => homeScreenForRole(state.user)),
             (_) => false,
           );
         }

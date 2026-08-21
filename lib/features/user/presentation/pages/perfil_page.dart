@@ -13,6 +13,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/editar_perfil_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/historial_ingresos_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/notificaciones_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/planificar_viaje_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
@@ -306,6 +307,18 @@ class _PerfilPageState extends State<PerfilPage> {
                     ),
                   ),
                 ),
+                if (user.userType == 'driver')
+                  _buildMenuItem(
+                    icon: Icons.payments_outlined,
+                    title: 'Historial de ingresos',
+                    subtitle: 'Ver tus pagos recibidos',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const HistorialIngresosPage(),
+                      ),
+                    ),
+                  ),
                 _buildMenuItem(
                   icon: Icons.notifications_outlined,
                   title: 'Notificaciones',

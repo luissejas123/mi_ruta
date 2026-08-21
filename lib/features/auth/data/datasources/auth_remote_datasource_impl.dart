@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mi_ruta/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:mi_ruta/features/auth/data/models/auth_model.dart';
+import 'package:mi_ruta/core/debug/static_test_accounts.dart';
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   final FirebaseAuth _firebaseAuth;
@@ -83,6 +84,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String email,
     required String password,
   }) async {
+    // MODO PRUEBA TEMPORAL: cuentas estaticas, ver core/debug/static_test_accounts.dart
+    final testAccount = staticTestAccounts[email];
+    if (testAccount != null) {
+      if (testAccount.password != password) {
+        throw Exception('Correo o contraseña incorrectos.');
+      }
+      return testAccount.authModel;
+    }
     try {
       final userCredential =
           await _firebaseAuth.signInWithEmailAndPassword(

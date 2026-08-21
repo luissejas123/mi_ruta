@@ -1,6 +1,9 @@
 import 'package:equatable/equatable.dart';
-import 'package:mi_ruta/features/driver/domain/entities/driver_trip_entity.dart';
+import 'package:mi_ruta/features/tickeador/domain/entities/station_log_entity.dart';
+import 'package:mi_ruta/features/tickeador/domain/entities/tickeador_entity.dart';
+import 'package:mi_ruta/features/tickeador/domain/entities/vehicle_entity.dart';
 
+/// Estado base de la feature Tickeador.
 abstract class TickeadorState extends Equatable {
   const TickeadorState();
 
@@ -8,47 +11,97 @@ abstract class TickeadorState extends Equatable {
   List<Object?> get props => [];
 }
 
+/// Estado inicial.
+class TickeadorInitial extends TickeadorState {
+  const TickeadorInitial();
+}
+
+/// Cargando la información del tickeador, vehículo o actividad.
 class TickeadorLoading extends TickeadorState {
   const TickeadorLoading();
 }
 
+/// Información del tickeador cargada correctamente.
 class TickeadorLoaded extends TickeadorState {
-  final List<DriverTripEntity> history;
-  final DriverTripEntity? lastValidatedTrip;
-  final String? lastValidationError;
-  final bool isValidating;
+  final TickeadorEntity? tickeador;
 
-  const TickeadorLoaded({
-    required this.history,
-    this.lastValidatedTrip,
-    this.lastValidationError,
-    this.isValidating = false,
-  });
-
-  TickeadorLoaded copyWith({
-    List<DriverTripEntity>? history,
-    DriverTripEntity? lastValidatedTrip,
-    String? lastValidationError,
-    bool clearLastResult = false,
-    bool? isValidating,
-  }) {
-    return TickeadorLoaded(
-      history: history ?? this.history,
-      lastValidatedTrip: clearLastResult ? null : (lastValidatedTrip ?? this.lastValidatedTrip),
-      lastValidationError:
-          clearLastResult ? null : (lastValidationError ?? this.lastValidationError),
-      isValidating: isValidating ?? this.isValidating,
-    );
-  }
+  const TickeadorLoaded({this.tickeador});
 
   @override
-  List<Object?> get props => [history, lastValidatedTrip, lastValidationError, isValidating];
+  List<Object?> get props => [tickeador];
 }
 
+/// Vehículo encontrado por placa.
+class VehicleFound extends TickeadorState {
+  final VehicleEntity vehicle;
+
+  const VehicleFound({required this.vehicle});
+
+  @override
+  List<Object?> get props => [vehicle];
+}
+
+/// Vehículo no encontrado.
+class VehicleNotFound extends TickeadorState {
+  const VehicleNotFound();
+}
+
+/// Operación (marcar salida/llegada) exitosa.
+class StationLogSuccess extends TickeadorState {
+  final String message;
+
+  const StationLogSuccess({required this.message});
+
+  @override
+  List<Object?> get props => [message];
+}
+
+/// Actividad reciente cargada.
+class ActividadLoaded extends TickeadorState {
+  final List<StationLogEntity> logs;
+
+  const ActividadLoaded({required this.logs});
+
+  @override
+  List<Object?> get props => [logs];
+}
+
+/// Error en cualquier operación.
 class TickeadorError extends TickeadorState {
   final String message;
 
-  const TickeadorError(this.message);
+  const TickeadorError({required this.message});
+
+  @override
+  List<Object?> get props => [message];
+}
+
+/// Historial de verificaciones cargado.
+class VerificationHistoryLoaded extends TickeadorState {
+  final List<dynamic> history;
+
+  const VerificationHistoryLoaded({required this.history});
+
+  @override
+  List<Object?> get props => [history];
+}
+
+/// QR válido.
+class QrValidated extends TickeadorState {
+  final String message;
+  final dynamic tripData;
+
+  const QrValidated({required this.message, required this.tripData});
+
+  @override
+  List<Object?> get props => [message, tripData];
+}
+
+/// QR inválido.
+class QrInvalid extends TickeadorState {
+  final String message;
+
+  const QrInvalid({required this.message});
 
   @override
   List<Object?> get props => [message];

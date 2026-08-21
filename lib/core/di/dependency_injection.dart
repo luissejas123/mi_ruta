@@ -47,7 +47,7 @@ import 'package:mi_ruta/features/user/domain/usecases/get_current_location_useca
 import 'package:mi_ruta/features/user/domain/usecases/reverse_geocode_usecase.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 import 'package:mi_ruta/features/user/domain/services/user_preferences_service.dart';
-import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
+
 import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_bloc.dart';
 import 'package:mi_ruta/features/routes/domain/services/gtfs_schedule_service.dart';
 import 'package:mi_ruta/features/driver/data/datasources/driver_datasource.dart';
@@ -55,9 +55,13 @@ import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
 import 'package:mi_ruta/features/admin/data/datasources/user_management_datasource.dart';
 import 'package:mi_ruta/features/admin/domain/services/user_management_service.dart';
 import 'package:mi_ruta/features/admin/domain/services/admin_service.dart';
+import 'package:mi_ruta/features/tickeador/data/datasources/tickeador_datasource.dart';
+import 'package:mi_ruta/features/tickeador/data/repositories/tickeador_repository_impl.dart';
+import 'package:mi_ruta/features/tickeador/domain/repositories/tickeador_repository.dart';
+import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_bloc.dart';
 import 'package:mi_ruta/features/tickeador/domain/services/tickeador_service.dart';
-import 'package:mi_ruta/features/user/domain/services/user_preferences_service.dart';
-import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_bloc.dart';
+
+
 
 
 
@@ -412,10 +416,27 @@ void setupDependencies() {
   );
 
   // ============================================
-  // TICKEADOR FEATURE - DOMAIN LAYER
-  // (sin datasource propio: reusa DriverDatasource para `trips`)
+  // TICKEADOR FEATURE - DATA LAYER
+  // ============================================
+  getIt.registerSingleton<TickeadorDatasource>(
+    TickeadorDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  getIt.registerSingleton<TickeadorRepository>(
+    TickeadorRepositoryImpl(datasource: getIt<TickeadorDatasource>()),
+  );
+
+  // ============================================
+  // TICKEADOR FEATURE - DOMAIN LAYER (Services)
   // ============================================
   getIt.registerSingleton<TickeadorService>(
-    TickeadorService(driverDatasource: getIt<DriverDatasource>()),
+    TickeadorService(repository: getIt<TickeadorRepository>()),
+  );
+
+  // ============================================
+  // TICKEADOR FEATURE - PRESENTATION LAYER (BLoC)
+  // ============================================
+  getIt.registerSingleton<TickeadorBloc>(
+    TickeadorBloc(service: getIt<TickeadorService>()),
   );
 }

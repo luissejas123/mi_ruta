@@ -26,6 +26,7 @@ import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dar
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/legal_bottom_sheet.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_trip_history_page.dart';
 
 class PerfilPage extends StatefulWidget {
   /// A qué pantalla vuelve la pestaña "Inicio" del pie de navegación.
@@ -342,15 +343,30 @@ class _PerfilPageState extends State<PerfilPage> {
 
                   _buildMenuItem(
                     icon: Icons.history,
-                    title: 'Historial de viajes',
+                    title: (context.read<AuthBloc>().state as AuthLoaded).user.role == 'driver' ? 'Historial del conductor' : 'Historial de viajes',
                     subtitle: 'Ver todos tus viajes',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const HistorialViajesPage(),
-                      ),
-                    ),
+                    onTap: () {
+                      final authState = context.read<AuthBloc>().state;
+                      print("DEBUG PERFIL ROLE: ${authState.user.role}");
+                      print("DEBUG PERFIL UID: ${authState.user.uid}");
+                      if (authState is AuthLoaded) {
+                        if (authState.user.role == "driver") {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DriverTripHistoryPage(driverId: authState.user.uid),
+                            ),
+                          );
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const HistorialViajesPage(),
+                            ),
+                          );
+                        }
+                      }
+                    },
                   ),
 
                   _buildMenuItem(

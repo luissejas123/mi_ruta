@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/user_management_page.dart';
@@ -22,7 +23,7 @@ import 'package:mi_ruta/features/driver/presentation/pages/driver_approval_page.
 import 'package:mi_ruta/features/driver/presentation/widgets/driver_service_map.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_trip_history_page.dart';
 
 class DriverHomePage extends StatelessWidget {
   /// Fuerza el rol usado para decidir si se muestran las secciones de
@@ -660,6 +661,36 @@ class _DriverOperationsSections extends StatelessWidget {
                           .add(DownloadTripHistory(fullName.isNotEmpty ? fullName : 'Chofer')),
                   icon: const Icon(Icons.download_outlined, size: 18),
                   label: const Text('Generar y compartir PDF'),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: 'Historial de viajes completo',
+              icon: Icons.history,
+              child: InkWell(
+                onTap: () {
+                  final authState = context.read<AuthBloc>().state;
+                  final uid = authState is AuthLoaded ? authState.user.uid : '';
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DriverTripHistoryPage(driverId: uid),
+                    ),
+                  );
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(12.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Ver todo el historial',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      Icon(Icons.arrow_forward_ios, size: 16),
+                    ],
+                  ),
                 ),
               ),
             ),

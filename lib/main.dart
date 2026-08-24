@@ -25,6 +25,7 @@ import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/super_admin_switcher_page.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_home_page.dart';
 import 'package:mi_ruta/core/config/super_admin_config.dart';
+import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
 
 /// Handler de nivel superior para mensajes FCM recibidos en segundo plano
 /// o cuando la app está terminada. Debe ser una función de nivel superior
@@ -40,6 +41,53 @@ Future<void> _firebaseMessagingBackgroundHandler(
   debugPrint('[FCM] Título: $title | Cuerpo: $body');
   if (message.data.isNotEmpty) {
     debugPrint('[FCM] Data: ${message.data}');
+    // Procesar notificaciones operativas
+    await _processOperationalNotification(message);
+  }
+}
+
+/// Procesa notificaciones operativas específicas para RQ-44
+Future<void> _processOperationalNotification(RemoteMessage message) async {
+  try {
+    final type = message.data['type'];
+    final userId = message.data['userId'];
+    final title = message.data['title'] ?? message.notification?.title;
+    final body = message.data['body'] ?? message.notification?.body;
+
+    // Solo procesar tipos operativos específicos
+    if (type != 'stop_request' && 
+        type != 'maintenance' && 
+        type != 'block' && 
+        type != 'protest' && 
+        type != 'service_status') {
+      return;
+    }
+
+    // Validar campos requeridos
+    if (userId == null || userId.isEmpty) {
+      debugPrint('[FCM] Falta userId en notificación operativa');
+      return;
+    }
+    
+    if (title == null || title.isEmpty) {
+      debugPrint('[FCM] Falta title en notificación operativa');
+      return;
+    }
+    
+    if (body == null || body.isEmpty) {
+      debugPrint('[FCM] Falta body en notificación operativa');
+      return;
+    }
+
+    // Guardar notificación operativa usando el servicio existente
+    final notificationService = getIt<NotificationService>();
+    await notificationService.saveOperationalNotification(
+      userId,
+      title,
+      body,
+    );
+  } catch (e) {
+    debugPrint('[FCM] Error procesando notificación operativa: $e');
   }
 }
 
@@ -73,6 +121,8 @@ void main() async {
     debugPrint('[FCM] Título: $title | Cuerpo: $body');
     if (message.data.isNotEmpty) {
       debugPrint('[FCM] Data: ${message.data}');
+      // Procesar notificaciones operativas
+      _processOperationalNotification(message);
     }
   });
 

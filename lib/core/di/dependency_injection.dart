@@ -8,6 +8,20 @@ import 'package:mi_ruta/features/auth/data/repositories/auth_repository_impl.dar
 import 'package:mi_ruta/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mi_ruta/features/auth/domain/usecases/auth_usecases.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/change_password_bloc.dart';
+import 'package:mi_ruta/features/admin/data/datasources/admin_remote_datasource.dart';
+import 'package:mi_ruta/features/admin/data/datasources/admin_remote_datasource_impl.dart';
+import 'package:mi_ruta/features/admin/data/repositories/admin_repository_impl.dart';
+import 'package:mi_ruta/features/admin/domain/repositories/admin_repository.dart';
+import 'package:mi_ruta/features/admin/domain/usecases/admin_usecases.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/user_management_bloc.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.dart';
+import 'package:mi_ruta/features/admin/data/datasources/admin_route_datasource.dart';
+import 'package:mi_ruta/features/admin/data/datasources/admin_route_datasource_impl.dart';
+import 'package:mi_ruta/features/admin/data/repositories/admin_route_repository_impl.dart';
+import 'package:mi_ruta/features/admin/domain/repositories/admin_route_repository.dart';
+import 'package:mi_ruta/features/admin/domain/usecases/admin_route_usecases.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/route_management_bloc.dart';
 import 'package:mi_ruta/features/user/data/datasources/user_remote_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/user_remote_datasource_impl.dart';
 import 'package:mi_ruta/features/user/data/datasources/trip_history_datasource.dart';
@@ -96,6 +110,10 @@ void setupDependencies() {
     ResetPasswordUseCase(getIt<AuthRepository>()),
   );
 
+  getIt.registerSingleton<ChangePasswordUseCase>(
+    ChangePasswordUseCase(getIt<AuthRepository>()),
+  );
+
   // ============================================
   // AUTH FEATURE - PRESENTATION LAYER (BLoC)
   // ============================================
@@ -106,6 +124,66 @@ void setupDependencies() {
       logoutUseCase: getIt<LogoutUseCase>(),
       getCurrentUserUseCase: getIt<GetCurrentAuthUserUseCase>(),
       resetPasswordUseCase: getIt<ResetPasswordUseCase>(),
+    ),
+  );
+
+  getIt.registerSingleton<ChangePasswordBloc>(
+    ChangePasswordBloc(changePasswordUseCase: getIt<ChangePasswordUseCase>()),
+  );
+
+  // ============================================
+  // ADMIN FEATURE - DATA LAYER
+  // ============================================
+  getIt.registerSingleton<AdminRemoteDataSource>(
+    AdminRemoteDataSourceImpl(
+      firestore: getIt<FirebaseFirestore>(),
+      firebaseAuth: getIt<FirebaseAuth>(),
+    ),
+  );
+
+  getIt.registerSingleton<AdminRepository>(
+    AdminRepositoryImpl(remoteDataSource: getIt<AdminRemoteDataSource>()),
+  );
+
+  // ============================================
+  // ADMIN FEATURE - DOMAIN LAYER (UseCases)
+  // ============================================
+  getIt.registerSingleton<GetAdminUsersUseCase>(
+    GetAdminUsersUseCase(getIt<AdminRepository>()),
+  );
+
+  getIt.registerSingleton<GetAdminUserByIdUseCase>(
+    GetAdminUserByIdUseCase(getIt<AdminRepository>()),
+  );
+
+  getIt.registerSingleton<UpdateUserRoleUseCase>(
+    UpdateUserRoleUseCase(getIt<AdminRepository>()),
+  );
+
+  getIt.registerSingleton<UpdateAdminPermissionsUseCase>(
+    UpdateAdminPermissionsUseCase(getIt<AdminRepository>()),
+  );
+
+  getIt.registerSingleton<CreateAdminAccountUseCase>(
+    CreateAdminAccountUseCase(getIt<AdminRepository>()),
+  );
+
+  // ============================================
+  // ADMIN FEATURE - PRESENTATION LAYER (BLoC)
+  // ============================================
+  getIt.registerSingleton<UserManagementBloc>(
+    UserManagementBloc(
+      getUsersUseCase: getIt<GetAdminUsersUseCase>(),
+      updateUserRoleUseCase: getIt<UpdateUserRoleUseCase>(),
+    ),
+  );
+
+  getIt.registerSingleton<AdminPrivilegesBloc>(
+    AdminPrivilegesBloc(
+      getUsersUseCase: getIt<GetAdminUsersUseCase>(),
+      getUserByIdUseCase: getIt<GetAdminUserByIdUseCase>(),
+      updatePermissionsUseCase: getIt<UpdateAdminPermissionsUseCase>(),
+      createAdminAccountUseCase: getIt<CreateAdminAccountUseCase>(),
     ),
   );
 
@@ -327,6 +405,54 @@ void setupDependencies() {
   getIt.registerSingleton<RouteLocalDatabase>(RouteLocalDatabase());
 
   getIt.registerSingleton<GtfsDatasource>(GtfsDatasource());
+
+  // ============================================
+  // ADMIN FEATURE - GESTIÓN DE RUTAS
+  // ============================================
+  getIt.registerSingleton<AdminRouteDataSource>(
+    AdminRouteDataSourceImpl(
+      routeDatasource: getIt<RouteDatasource>(),
+      gtfsDatasource: getIt<GtfsDatasource>(),
+    ),
+  );
+
+  getIt.registerSingleton<AdminRouteRepository>(
+    AdminRouteRepositoryImpl(remoteDataSource: getIt<AdminRouteDataSource>()),
+  );
+
+  getIt.registerSingleton<GetAdminRoutesUseCase>(
+    GetAdminRoutesUseCase(getIt<AdminRouteRepository>()),
+  );
+
+  getIt.registerSingleton<GetAdminRouteByIdUseCase>(
+    GetAdminRouteByIdUseCase(getIt<AdminRouteRepository>()),
+  );
+
+  getIt.registerSingleton<CreateAdminRouteUseCase>(
+    CreateAdminRouteUseCase(getIt<AdminRouteRepository>()),
+  );
+
+  getIt.registerSingleton<UpdateAdminRouteUseCase>(
+    UpdateAdminRouteUseCase(getIt<AdminRouteRepository>()),
+  );
+
+  getIt.registerSingleton<DeleteAdminRouteUseCase>(
+    DeleteAdminRouteUseCase(getIt<AdminRouteRepository>()),
+  );
+
+  getIt.registerSingleton<LoadRoutesFromGtfsUseCase>(
+    LoadRoutesFromGtfsUseCase(getIt<AdminRouteRepository>()),
+  );
+
+  getIt.registerSingleton<RouteManagementBloc>(
+    RouteManagementBloc(
+      getRoutesUseCase: getIt<GetAdminRoutesUseCase>(),
+      createRouteUseCase: getIt<CreateAdminRouteUseCase>(),
+      updateRouteUseCase: getIt<UpdateAdminRouteUseCase>(),
+      deleteRouteUseCase: getIt<DeleteAdminRouteUseCase>(),
+      loadRoutesFromGtfsUseCase: getIt<LoadRoutesFromGtfsUseCase>(),
+    ),
+  );
 
   getIt.registerSingleton<RouteDataSyncService>(
     RouteDataSyncService(

@@ -28,13 +28,14 @@ class AuthModel extends AuthEntity {
 
     return AuthModel(
       uid: json['uid'] as String? ?? '',
-      fullName: json['full_name'] as String? ?? '',
+      // La colección users tiene docs snake_case y camelCase: leer ambas claves.
+      fullName: (json['full_name'] ?? json['fullName']) as String? ?? '',
       email: json['email'] as String? ?? '',
-      governmentId: json['government_id'] as String? ?? '',
-      phoneNumber: json['phone_number'] as String? ?? '',
-      profilePictureUrl: json['profile_picture_url'] as String?,
-      role: json['role'] as String? ?? 'user',
-      createdAt: parseCreatedAt(json['created_at']),
+      governmentId: (json['government_id'] ?? json['governmentId']) as String? ?? '',
+      phoneNumber: (json['phone_number'] ?? json['phoneNumber']) as String? ?? '',
+      profilePictureUrl: (json['profile_picture_url'] ?? json['profileImageUrl']) as String?,
+      role: (json['role'] ?? json['userType']) as String? ?? 'user',
+      createdAt: parseCreatedAt(json['created_at'] ?? json['createdAt']),
       wallet: json['wallet'] as Map<String, dynamic>?,
       settings: json['settings'] as Map<String, dynamic>?,
     );

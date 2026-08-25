@@ -4,6 +4,7 @@ import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
+import 'package:mi_ruta/features/auth/presentation/widgets/change_password_dialog.dart';
 import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_event.dart';
@@ -18,6 +19,7 @@ import 'package:mi_ruta/features/user/presentation/pages/planificar_viaje_page.d
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -29,6 +31,12 @@ class PerfilPage extends StatefulWidget {
 class _PerfilPageState extends State<PerfilPage> {
   static const _amarillo = Color(0xFFFFC12F);
   static const _navIndexPerfil = 3;
+
+  /// El botón del panel administrativo solo se muestra a role == "admin".
+  bool get _isAdmin {
+    final authState = context.read<AuthBloc>().state;
+    return authState is AuthLoaded && authState.user.role == 'admin';
+  }
 
   @override
   void initState() {
@@ -76,8 +84,7 @@ class _PerfilPageState extends State<PerfilPage> {
     ).then((_) => _loadUser());
   }
 
-  void _cerrarSesion() {
-    showDialog(
+  void _cerrarSesion() {    showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Cerrar sesión'),
@@ -296,6 +303,12 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () {},
                 ),
                 _buildMenuItem(
+                  icon: Icons.lock_outline,
+                  title: 'Cambiar contraseña',
+                  subtitle: 'Actualiza tu contraseña de acceso',
+                  onTap: () => showChangePasswordDialog(context),
+                ),
+                _buildMenuItem(
                   icon: Icons.history,
                   title: 'Historial de viajes',
                   subtitle: 'Ver todos tus viajes',
@@ -328,6 +341,22 @@ class _PerfilPageState extends State<PerfilPage> {
                     ),
                   ),
                 ),
+
+                // ── Panel administrativo (solo admins) ──
+                if (_isAdmin)
+                  _buildSectionTitle('PANEL ADMINISTRATIVO'),
+                if (_isAdmin)
+                  _buildMenuItem(
+                    icon: Icons.admin_panel_settings_outlined,
+                    title: 'Panel administrativo',
+                    subtitle: 'Gestión de usuarios y privilegios',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdminHomePage(),
+                      ),
+                    ),
+                  ),
 
                 // ── Billetera ──
                 _buildSectionTitle('BILLETERA'),

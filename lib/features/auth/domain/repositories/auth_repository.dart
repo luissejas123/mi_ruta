@@ -22,4 +22,9 @@ abstract class AuthRepository {
   Future<Either<Failure, AuthEntity>> getCurrentUser();
 
   Future<Either<Failure, void>> resetPassword(String email);
+
+  Future<Either<Failure, void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
 }

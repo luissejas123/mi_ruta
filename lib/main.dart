@@ -18,6 +18,8 @@ import 'dart:async';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
+import 'package:mi_ruta/core/dev/dev_admin_bootstrap.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,6 +45,8 @@ void main() async {
     setupDependencies();
 
     unawaited(getIt<RouteDataSyncService>().ensureDataReady());
+    // SOLO DESARROLLO: asegura la cuenta admin@miruta.com (no ejecuta en release).
+    unawaited(DevAdminBootstrap.ensureDevAdmin());
   } catch (error) {
     startupError = error;
   }
@@ -240,6 +244,11 @@ class _AuthGate extends StatelessWidget {
           );
         }
         if (state is AuthLoaded) {
+          // Navegación por role. El SuperAdmin es un admin con acceso total.
+          if (state.user.role == 'admin') {
+            return const AdminHomePage();
+          }
+          // driver / presidente / tickeador / user → pantalla normal por ahora
           return const MiRutaScreen();
         }
         return const IniciarSesionPage();

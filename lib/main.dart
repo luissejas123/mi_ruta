@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -20,13 +21,61 @@ import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
-  await Firebase.initializeApp();
-  setupDependencies();
+  Object? startupError;
 
-  unawaited(getIt<RouteDataSyncService>().ensureDataReady());
+  try {
+    await dotenv.load(fileName: '.env');
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: FirebaseOptions(
+          apiKey: dotenv.env['FIREBASE_API_KEY'] ?? '',
+          appId: dotenv.env['FIREBASE_WEB_APP_ID'] ?? '',
+          messagingSenderId: dotenv.env['FIREBASE_PROJECT_NUMBER'] ?? '',
+          projectId: dotenv.env['FIREBASE_PROJECT_ID'] ?? '',
+          authDomain: dotenv.env['FIREBASE_AUTH_DOMAIN'],
+          storageBucket: dotenv.env['FIREBASE_STORAGE_BUCKET'],
+          databaseURL: dotenv.env['FIREBASE_DATABASE_URL'],
+        ),
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
+    setupDependencies();
 
-  runApp(const MyApp());
+    unawaited(getIt<RouteDataSyncService>().ensureDataReady());
+  } catch (error) {
+    startupError = error;
+  }
+
+  runApp(
+    startupError == null
+        ? const MyApp()
+        : StartupErrorApp(error: startupError.toString()),
+  );
+}
+
+class StartupErrorApp extends StatelessWidget {
+  const StartupErrorApp({required this.error, super.key});
+
+  final String error;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SelectableText(
+              'No se pudo iniciar la aplicación:\n\n$error',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {

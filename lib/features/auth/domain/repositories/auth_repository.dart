@@ -1,4 +1,4 @@
-import 'package:dartz/dartz.dart';
+    import 'package:dartz/dartz.dart';
 import 'package:mi_ruta/core/error/failures.dart';
 import 'package:mi_ruta/features/auth/domain/entities/auth_entity.dart';
 

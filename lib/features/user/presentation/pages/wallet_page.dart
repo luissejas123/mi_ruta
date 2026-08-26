@@ -10,6 +10,7 @@ import 'package:mi_ruta/features/user/presentation/pages/pago_qr_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/historial_beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recarga_saldo_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/estado_beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/balance_card.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
@@ -91,10 +92,10 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  void _navigateToHistorialBeneficios() {
+  void _navigateToEstadoBeneficios() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const HistorialBeneficiosPage()),
+      MaterialPageRoute(builder: (_) => const EstadoBeneficiosPage()),
     );
   }
 
@@ -167,9 +168,9 @@ class _WalletPageState extends State<WalletPage> {
         ),
         const SizedBox(height: 12),
         _ActionButton(
-          label: 'HISTORIAL DE BENEFICIOS',
-          icon: Icons.history,
-          onPressed: _navigateToHistorialBeneficios,
+          label: 'CONSULTAR ESTADO',
+          icon: Icons.fact_check_outlined,
+          onPressed: _navigateToEstadoBeneficios,
         ),
       ],
     );
@@ -238,8 +239,8 @@ class _WalletPageState extends State<WalletPage> {
           final wallet = state is WalletLoaded
               ? state.wallet
               : state is TransactionHistoryLoaded
-                  ? state.wallet
-                  : null;
+              ? state.wallet
+              : null;
 
           if (wallet == null) {
             return const Center(child: Text('No hay datos de billetera'));

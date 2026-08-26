@@ -13,6 +13,7 @@ import 'package:mi_ruta/features/routes/presentation/bloc/trip_planner_state.dar
 import 'package:mi_ruta/features/user/presentation/pages/map_location_picker_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/map_search_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/plan_detalle_page.dart';
+import 'package:mi_ruta/features/user/presentation/utils/date_formatter.dart';
 
 class PlanificarViajePage extends StatelessWidget {
   const PlanificarViajePage({super.key});
@@ -20,8 +21,7 @@ class PlanificarViajePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) =>
-          TripPlannerBloc(service: getIt<PlannedTripService>()),
+      create: (_) => TripPlannerBloc(service: getIt<PlannedTripService>()),
       child: const _PlanificarViajeView(),
     );
   }
@@ -39,6 +39,7 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
   PlaceResult? _origin;
   PlaceResult? _destination;
   LatLng? _userLocation;
+  DateTime? _scheduledAt;
 
   String get _userId {
     final s = context.read<AuthBloc>().state;
@@ -77,16 +78,21 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 36, height: 4,
+                  width: 36,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: cs.onSurface.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 const SizedBox(height: 12),
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 ListTile(
                   leading: const CircleAvatar(
@@ -100,8 +106,11 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
                 ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: Color(0xFFFFC12F),
-                    child: Icon(Icons.map_outlined,
-                        color: Colors.black, size: 20),
+                    child: Icon(
+                      Icons.map_outlined,
+                      color: Colors.black,
+                      size: 20,
+                    ),
                   ),
                   title: const Text('Seleccionar en el mapa'),
                   subtitle: const Text('Mueve el mapa y confirma el punto'),
@@ -174,17 +183,54 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
     setState(() => _destination = result);
   }
 
+  Future<void> _pickSchedule() async {
+    final now = DateTime.now();
+    final initial = _scheduledAt ?? now.add(const Duration(minutes: 15));
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 90)),
+    );
+    if (!mounted || date == null) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (!mounted || time == null) return;
+    final scheduledAt = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    if (!scheduledAt.isAfter(now)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El horario debe ser posterior a la hora actual.'),
+        ),
+      );
+      return;
+    }
+    setState(() => _scheduledAt = scheduledAt);
+  }
+
   void _search() {
     final origin = _origin;
     final destination = _destination;
-    if (origin == null || destination == null) return;
-    context.read<TripPlannerBloc>().add(SearchTripOptions(
-          userId: _userId,
-          origin: origin.latLng,
-          destination: destination.latLng,
-          originName: origin.name,
-          destinationName: destination.name,
-        ));
+    final scheduledAt = _scheduledAt;
+    if (origin == null || destination == null || scheduledAt == null) return;
+    context.read<TripPlannerBloc>().add(
+      SearchTripOptions(
+        userId: _userId,
+        origin: origin.latLng,
+        destination: destination.latLng,
+        originName: origin.name,
+        destinationName: destination.name,
+        scheduledAt: scheduledAt,
+      ),
+    );
   }
 
   @override
@@ -203,8 +249,7 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
           controller: _tabs,
           indicatorColor: const Color(0xFFFFC12F),
           labelColor: const Color(0xFFFFC12F),
-          unselectedLabelColor:
-              colorScheme.onSurface.withValues(alpha: 0.5),
+          unselectedLabelColor: colorScheme.onSurface.withValues(alpha: 0.5),
           tabs: const [
             Tab(text: 'Buscar ruta'),
             Tab(text: 'Mis planes'),
@@ -220,6 +265,8 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
             isDark: isDark,
             onPickOrigin: _pickOrigin,
             onPickDestination: _pickDestination,
+            scheduledAt: _scheduledAt,
+            onPickSchedule: _pickSchedule,
             onSearch: _search,
             userId: _userId,
           ),
@@ -241,6 +288,8 @@ class _SearchTab extends StatelessWidget {
   final VoidCallback onPickOrigin;
   final VoidCallback onPickDestination;
   final VoidCallback onSearch;
+  final DateTime? scheduledAt;
+  final VoidCallback onPickSchedule;
   final String userId;
 
   const _SearchTab({
@@ -250,6 +299,8 @@ class _SearchTab extends StatelessWidget {
     required this.onPickOrigin,
     required this.onPickDestination,
     required this.onSearch,
+    required this.scheduledAt,
+    required this.onPickSchedule,
     required this.userId,
   });
 
@@ -285,11 +336,30 @@ class _SearchTab extends StatelessWidget {
                 value: destination?.name,
                 onTap: onPickDestination,
               ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Divider(
+                  height: 1,
+                  color: colorScheme.onSurface.withValues(alpha: 0.1),
+                ),
+              ),
+              _LocationPicker(
+                icon: Icons.schedule,
+                iconColor: const Color(0xFFFFA000),
+                hint: 'Fecha y hora de salida',
+                value: scheduledAt == null
+                    ? null
+                    : DateFormatter.formatWithTime(scheduledAt!),
+                onTap: onPickSchedule,
+              ),
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: (origin != null && destination != null)
+                  onPressed:
+                      (origin != null &&
+                          destination != null &&
+                          scheduledAt != null)
                       ? onSearch
                       : null,
                   icon: const Icon(Icons.search, size: 18),
@@ -302,7 +372,8 @@ class _SearchTab extends StatelessWidget {
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -341,12 +412,13 @@ class _SearchTab extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.route,
-                          size: 56,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.3)),
+                      Icon(
+                        Icons.route,
+                        size: 56,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.3),
+                      ),
                       const SizedBox(height: 12),
                       const Text(
                         'No se encontraron rutas\npara ese trayecto',
@@ -357,10 +429,7 @@ class _SearchTab extends StatelessWidget {
                 );
               }
               if (state is TripSearchResults) {
-                return _ResultsList(
-                  options: state.options,
-                  userId: userId,
-                );
+                return _ResultsList(options: state.options, userId: userId);
               }
               if (state is TripPlannerError) {
                 return Center(child: Text(state.message));
@@ -370,21 +439,21 @@ class _SearchTab extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.directions_bus_outlined,
-                        size: 64,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.2)),
+                    Icon(
+                      Icons.directions_bus_outlined,
+                      size: 64,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.2),
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       'Elige origen y destino\npara buscar rutas',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.5),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
@@ -438,9 +507,11 @@ class _LocationPicker extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.chevron_right,
-                size: 18,
-                color: colorScheme.onSurface.withValues(alpha: 0.3)),
+            Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: colorScheme.onSurface.withValues(alpha: 0.3),
+            ),
           ],
         ),
       ),
@@ -460,10 +531,8 @@ class _ResultsList extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       itemCount: options.length,
       separatorBuilder: (_, i) => const SizedBox(height: 12),
-      itemBuilder: (context, i) => _TripOptionCard(
-        trip: options[i],
-        userId: userId,
-      ),
+      itemBuilder: (context, i) =>
+          _TripOptionCard(trip: options[i], userId: userId),
     );
   }
 }
@@ -482,7 +551,8 @@ class _TripOptionCard extends StatelessWidget {
         color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-            color: colorScheme.onSurface.withValues(alpha: 0.08)),
+          color: colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
       ),
       child: Column(
         children: [
@@ -497,7 +567,9 @@ class _TripOptionCard extends StatelessWidget {
                     for (final leg in trip.legs) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFC12F),
                           borderRadius: BorderRadius.circular(6),
@@ -505,17 +577,21 @@ class _TripOptionCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.directions_bus,
-                                size: 12, color: Colors.black),
+                            const Icon(
+                              Icons.directions_bus,
+                              size: 12,
+                              color: Colors.black,
+                            ),
                             const SizedBox(width: 3),
                             Text(
                               leg.routeRef.isNotEmpty
                                   ? leg.routeRef
                                   : leg.routeName,
                               style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
                             ),
                           ],
                         ),
@@ -523,10 +599,11 @@ class _TripOptionCard extends StatelessWidget {
                       if (leg != trip.legs.last)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 3),
-                          child: Icon(Icons.transfer_within_a_station,
-                              size: 14,
-                              color: colorScheme.onSurface
-                                  .withValues(alpha: 0.5)),
+                          child: Icon(
+                            Icons.transfer_within_a_station,
+                            size: 14,
+                            color: colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
                         ),
                     ],
                   ],
@@ -552,18 +629,28 @@ class _TripOptionCard extends StatelessWidget {
                         'Bs ${trip.totalCostBs.toStringAsFixed(0)}',
                         style: TextStyle(
                           fontSize: 12,
-                          color:
-                              colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
+                      if (trip.scheduledAt != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Salida: ${DateFormatter.formatWithTime(trip.scheduledAt!)}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
                       if (trip.legs.length > 1) ...[
                         const SizedBox(height: 4),
                         Text(
                           '${trip.legs.length} tramos · 1 transbordo',
                           style: TextStyle(
                             fontSize: 11,
-                            color: const Color(0xFFFFC12F)
-                                .withValues(alpha: 0.9),
+                            color: const Color(
+                              0xFFFFC12F,
+                            ).withValues(alpha: 0.9),
                           ),
                         ),
                       ],
@@ -574,15 +661,15 @@ class _TripOptionCard extends StatelessWidget {
             ),
           ),
           Divider(
-              height: 1,
-              color: colorScheme.onSurface.withValues(alpha: 0.08)),
+            height: 1,
+            color: colorScheme.onSurface.withValues(alpha: 0.08),
+          ),
           Row(
             children: [
               Expanded(
                 child: TextButton(
-                  onPressed: () => context
-                      .read<TripPlannerBloc>()
-                      .add(SaveTripPlan(trip)),
+                  onPressed: () =>
+                      context.read<TripPlannerBloc>().add(SaveTripPlan(trip)),
                   child: const Text(
                     'Guardar',
                     style: TextStyle(color: Color(0xFFFFC12F)),
@@ -590,25 +677,25 @@ class _TripOptionCard extends StatelessWidget {
                 ),
               ),
               Container(
-                  width: 1,
-                  height: 36,
-                  color: colorScheme.onSurface.withValues(alpha: 0.08)),
+                width: 1,
+                height: 36,
+                color: colorScheme.onSurface.withValues(alpha: 0.08),
+              ),
               Expanded(
                 child: TextButton(
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => PlanDetallePage(
-                        trip: trip,
-                        userId: userId,
-                      ),
+                      builder: (_) =>
+                          PlanDetallePage(trip: trip, userId: userId),
                     ),
                   ),
                   child: const Text(
                     'Elegir',
                     style: TextStyle(
-                        color: Color(0xFFFFC12F),
-                        fontWeight: FontWeight.bold),
+                      color: Color(0xFFFFC12F),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -650,7 +737,8 @@ class _MyPlansTabState extends State<_MyPlansTab> {
       builder: (context, state) {
         if (state is TripPlannerLoading) {
           return const Center(
-              child: CircularProgressIndicator(color: Color(0xFFFFC12F)));
+            child: CircularProgressIndicator(color: Color(0xFFFFC12F)),
+          );
         }
         if (state is TripPlannerError) {
           return Center(child: Text(state.message));
@@ -661,9 +749,11 @@ class _MyPlansTabState extends State<_MyPlansTab> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.bookmark_border,
-                      size: 56,
-                      color: colorScheme.onSurface.withValues(alpha: 0.3)),
+                  Icon(
+                    Icons.bookmark_border,
+                    size: 56,
+                    color: colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     'Aún no tienes planes guardados.\nBusca una ruta y guárdala.',
@@ -680,10 +770,8 @@ class _MyPlansTabState extends State<_MyPlansTab> {
             padding: const EdgeInsets.all(16),
             itemCount: state.plans.length,
             separatorBuilder: (_, i) => const SizedBox(height: 12),
-            itemBuilder: (context, i) => _SavedPlanCard(
-              trip: state.plans[i],
-              userId: widget.userId,
-            ),
+            itemBuilder: (context, i) =>
+                _SavedPlanCard(trip: state.plans[i], userId: widget.userId),
           );
         }
         return const SizedBox.shrink();
@@ -701,6 +789,8 @@ class _SavedPlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isScheduledForFuture =
+        trip.scheduledAt?.isAfter(DateTime.now()) ?? false;
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
@@ -723,9 +813,7 @@ class _SavedPlanCard extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    trip.isCompleted
-                        ? Icons.check_circle_outline
-                        : Icons.route,
+                    trip.isCompleted ? Icons.check_circle_outline : Icons.route,
                     color: Colors.black,
                     size: 22,
                   ),
@@ -743,6 +831,17 @@ class _SavedPlanCard extends StatelessWidget {
                           color: colorScheme.onSurface,
                         ),
                       ),
+                      if (trip.scheduledAt != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'Programado: ${DateFormatter.formatWithTime(trip.scheduledAt!)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFFFA000),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 2),
                       Text(
                         '${trip.originName} → ${trip.destinationName}',
@@ -750,8 +849,7 @@ class _SavedPlanCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12,
-                          color:
-                              colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -759,8 +857,7 @@ class _SavedPlanCard extends StatelessWidget {
                         '${trip.totalMinutes} min • Bs ${trip.totalCostBs.toStringAsFixed(0)}',
                         style: TextStyle(
                           fontSize: 11,
-                          color:
-                              colorScheme.onSurface.withValues(alpha: 0.4),
+                          color: colorScheme.onSurface.withValues(alpha: 0.4),
                         ),
                       ),
                     ],
@@ -769,7 +866,9 @@ class _SavedPlanCard extends StatelessWidget {
                 if (trip.isCompleted)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.green.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
@@ -777,61 +876,68 @@ class _SavedPlanCard extends StatelessWidget {
                     child: const Text(
                       'Completado',
                       style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold),
+                        fontSize: 10,
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
               ],
             ),
           ),
           Divider(
-              height: 1,
-              color: colorScheme.onSurface.withValues(alpha: 0.08)),
+            height: 1,
+            color: colorScheme.onSurface.withValues(alpha: 0.08),
+          ),
           Row(
             children: [
               Expanded(
                 child: TextButton.icon(
                   onPressed: () {
                     context.read<TripPlannerBloc>().add(
-                        DeleteTripPlan(userId, trip.id));
+                      DeleteTripPlan(userId, trip.id),
+                    );
                   },
-                  icon: const Icon(Icons.delete_outline,
-                      size: 16, color: Colors.red),
-                  label: const Text('Eliminar',
-                      style: TextStyle(color: Colors.red, fontSize: 13)),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    size: 16,
+                    color: Colors.red,
+                  ),
+                  label: const Text(
+                    'Eliminar',
+                    style: TextStyle(color: Colors.red, fontSize: 13),
+                  ),
                 ),
               ),
               Container(
-                  width: 1,
-                  height: 36,
-                  color: colorScheme.onSurface.withValues(alpha: 0.08)),
+                width: 1,
+                height: 36,
+                color: colorScheme.onSurface.withValues(alpha: 0.08),
+              ),
               Expanded(
                 child: TextButton.icon(
-                  onPressed: trip.isCompleted
+                  onPressed: trip.isCompleted || isScheduledForFuture
                       ? null
                       : () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => PlanDetallePage(
-                                trip: trip,
-                                userId: userId,
-                              ),
-                            ),
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                PlanDetallePage(trip: trip, userId: userId),
                           ),
+                        ),
                   icon: Icon(
-                    Icons.play_arrow,
+                    isScheduledForFuture ? Icons.schedule : Icons.play_arrow,
                     size: 16,
-                    color: trip.isCompleted
+                    color: trip.isCompleted || isScheduledForFuture
                         ? colorScheme.onSurface.withValues(alpha: 0.3)
                         : const Color(0xFFFFC12F),
                   ),
                   label: Text(
-                    'Iniciar',
+                    isScheduledForFuture ? 'Programado' : 'Iniciar',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: trip.isCompleted
+                      color: trip.isCompleted || isScheduledForFuture
                           ? colorScheme.onSurface.withValues(alpha: 0.3)
                           : const Color(0xFFFFC12F),
                     ),

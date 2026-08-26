@@ -14,6 +14,7 @@ class SearchTripOptions extends TripPlannerEvent {
   final LatLng destination;
   final String originName;
   final String destinationName;
+  final DateTime scheduledAt;
 
   const SearchTripOptions({
     required this.userId,
@@ -21,11 +22,18 @@ class SearchTripOptions extends TripPlannerEvent {
     required this.destination,
     required this.originName,
     required this.destinationName,
+    required this.scheduledAt,
   });
 
   @override
-  List<Object?> get props =>
-      [userId, origin, destination, originName, destinationName];
+  List<Object?> get props => [
+    userId,
+    origin,
+    destination,
+    originName,
+    destinationName,
+    scheduledAt,
+  ];
 }
 
 class SaveTripPlan extends TripPlannerEvent {

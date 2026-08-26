@@ -12,6 +12,7 @@ import 'package:mi_ruta/features/user/presentation/widgets/benefit_type_button.d
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/document_upload_section.dart';
+import 'package:mi_ruta/features/user/presentation/pages/estado_beneficios_page.dart';
 
 class SolicitudBeneficioPage extends StatefulWidget {
   const SolicitudBeneficioPage({super.key});
@@ -171,6 +172,16 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
           'Solicitud de Beneficio',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const EstadoBeneficiosPage()),
+            ),
+            icon: const Icon(Icons.fact_check_outlined, size: 19),
+            label: const Text('Estado'),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: BlocListener<BenefitRequestBLoC, BenefitRequestState>(
         listener: (context, state) {
@@ -216,7 +227,8 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
                 BenefitTypeButton(
                   label: 'Universitario',
                   isSelected: _selectedBenefitType == 'university',
-                  onTap: () => setState(() => _selectedBenefitType = 'university'),
+                  onTap: () =>
+                      setState(() => _selectedBenefitType = 'university'),
                 ),
                 const SizedBox(height: 12),
                 BenefitTypeButton(
@@ -241,10 +253,7 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: _amarillo,
-                        width: 2,
-                      ),
+                      borderSide: const BorderSide(color: _amarillo, width: 2),
                     ),
                   ),
                 ),

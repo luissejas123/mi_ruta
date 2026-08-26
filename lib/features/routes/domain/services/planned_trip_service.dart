@@ -13,8 +13,8 @@ class PlannedTripService {
   PlannedTripService({
     required PlannedTripDatasource datasource,
     required RouteDataSyncService syncService,
-  })  : _datasource = datasource,
-        _syncService = syncService;
+  }) : _datasource = datasource,
+       _syncService = syncService;
 
   Future<List<PlannedTrip>> searchOptions({
     required String userId,
@@ -22,6 +22,7 @@ class PlannedTripService {
     required LatLng destination,
     required String originName,
     required String destinationName,
+    required DateTime scheduledAt,
   }) async {
     await _syncService.ensureDataReady();
 
@@ -32,11 +33,17 @@ class PlannedTripService {
 
     final results = await Future.wait([
       _syncService.getRoutesNearPoint(
-          latitude: origin.latitude, longitude: origin.longitude),
+        latitude: origin.latitude,
+        longitude: origin.longitude,
+      ),
       _syncService.getRoutesNearPoint(
-          latitude: destination.latitude, longitude: destination.longitude),
+        latitude: destination.latitude,
+        longitude: destination.longitude,
+      ),
       _syncService.getRoutesNearPoint(
-          latitude: midpoint.latitude, longitude: midpoint.longitude),
+        latitude: midpoint.latitude,
+        longitude: midpoint.longitude,
+      ),
     ]);
 
     final originRoutes = _toOsmRoutes(results[0]);
@@ -54,6 +61,7 @@ class PlannedTripService {
       midRoutes: midRoutes,
       originName: originName,
       destName: destinationName,
+      scheduledAt: scheduledAt,
     );
   }
 

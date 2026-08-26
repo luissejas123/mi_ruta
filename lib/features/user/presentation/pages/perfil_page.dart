@@ -30,6 +30,7 @@ import 'package:mi_ruta/features/stops/presentation/pages/paradas_cercanas_page.
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
 
 class PerfilPage extends StatefulWidget {
   /// A qué pantalla vuelve la pestaña "Inicio" del pie de navegación.
@@ -56,7 +57,9 @@ class _PerfilPageState extends State<PerfilPage> {
     final authState = context.read<AuthBloc>().state;
 
     if (authState is AuthLoaded) {
-      context.read<UserBloc>().add(GetUserByIdEvent(uid: authState.user.uid));
+      context.read<UserBloc>().add(
+        StartUserStreamEvent(uid: authState.user.uid),
+      );
       context.read<WalletBloc>().add(LoadWalletEvent(authState.user.uid));
     }
   }
@@ -435,6 +438,19 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () => navigateBottomNav(context, 1),
                 ),
 
+                _buildSectionTitle('SUPERVISIÓN'),
+                _buildMenuItem(
+                  icon: Icons.assessment_outlined,
+                  title: 'Reportes operativos',
+                  subtitle: 'Estado y desempeño de choferes',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ReportesOperativosPage(),
+                    ),
+                  ),
+                ),
+
                 // ── Apariencia ──
                 _buildSectionTitle('APARIENCIA'),
                 // ✅ Botón modo oscuro con switch
@@ -446,7 +462,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   trailing: Switch(
                     value: isDarkMode,
                     onChanged: (_) => context.read<ThemeCubit>().toggleTheme(),
-                    activeThumbColor: _amarillo,
+                    activeColor: _amarillo,
                   ),
                 ),
 

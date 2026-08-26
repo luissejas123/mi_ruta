@@ -275,7 +275,7 @@ class _PerfilPageState extends State<PerfilPage> {
                 _buildSectionTitle('MI CUENTA'),
                 _buildMenuItem(
                   icon: Icons.person_outline,
-                  title: 'Información personal',
+                  title: 'Nombre completo',
                   subtitle: user.fullName,
                   onTap: () => _navigateToEditarPerfil(
                     user.uid,

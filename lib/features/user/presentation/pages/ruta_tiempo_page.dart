@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mi_ruta/core/utils/distance_utils.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
 import 'package:mi_ruta/features/user/domain/entities/osm_route.dart';
@@ -10,27 +11,41 @@ import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dar
 import 'package:mi_ruta/features/user/presentation/widgets/route_info_card.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/route_map_view.dart';
 
+/// Velocidad promedio de un micro/trufi en tráfico urbano (m/min),
+/// misma convención usada en PlannedTripLeg.estimatedMinutes.
+const double _kTransitMetersPerMinute = 250;
+
 class RutaTiempoPage extends StatelessWidget {
   final OsmRoute? route;
   final PlaceResult? destination;
 
   const RutaTiempoPage({super.key, this.route, this.destination});
 
-  Future<void> _openStopDetail(BuildContext context) async {
-    final stopName = destination?.name ?? 'Parada principal';
-    final stopInfo = await getIt<RouteService>().getStopInfo(stopName);
-    if (!context.mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => StopDetailPage(stopInfo: stopInfo)),
-    );
+  /// ETA real basado en GTFS: distancia desde el punto de la ruta más
+  /// cercano al destino, convertida a minutos con la velocidad promedio
+  /// de transporte público.
+  String _calcularEta() {
+    final r = route;
+    final dest = destination;
+    if (r == null || dest == null || r.allPoints.isEmpty) {
+      return 'Sin datos';
+    }
+    var closestMeters = double.infinity;
+    for (final point in r.allPoints) {
+      final d = DistanceUtils.metersApprox(point, dest.latLng);
+      if (d < closestMeters) closestMeters = d;
+    }
+    final minutes = (closestMeters / _kTransitMetersPerMinute)
+        .ceil()
+        .clamp(1, 999);
+    return 'aprox. $minutes min';
   }
 
   @override
   Widget build(BuildContext context) {
     final routeName = route?.name ?? 'Línea seleccionada';
     final destName = destination?.name ?? 'Destino';
-    final routeRef = route?.ref ?? '133';
+    final eta = _calcularEta();
 
     return Scaffold(
       backgroundColor: const Color(0xFFEDEDED),
@@ -110,14 +125,8 @@ class RutaTiempoPage extends StatelessWidget {
               RouteInfoCard(
                 routeName: routeName,
                 destination: destName,
-                stopName: '$destName · Línea ${route?.ref ?? routeName}',
-                routeLines: const ['Línea 1', 'Línea 2'],
-                distance: 'A 1.2 km',
-                trafficStatus: 'Tráfico moderado',
-                status: 'A bordo',
-                eta: '25 min',
-                estimatedArrival: '25 min',
-                onTap: () => _openStopDetail(context),
+                status: 'Tráfico moderado',
+                eta: eta,
               ),
               const SizedBox(height: 24),
               SizedBox(

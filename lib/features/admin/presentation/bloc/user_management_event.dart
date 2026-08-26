@@ -7,34 +7,24 @@ abstract class UserManagementEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Carga usuarios; [userTypeFilter] nulo trae todos los roles.
-class LoadManagedUsers extends UserManagementEvent {
-  final String? userTypeFilter;
-
-  const LoadManagedUsers({this.userTypeFilter});
-
-  @override
-  List<Object?> get props => [userTypeFilter];
+class LoadUsersEvent extends UserManagementEvent {
+  const LoadUsersEvent();
 }
 
-class SetManagedUserActiveState extends UserManagementEvent {
-  final String uid;
-  final bool isActive;
+class SearchUsersEvent extends UserManagementEvent {
+  final String query;
 
-  const SetManagedUserActiveState(this.uid, this.isActive);
+  const SearchUsersEvent(this.query);
 
   @override
-  List<Object?> get props => [uid, isActive];
+  List<Object?> get props => [query];
 }
 
-/// Activa/desactiva el acceso libre a los 5 perfiles para una cuenta de
-/// prueba de QA (ver super_admin_config.dart).
-class SetManagedUserQaAccess extends UserManagementEvent {
+class PromoteUserToAdminEvent extends UserManagementEvent {
   final String uid;
-  final bool qaAccess;
 
-  const SetManagedUserQaAccess(this.uid, this.qaAccess);
+  const PromoteUserToAdminEvent(this.uid);
 
   @override
-  List<Object?> get props => [uid, qaAccess];
+  List<Object?> get props => [uid];
 }

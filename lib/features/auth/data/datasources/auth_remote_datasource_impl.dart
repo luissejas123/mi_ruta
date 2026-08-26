@@ -189,6 +189,50 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     }
   }
 
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final user = _firebaseAuth.currentUser;
+      if (user == null) {
+        throw Exception('No hay usuario autenticado');
+      }
+      // Firebase exige una sesión reciente para updatePassword.
+      // Reautenticamos con la contraseña actual antes de actualizar.
+      if (user.email != null && currentPassword.isNotEmpty) {
+        final credential = EmailAuthProvider.credential(
+          email: user.email!,
+          password: currentPassword,
+        );
+        await user.reauthenticateWithCredential(credential);
+      }
+      await user.updatePassword(newPassword);
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_mensajeErrorContrasena(e.code));
+    } catch (e) {
+      throw Exception('Error al cambiar la contraseña: $e');
+    }
+  }
+
+  // ✅ Mensajes de error de cambio de contraseña legibles
+  String _mensajeErrorContrasena(String code) {
+    switch (code) {
+      case 'requires-recent-login':
+        return 'Por seguridad, vuelve a iniciar sesión antes de cambiar tu contraseña.';
+      case 'weak-password':
+        return 'La contraseña es muy débil. Usa al menos 6 caracteres.';
+      case 'invalid-credential':
+      case 'wrong-password':
+        return 'La contraseña actual es incorrecta.';
+      case 'too-many-requests':
+        return 'Demasiados intentos. Intenta más tarde.';
+      default:
+        return 'Error al cambiar la contraseña. Intenta de nuevo.';
+    }
+  }
+
   // ✅ Mensajes de error de registro legibles
   String _mensajeErrorRegistro(String code) {
     switch (code) {

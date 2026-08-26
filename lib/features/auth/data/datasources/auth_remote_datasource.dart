@@ -18,8 +18,8 @@ abstract class AuthRemoteDataSource {
 
   Future<void> resetPassword(String email);
 
-  /// TEMPORAL — modo prueba 100% estático: construye un [AuthModel] en
-  /// memoria con uid fijo por rol, sin tocar Firebase Auth ni Firestore.
-  /// Remover junto con el resto del "Modo prueba" cuando ya no se necesite.
-  Future<AuthModel> loginAsDemo({required String role});
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
 }

@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-import 'package:mi_ruta/features/admin/domain/entities/admin_privileges.dart';
 
 abstract class AdminPrivilegesEvent extends Equatable {
   const AdminPrivilegesEvent();
@@ -8,21 +7,59 @@ abstract class AdminPrivilegesEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class LoadAdminPrivileges extends AdminPrivilegesEvent {
-  final String adminId;
-
-  const LoadAdminPrivileges(this.adminId);
-
-  @override
-  List<Object?> get props => [adminId];
+class LoadAdminsEvent extends AdminPrivilegesEvent {
+  const LoadAdminsEvent();
 }
 
-class SaveAdminPrivileges extends AdminPrivilegesEvent {
-  final String adminId;
-  final AdminPrivileges privileges;
+class LoadAdminPermissionsEvent extends AdminPrivilegesEvent {
+  final String uid;
 
-  const SaveAdminPrivileges(this.adminId, this.privileges);
+  const LoadAdminPermissionsEvent(this.uid);
 
   @override
-  List<Object?> get props => [adminId, privileges];
+  List<Object?> get props => [uid];
+}
+
+class UpdateAdminPermissionsEvent extends AdminPrivilegesEvent {
+  final String uid;
+  final Map<String, bool> permissions;
+
+  const UpdateAdminPermissionsEvent({
+    required this.uid,
+    required this.permissions,
+  });
+
+  @override
+  List<Object?> get props => [uid, permissions];
+}
+
+class CreateAdminAccountEvent extends AdminPrivilegesEvent {
+  final String adminEmail;
+  final String adminPassword;
+  final String fullName;
+  final String email;
+  final String password;
+  final String governmentId;
+  final String phoneNumber;
+
+  const CreateAdminAccountEvent({
+    required this.adminEmail,
+    required this.adminPassword,
+    required this.fullName,
+    required this.email,
+    required this.password,
+    this.governmentId = '',
+    this.phoneNumber = '',
+  });
+
+  @override
+  List<Object?> get props => [
+    adminEmail,
+    adminPassword,
+    fullName,
+    email,
+    password,
+    governmentId,
+    phoneNumber,
+  ];
 }

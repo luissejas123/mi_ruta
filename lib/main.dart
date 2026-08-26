@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -96,12 +97,31 @@ Future<void> _processOperationalNotification(RemoteMessage message) async {
     debugPrint('[FCM] Error procesando notificación operativa: $e');
   }
 }
+import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
+import 'package:mi_ruta/core/dev/dev_admin_bootstrap.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
-  await Firebase.initializeApp();
-  setupDependencies();
+  Object? startupError;
+
+  try {
+    await dotenv.load(fileName: '.env');
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: FirebaseOptions(
+          apiKey: dotenv.env['FIREBASE_API_KEY'] ?? '',
+          appId: dotenv.env['FIREBASE_WEB_APP_ID'] ?? '',
+          messagingSenderId: dotenv.env['FIREBASE_PROJECT_NUMBER'] ?? '',
+          projectId: dotenv.env['FIREBASE_PROJECT_ID'] ?? '',
+          authDomain: dotenv.env['FIREBASE_AUTH_DOMAIN'],
+          storageBucket: dotenv.env['FIREBASE_STORAGE_BUCKET'],
+          databaseURL: dotenv.env['FIREBASE_DATABASE_URL'],
+        ),
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
+    setupDependencies();
 
   // ── Inicialización mínima de Firebase Cloud Messaging (RQ-44) ──
   debugPrint('[FCM] Inicializando Firebase Messaging');
@@ -145,7 +165,7 @@ void main() async {
     );
   }
 
-  unawaited(getIt<RouteDataSyncService>().ensureDataReady());
+    unawaited(getIt<RouteDataSyncService>().ensureDataReady());
 
   // RQ-57: al restablecerse la conexión, reanudar la sincronización de rutas.
   unawaited(
@@ -153,8 +173,41 @@ void main() async {
       getIt<RouteDataSyncService>().ensureDataReady();
     }),
   );
+    // SOLO DESARROLLO: asegura la cuenta admin@miruta.com (no ejecuta en release).
+    unawaited(DevAdminBootstrap.ensureDevAdmin());
+  } catch (error) {
+    startupError = error;
+  }
 
-  runApp(const MyApp());
+  runApp(
+    startupError == null
+        ? const MyApp()
+        : StartupErrorApp(error: startupError.toString()),
+  );
+}
+
+class StartupErrorApp extends StatelessWidget {
+  const StartupErrorApp({required this.error, super.key});
+
+  final String error;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SelectableText(
+              'No se pudo iniciar la aplicación:\n\n$error',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -337,15 +390,12 @@ class _AuthGate extends StatelessWidget {
           );
         }
         if (state is AuthLoaded) {
-          switch (state.user.role) {
-            case 'driver':
-              return const DriverHomePage();
-            case 'admin':
-            case 'presidente':
-              return const AdminHomePage();
-            default:
-              return const MiRutaScreen();
+          // Navegación por role. El SuperAdmin es un admin con acceso total.
+          if (state.user.role == 'admin') {
+            return const AdminHomePage();
           }
+          // driver / presidente / tickeador / user → pantalla normal por ahora
+          return const MiRutaScreen();
         }
         return const IniciarSesionPage();
       },

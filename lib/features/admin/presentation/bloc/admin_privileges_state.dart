@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:mi_ruta/features/admin/domain/entities/admin_privileges.dart';
+import 'package:mi_ruta/features/admin/domain/entities/admin_user_entity.dart';
 
 abstract class AdminPrivilegesState extends Equatable {
   const AdminPrivilegesState();
@@ -8,35 +8,40 @@ abstract class AdminPrivilegesState extends Equatable {
   List<Object?> get props => [];
 }
 
-class AdminPrivilegesInitial extends AdminPrivilegesState {}
-
-class AdminPrivilegesLoading extends AdminPrivilegesState {}
-
-class AdminPrivilegesLoaded extends AdminPrivilegesState {
-  final AdminPrivileges privileges;
-
-  const AdminPrivilegesLoaded(this.privileges);
-
-  @override
-  List<Object?> get props => [privileges];
+class AdminPrivilegesInitial extends AdminPrivilegesState {
+  const AdminPrivilegesInitial();
 }
 
-class AdminPrivilegesSaving extends AdminPrivilegesState {
-  final AdminPrivileges privileges;
-
-  const AdminPrivilegesSaving(this.privileges);
-
-  @override
-  List<Object?> get props => [privileges];
+class AdminPrivilegesLoading extends AdminPrivilegesState {
+  const AdminPrivilegesLoading();
 }
 
-class AdminPrivilegesSaved extends AdminPrivilegesState {
-  final AdminPrivileges privileges;
+class AdminsLoaded extends AdminPrivilegesState {
+  final List<AdminUserEntity> admins;
 
-  const AdminPrivilegesSaved(this.privileges);
+  const AdminsLoaded(this.admins);
 
   @override
-  List<Object?> get props => [privileges];
+  List<Object?> get props => [admins];
+}
+
+class AdminPermissionsLoaded extends AdminPrivilegesState {
+  final AdminUserEntity admin;
+
+  const AdminPermissionsLoaded(this.admin);
+
+  @override
+  List<Object?> get props => [admin];
+}
+
+/// Estado transitorio para mostrar SnackBar de éxito.
+class AdminPrivilegesSuccess extends AdminPrivilegesState {
+  final String message;
+
+  const AdminPrivilegesSuccess(this.message);
+
+  @override
+  List<Object?> get props => [message];
 }
 
 class AdminPrivilegesError extends AdminPrivilegesState {

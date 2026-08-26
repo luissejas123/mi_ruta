@@ -221,7 +221,9 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
     final isDark = context.watch<ThemeCubit>().state;
     return BlocListener<NavigationBloc, NavigationState>(
       listener: (context, state) {
-        if (state.currentPosition != null && _mapController != null && _followUser) {
+        if (state.currentPosition != null &&
+            _mapController != null &&
+            _followUser) {
           _isProgrammaticMove = true;
           _mapController!.animateCamera(
             CameraUpdate.newLatLng(state.currentPosition!),
@@ -235,8 +237,7 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
       child: Scaffold(
         body: BlocBuilder<NavigationBloc, NavigationState>(
           builder: (context, state) {
-            final polylines =
-                NavigationPolylineBuilderService.buildPolylines(
+            final polylines = NavigationPolylineBuilderService.buildPolylines(
               phase: state.phase,
               currentPosition: state.currentPosition,
               walkStartPoints: widget.walkStartPoints,
@@ -256,12 +257,12 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
 
             final remainingMeters =
                 NavigationUtilsService.calculateRemainingMeters(
-              phase: state.phase,
-              currentPosition: state.currentPosition,
-              boardingStop: widget.boardingStop,
-              alightingStop: widget.alightingStop,
-              destination: widget.destination.latLng,
-            );
+                  phase: state.phase,
+                  currentPosition: state.currentPosition,
+                  boardingStop: widget.boardingStop,
+                  alightingStop: widget.alightingStop,
+                  destination: widget.destination.latLng,
+                );
 
             return Stack(
               children: [

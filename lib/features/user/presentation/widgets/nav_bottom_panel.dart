@@ -105,7 +105,9 @@ class NavBottomPanel extends StatelessWidget {
                         Text(
                           info.subtitle,
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.6),
                             fontSize: 13,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -128,7 +130,9 @@ class NavBottomPanel extends StatelessWidget {
                         'restante',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.5),
                         ),
                       ),
                     ],
@@ -142,8 +146,9 @@ class NavBottomPanel extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: arrived ? null : onFinalize,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade600,
-                    foregroundColor: Colors.white,
+                    backgroundColor: const Color(0xFFFFC12F),
+                    //Colors.red.shade600,
+                    foregroundColor: Colors.black, // Colors.white,
                     disabledBackgroundColor: Colors.green,
                     disabledForegroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),

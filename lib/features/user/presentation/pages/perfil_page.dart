@@ -52,13 +52,8 @@ class _PerfilPageState extends State<PerfilPage> {
     final authState = context.read<AuthBloc>().state;
 
     if (authState is AuthLoaded) {
-      context.read<UserBloc>().add(
-        GetUserByIdEvent(uid: authState.user.uid),
-      );
-
-      context.read<WalletBloc>().add(
-        LoadWalletEvent(authState.user.uid),
-      );
+      context.read<UserBloc>().add(GetUserByIdEvent(uid: authState.user.uid));
+      context.read<WalletBloc>().add(LoadWalletEvent(authState.user.uid));
     }
   }
 
@@ -185,88 +180,69 @@ class _PerfilPageState extends State<PerfilPage> {
   Widget build(BuildContext context) {
     final isDarkMode = context.watch<ThemeCubit>().state;
 
-    return BlocProvider.value(
-      value: getIt<UserPreferencesBloc>()
-        ..add(const LoadUserPreferencesEvent()),
-      child: Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          centerTitle: true,
-          title: const Text(
-            'Mi Perfil',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
-            ),
-          ),
-          actions: const [SwitchProfileButton()],
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        centerTitle: true,
+        title: const Text(
+          'Mi Perfil',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
-        body: BlocConsumer<UserBloc, UserState>(
-          buildWhen: (previous, current) =>
-              current is! UserOperationSuccess,
-          listener: (context, state) {
-            if (state is UserOperationSuccess) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: Colors.green.shade700,
-                ),
-              );
-            }
+      ),
+      body: BlocConsumer<UserBloc, UserState>(
+        buildWhen: (previous, current) => current is! UserOperationSuccess,
+        listener: (context, state) {
+          if (state is UserOperationSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.green.shade700,
+              ),
+            );
+          }
+          if (state is UserError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red.shade700,
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          if (state is UserLoading) {
+            return const Center(
+              child: CircularProgressIndicator(color: _amarillo),
+            );
+          }
 
-            if (state is UserError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: Colors.red.shade700,
-                ),
-              );
-            }
-          },
-          builder: (context, state) {
-            if (state is UserLoading) {
-              return const Center(
-                child: CircularProgressIndicator(
-                  color: _amarillo,
-                ),
-              );
-            }
-
-            if (state is UserError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      size: 60,
-                      color: Colors.red,
+          if (state is UserError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 60, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(state.message),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _loadUser,
+                    style: ElevatedButton.styleFrom(backgroundColor: _amarillo),
+                    child: const Text(
+                      'Reintentar',
+                      style: TextStyle(color: Colors.black),
                     ),
-                    const SizedBox(height: 16),
-                    Text(state.message),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: _loadUser,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _amarillo,
-                      ),
-                      child: const Text(
-                        'Reintentar',
-                        style: TextStyle(
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
+                  ),
+                ],
+              ),
+            );
+          }
 
-            final user = state is UserLoaded
-                ? state.user
-                : state is UserStreamLoaded
-                    ? state.user
-                    : null;
+          final user = state is UserLoaded
+              ? state.user
+              : state is UserStreamLoaded
+              ? state.user
+              : null;
 
             if (user == null) {
               return const Center(
@@ -297,59 +273,47 @@ class _PerfilPageState extends State<PerfilPage> {
 
                   const Divider(height: 1),
 
-                  // ==================================================
-                  // MI CUENTA
-                  // ==================================================
-
-                  _buildSectionTitle('MI CUENTA'),
-
-                  _buildMenuItem(
-                    icon: Icons.person_outline,
-                    title: 'Información personal',
-                    subtitle: user.fullName,
-                    onTap: () =>
-                        _navigateToEditarPerfil(
-                      user.uid,
-                      user.fullName,
-                      user.email,
-                      user.phoneNumber,
-                      user.profileImageUrl,
-                    ),
+                _buildSectionTitle('MI CUENTA'),
+                _buildMenuItem(
+                  icon: Icons.person_outline,
+                  title: 'Información personal',
+                  subtitle: user.fullName,
+                  onTap: () => _navigateToEditarPerfil(
+                    user.uid,
+                    user.fullName,
+                    user.email,
+                    user.phoneNumber,
+                    user.profileImageUrl,
                   ),
-
-                  _buildMenuItem(
-                    icon: Icons.phone_outlined,
-                    title: 'Teléfono',
-                    subtitle: user.phoneNumber.isNotEmpty
-                        ? user.phoneNumber
-                        : 'No registrado',
-                    onTap: () =>
-                        _navigateToEditarPerfil(
-                      user.uid,
-                      user.fullName,
-                      user.email,
-                      user.phoneNumber,
-                      user.profileImageUrl,
-                    ),
+                ),
+                _buildMenuItem(
+                  icon: Icons.phone_outlined,
+                  title: 'Teléfono',
+                  subtitle: user.phoneNumber.isNotEmpty
+                      ? user.phoneNumber
+                      : 'No registrado',
+                  onTap: () => _navigateToEditarPerfil(
+                    user.uid,
+                    user.fullName,
+                    user.email,
+                    user.phoneNumber,
+                    user.profileImageUrl,
                   ),
-
-                  _buildMenuItem(
-                    icon: Icons.email_outlined,
-                    title: 'Correo electrónico',
-                    subtitle: user.email,
-                    onTap: () {},
-                  ),
-
-                  _buildMenuItem(
-                    icon: Icons.history,
-                    title: 'Historial de viajes',
-                    subtitle: 'Ver todos tus viajes',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const HistorialViajesPage(),
-                      ),
+                ),
+                _buildMenuItem(
+                  icon: Icons.email_outlined,
+                  title: 'Correo electrónico',
+                  subtitle: user.email,
+                  onTap: () {},
+                ),
+                _buildMenuItem(
+                  icon: Icons.history,
+                  title: 'Historial de viajes',
+                  subtitle: 'Ver todos tus viajes',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const HistorialViajesPage(),
                     ),
                   ),
 
@@ -385,54 +349,34 @@ class _PerfilPageState extends State<PerfilPage> {
                   // BILLETERA
                   // ==================================================
 
-                  _buildSectionTitle('BILLETERA'),
-
-                  BlocBuilder<WalletBloc, WalletState>(
-                    builder: (context, walletState) {
-                      String saldo = 'Bs. 0.00';
-
-                      if (walletState
-                          is WalletLoaded) {
-                        saldo =
-                            '${walletState.wallet.currency} '
-                            '${walletState.wallet.currentBalance.toStringAsFixed(2)}';
-                      } else if (walletState
-                          is WalletOperationSuccess) {
-                        saldo =
-                            '${walletState.updatedWallet.currency} '
-                            '${walletState.updatedWallet.currentBalance.toStringAsFixed(2)}';
-                      } else if (walletState
-                          is TransactionHistoryLoaded) {
-                        saldo =
-                            '${walletState.wallet.currency} '
-                            '${walletState.wallet.currentBalance.toStringAsFixed(2)}';
-                      }
-
-                      return _buildMenuItem(
-                        icon: Icons
-                            .account_balance_wallet_outlined,
-                        title: 'Saldo disponible',
-                        subtitle: saldo,
-                        onTap: () =>
-                            navigateBottomNav(
-                          context,
-                          1,
-                        ),
-                      );
-                    },
-                  ),
-
-                  _buildMenuItem(
-                    icon: Icons.star_outline,
-                    title: 'Acceder a beneficios',
-                    subtitle:
-                        'Estudiante, Universitario, Adulto mayor',
-                    onTap: () =>
-                        navigateBottomNav(
-                      context,
-                      1,
-                    ),
-                  ),
+                _buildSectionTitle('BILLETERA'),
+                BlocBuilder<WalletBloc, WalletState>(
+                  builder: (context, walletState) {
+                    String saldo = 'Bs. 0.00';
+                    if (walletState is WalletLoaded) {
+                      saldo =
+                          '${walletState.wallet.currency} ${walletState.wallet.currentBalance.toStringAsFixed(2)}';
+                    } else if (walletState is WalletOperationSuccess) {
+                      saldo =
+                          '${walletState.updatedWallet.currency} ${walletState.updatedWallet.currentBalance.toStringAsFixed(2)}';
+                    } else if (walletState is TransactionHistoryLoaded) {
+                      saldo =
+                          '${walletState.wallet.currency} ${walletState.wallet.currentBalance.toStringAsFixed(2)}';
+                    }
+                    return _buildMenuItem(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: 'Saldo disponible',
+                      subtitle: saldo,
+                      onTap: () => navigateBottomNav(context, 1),
+                    );
+                  },
+                ),
+                _buildMenuItem(
+                  icon: Icons.star_outline,
+                  title: 'Acceder a beneficios',
+                  subtitle: 'Estudiante, Universitario, Adulto mayor',
+                  onTap: () => navigateBottomNav(context, 1),
+                ),
 
                   // ==================================================
                   // PREFERENCIAS
@@ -598,6 +542,3 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 }
-
-
-

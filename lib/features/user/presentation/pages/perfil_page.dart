@@ -21,6 +21,9 @@ import 'package:mi_ruta/features/user/presentation/pages/editar_perfil_page.dart
 import 'package:mi_ruta/features/user/presentation/pages/historial_beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/historial_ingresos_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_assigned_routes_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/tickeador_operations_history_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/tickeador_operation_register_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/notificaciones_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/planificar_viaje_page.dart';
 import 'package:mi_ruta/features/stops/presentation/pages/paradas_cercanas_page.dart';
@@ -320,6 +323,18 @@ class _PerfilPageState extends State<PerfilPage> {
                 ),
                 if (user.userType == 'driver')
                   _buildMenuItem(
+                    icon: Icons.route_outlined,
+                    title: 'Rutas asignadas',
+                    subtitle: 'Ver ruta y recorrido asignado',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const DriverAssignedRoutesPage(),
+                      ),
+                    ),
+                  ),
+                if (user.userType == 'driver')
+                  _buildMenuItem(
                     icon: Icons.payments_outlined,
                     title: 'Historial de ingresos',
                     subtitle: 'Ver tus pagos recibidos',
@@ -327,6 +342,30 @@ class _PerfilPageState extends State<PerfilPage> {
                       context,
                       MaterialPageRoute(
                         builder: (_) => const HistorialIngresosPage(),
+                      ),
+                    ),
+                  ),
+                if (user.userType == 'tickeador')
+                  _buildMenuItem(
+                    icon: Icons.add_circle_outline,
+                    title: 'Registrar operación',
+                    subtitle: 'Registrar una salida o llegada',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TickeadorOperationRegisterPage(),
+                      ),
+                    ),
+                  ),
+                if (user.userType == 'tickeador')
+                  _buildMenuItem(
+                    icon: Icons.history,
+                    title: 'Historial de operaciones',
+                    subtitle: 'Salidas y llegadas registradas',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TickeadorOperationsHistoryPage(),
                       ),
                     ),
                   ),
@@ -396,128 +435,20 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () => navigateBottomNav(context, 1),
                 ),
 
-                  // ==================================================
-                  // PREFERENCIAS
-                  // ==================================================
-
-                  _buildSectionTitle('PREFERENCIAS'),
-
-                  BlocBuilder<UserPreferencesBloc,
-                      UserPreferencesState>(
-                    builder:
-                        (context, preferencesState) {
-                      return Column(
-                        children: [
-                          // NOTIFICACIONES
-                          _buildMenuItem(
-                            icon: Icons
-                                .notifications_active_outlined,
-                            title: 'Notificaciones',
-                            subtitle: preferencesState
-                                    .notificationsEnabled
-                                ? 'Activadas'
-                                : 'Desactivadas',
-                            trailing: Switch(
-                              value: preferencesState
-                                  .notificationsEnabled,
-                              onChanged: (value) {
-                                context
-                                    .read<
-                                        UserPreferencesBloc>()
-                                    .add(
-                                      ToggleNotificationsEvent(
-                                        value,
-                                      ),
-                                    );
-                              },
-                              activeThumbColor:
-                                  _amarillo,
-                            ),
-                          ),
-
-                          // UBICACIÓN
-                          _buildMenuItem(
-                            icon: Icons
-                                .location_on_outlined,
-                            title: 'Ubicación',
-                            subtitle: preferencesState
-                                    .locationEnabled
-                                ? 'Activada'
-                                : 'Desactivada',
-                            trailing: Switch(
-                              value: preferencesState
-                                  .locationEnabled,
-                              onChanged: (value) {
-                                context
-                                    .read<
-                                        UserPreferencesBloc>()
-                                    .add(
-                                      ToggleLocationEvent(
-                                        value,
-                                      ),
-                                    );
-                              },
-                              activeThumbColor:
-                                  _amarillo,
-                            ),
-                          ),
-
-                          // SINCRONIZACIÓN
-                          _buildMenuItem(
-                            icon: Icons.sync,
-                            title:
-                                'Sincronización automática',
-                            subtitle: preferencesState
-                                    .autoSyncEnabled
-                                ? 'Activada'
-                                : 'Desactivada',
-                            trailing: Switch(
-                              value: preferencesState
-                                  .autoSyncEnabled,
-                              onChanged: (value) {
-                                context
-                                    .read<
-                                        UserPreferencesBloc>()
-                                    .add(
-                                      ToggleAutoSyncEvent(
-                                        value,
-                                      ),
-                                    );
-                              },
-                              activeThumbColor:
-                                  _amarillo,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                // ── Apariencia ──
+                _buildSectionTitle('APARIENCIA'),
+                // ✅ Botón modo oscuro con switch
+                _buildMenuItem(
+                  icon: isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                  title: 'Modo oscuro',
+                  subtitle: isDarkMode ? 'Activado' : 'Desactivado',
+                  onTap: () => context.read<ThemeCubit>().toggleTheme(),
+                  trailing: Switch(
+                    value: isDarkMode,
+                    onChanged: (_) => context.read<ThemeCubit>().toggleTheme(),
+                    activeThumbColor: _amarillo,
                   ),
-
-                  // ==================================================
-                  // APARIENCIA
-                  // ==================================================
-
-                  _buildSectionTitle('APARIENCIA'),
-
-                  _buildMenuItem(
-                    icon: isDarkMode
-                        ? Icons.dark_mode
-                        : Icons.light_mode,
-                    title: 'Modo oscuro',
-                    subtitle: isDarkMode
-                        ? 'Activado'
-                        : 'Desactivado',
-                    onTap: () => context
-                        .read<ThemeCubit>()
-                        .toggleTheme(),
-                    trailing: Switch(
-                      value: isDarkMode,
-                      onChanged: (_) => context
-                          .read<ThemeCubit>()
-                          .toggleTheme(),
-                      activeThumbColor: _amarillo,
-                    ),
-                  ),
+                ),
 
                   // ==================================================
                   // APLICACIÓN

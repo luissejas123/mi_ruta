@@ -32,6 +32,7 @@ class PlanDetallePage extends StatefulWidget {
 class _PlanDetallePageState extends State<PlanDetallePage> {
   int _currentLeg = 0;
   bool _isLoading = false;
+  bool _isCancelling = false;
   final List<bool> _completedLegs = [];
 
   // Real polyline points per leg loaded from GTFS (null = not loaded yet)
@@ -328,6 +329,55 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
     }
   }
 
+  Future<void> _cancelTrip() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancelar viaje'),
+        content: const Text(
+          '¿Estás seguro que deseas cancelar este viaje? '
+          'Se eliminará de tus viajes programados.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Volver'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
+            child: const Text(
+              'Sí, cancelar',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isCancelling = true);
+    try {
+      await getIt<PlannedTripService>().delete(widget.userId, widget.trip.id);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Viaje cancelado'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isCancelling = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo cancelar el viaje: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = context.watch<ThemeCubit>().state;
@@ -404,6 +454,20 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
           'Detalle del plan',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Cancelar viaje',
+            icon: _isCancelling
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.red),
+                  )
+                : const Icon(Icons.close, color: Colors.red),
+            onPressed: _isCancelling ? null : _cancelTrip,
+          ),
+        ],
       ),
       body: Column(
         children: [

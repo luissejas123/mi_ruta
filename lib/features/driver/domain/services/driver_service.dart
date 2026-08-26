@@ -260,6 +260,10 @@ class DriverService {
     }
   }
 
+  /// Historial de viajes generados por el chofer (RQ-67), más recientes primero.
+  Future<List<DriverTripEntity>> getDriverTrips(String driverId, {int limit = 50}) =>
+      _datasource.getDriverTrips(driverId, limit: limit);
+
   Future<void> shareFile(File file, {String? subject}) async {
     await SharePlus.instance.share(
       ShareParams(files: [XFile(file.path)], subject: subject),

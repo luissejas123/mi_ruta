@@ -1,46 +1,81 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
-import 'package:mi_ruta/features/driver/domain/entities/driver_trip_entity.dart';
-import 'package:mi_ruta/features/tickeador/domain/services/tickeador_service.dart';
+import 'package:mi_ruta/features/tickeador/domain/entities/station_log_entity.dart';
+import 'package:mi_ruta/features/tickeador/domain/entities/vehicle_entity.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_bloc.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_event.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/qr_scanner_page.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 
-const _amarillo = Color(0xFFFFC12F);
-
-class TickeadorHomePage extends StatelessWidget {
+/// Pantalla principal del Modo Tickeador (RQ-78).
+///
+/// ETAPA 2: operación real con Firestore:
+/// - Lee tickeador_info (estación asignada)
+/// - Busca vehículo por placa
+/// - Marca salida / llegada (station_logs)
+/// - Muestra actividad reciente
+class TickeadorHomePage extends StatefulWidget {
   const TickeadorHomePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final authState = context.read<AuthBloc>().state;
-    final uid = authState is AuthLoaded ? authState.user.uid : '';
-    final fullName = authState is AuthLoaded ? authState.user.fullName : '';
-
-    return BlocProvider(
-      create: (_) => TickeadorBloc(service: getIt<TickeadorService>())
-        ..add(LoadVerificationHistory(uid)),
-      child: _TickeadorHomeView(uid: uid, fullName: fullName),
-    );
-  }
+  State<TickeadorHomePage> createState() => _TickeadorHomePageState();
 }
 
-class _TickeadorHomeView extends StatelessWidget {
-  final String uid;
-  final String fullName;
+class _TickeadorHomePageState extends State<TickeadorHomePage> {
+  static const _amarillo = Color(0xFFFFC12F);
 
-  const _TickeadorHomeView({required this.uid, required this.fullName});
+  final _placaController = TextEditingController();
+  late final TickeadorBloc _tickeadorBloc;
 
-  void _cerrarSesion(BuildContext context) {
+  String? _uid;
+  String? _stationName;
+  VehicleEntity? _selectedVehicle;
+
+  @override
+  void initState() {
+    super.initState();
+    _tickeadorBloc = getIt<TickeadorBloc>();
+    _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    _placaController.dispose();
+    super.dispose();
+  }
+
+  void _mostrarQRScanner() async {
+    final qrCode = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => const QRScannerPage(),
+      ),
+    );
+
+    if (qrCode != null && qrCode.isNotEmpty) {
+      // Dispara la validación del QR
+      _tickeadorBloc.add(ValidateTripQr(qrCode: qrCode));
+    }
+  }
+
+  void _loadInitialData() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthLoaded) {
+      _uid = authState.user.uid;
+      _tickeadorBloc.add(CargarTickeadorEvent(uid: _uid!));
+      _tickeadorBloc.add(CargarActividadEvent(tickeadorId: _uid!));
+    }
+  }
+
+  void _cerrarSesion() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -56,168 +91,270 @@ class _TickeadorHomeView extends StatelessWidget {
               Navigator.pop(ctx);
               context.read<AuthBloc>().add(const LogoutEvent());
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const IniciarSesionPage()),
+                MaterialPageRoute(
+                  builder: (_) => const IniciarSesionPage(),
+                ),
                 (route) => false,
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
-            child: const Text('Cerrar sesión', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _scan(BuildContext context) async {
-    final result = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(builder: (_) => const QRScannerPage(title: 'Validar ticket')),
-    );
-    if (result != null && result.isNotEmpty && context.mounted) {
-      context.read<TickeadorBloc>().add(ValidateTripQr(result, uid));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        automaticallyImplyLeading: false,
-        title: const Text(
-          'Modo Tickeador',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-        ),
-        actions: [
-          const SwitchProfileButton(),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar sesión',
-            onPressed: () => _cerrarSesion(context),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Hola, ${fullName.isNotEmpty ? fullName : 'tickeador'} 👋',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
             ),
-            const SizedBox(height: 24),
-            BlocConsumer<TickeadorBloc, TickeadorState>(
-              listenWhen: (previous, current) => current is TickeadorError,
-              listener: (context, state) {
-                if (state is TickeadorError) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(state.message), backgroundColor: Colors.red.shade700),
-                  );
-                }
-              },
-              builder: (context, state) {
-                final isValidating = state is TickeadorLoaded && state.isValidating;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton.icon(
-                        onPressed: isValidating ? null : () => _scan(context),
-                        icon: isValidating
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                              )
-                            : const Icon(Icons.qr_code_scanner, color: Colors.black),
-                        label: const Text(
-                          'Escanear ticket de pasajero',
-                          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _amarillo,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                    if (state is TickeadorLoaded && state.lastValidatedTrip != null) ...[
-                      const SizedBox(height: 16),
-                      _ValidationResultCard(trip: state.lastValidatedTrip!),
-                    ],
-                    if (state is TickeadorLoaded && state.lastValidationError != null) ...[
-                      const SizedBox(height: 16),
-                      _ValidationErrorCard(message: state.lastValidationError!),
-                    ],
-                    const SizedBox(height: 24),
-                    const Text('Historial de validaciones',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    const SizedBox(height: 12),
-                    if (state is TickeadorLoading)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: CircularProgressIndicator(color: _amarillo),
-                        ),
-                      )
-                    else if (state is TickeadorLoaded)
-                      state.history.isEmpty
-                          ? Text(
-                              'Todavía no validaste ningún ticket.',
-                              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                            )
-                          : Column(
-                              children: state.history.map((t) => _HistoryTile(trip: t)).toList(),
-                            ),
-                  ],
-                );
-              },
+            child: const Text(
+              'Cerrar sesión',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _buscarVehiculo() {
+    final placa = _placaController.text.trim();
+    if (placa.isEmpty) {
+      _showSnack('Ingresa una placa para buscar', isError: true);
+      return;
+    }
+    _tickeadorBloc.add(BuscarVehiculoEvent(placa: placa));
+  }
+
+  void _marcarSalida() {
+    if (_uid == null) {
+      _showSnack('Usuario sin UID. No se puede realizar la operación.',
+          isError: true);
+      return;
+    }
+    if (_stationName == null || _stationName!.isEmpty) {
+      _showSnack('El tickeador no tiene estación asignada. No se puede registrar.',
+          isError: true);
+      return;
+    }
+    if (_selectedVehicle == null) {
+      _showSnack('Primero busca un vehículo por placa.', isError: true);
+      return;
+    }
+    _tickeadorBloc.add(
+      MarcarSalidaEvent(
+        tickeadorId: _uid!,
+        stationName: _stationName!,
+        vehicle: _selectedVehicle!,
+      ),
+    );
+  }
+
+  void _marcarLlegada() {
+    if (_uid == null) {
+      _showSnack('Usuario sin UID. No se puede realizar la operación.',
+          isError: true);
+      return;
+    }
+    if (_stationName == null || _stationName!.isEmpty) {
+      _showSnack('El tickeador no tiene estación asignada. No se puede registrar.',
+          isError: true);
+      return;
+    }
+    if (_selectedVehicle == null) {
+      _showSnack('Primero busca un vehículo por placa.', isError: true);
+      return;
+    }
+    _tickeadorBloc.add(
+      MarcarLlegadaEvent(
+        tickeadorId: _uid!,
+        stationName: _stationName!,
+        vehicle: _selectedVehicle!,
+      ),
+    );
+  }
+
+  void _showSnack(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.1,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeCard({
+    required String mode,
+    required IconData icon,
+    required bool isActive,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: isActive
+              ? _amarillo.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive ? _amarillo : Colors.grey.shade300,
+            width: isActive ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: isActive ? _amarillo : Colors.grey, size: 28),
+            const SizedBox(height: 6),
+            Text(
+              mode,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isActive ? Colors.grey.shade900 : Colors.grey,
+              ),
             ),
           ],
         ),
       ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: 0,
-        onTap: (index) => navigateBottomNav(
-          context,
-          index,
-          homeBuilder: (_) => const TickeadorHomePage(),
-        ),
-      ),
     );
   }
-}
 
-class _ValidationResultCard extends StatelessWidget {
-  final DriverTripEntity trip;
-
-  const _ValidationResultCard({required this.trip});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildVehicleCard(VehicleEntity vehicle) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.green.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
+        color: _amarillo.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _amarillo, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.directions_bus, color: _amarillo, size: 28),
+              const SizedBox(width: 8),
+              Text(
+                vehicle.vehicleId,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildVehicleRow('Tipo', vehicle.vehicleType),
+          _buildVehicleRow('Línea', vehicle.lineNumber),
+          _buildVehicleRow('Número interno', vehicle.internalNumber),
+          _buildVehicleRow(
+            'Marca/Modelo',
+            '${vehicle.brand} ${vehicle.model}'.trim(),
+          ),
+          _buildVehicleRow('Capacidad', '${vehicle.passengerCapacity} pasajeros'),
+          _buildVehicleRow('Estado', vehicle.status),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVehicleRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.isEmpty ? '—' : value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatLogType(String logType) {
+    return logType == 'departure' ? 'Salida' : 'Llegada';
+  }
+
+  String _formatTimestamp(DateTime ts) {
+    final local = ts.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final year = local.year;
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$day/$month/$year $hour:$minute';
+  }
+
+  Widget _buildActividadItem(StationLogEntity log) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_circle, color: Colors.green, size: 32),
+          Icon(
+            log.logType == 'departure'
+                ? Icons.login
+                : Icons.logout,
+            color: log.logType == 'departure'
+                ? Colors.green.shade700
+                : Colors.orange.shade700,
+            size: 22,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Pago verificado', style: TextStyle(fontWeight: FontWeight.bold)),
                 Text(
-                  '${trip.routeName.isNotEmpty ? trip.routeName : trip.routeRef} · '
-                  'Bs. ${(trip.paymentAmount ?? trip.baseFare).toStringAsFixed(2)}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  '${log.vehiclePlate} · Línea ${log.lineId}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${_formatLogType(log.logType)} · ${log.stationName}',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                  ),
+                ),
+                Text(
+                  _formatTimestamp(log.timestamp),
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
@@ -226,72 +363,326 @@ class _ValidationResultCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ValidationErrorCard extends StatelessWidget {
-  final String message;
-
-  const _ValidationErrorCard({required this.message});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.cancel, color: Colors.red, size: 32),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('No verificado', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(message, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-              ],
-            ),
+    final isDarkMode = context.watch<ThemeCubit>().state;
+
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        centerTitle: true,
+        title: const Text(
+          'Modo Tickeador',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        actions: [
+          const SwitchProfileButton(),
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            tooltip: 'Escanear código QR',
+            onPressed: _mostrarQRScanner,
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Cerrar sesión',
+            onPressed: _cerrarSesion,
           ),
         ],
       ),
-    );
-  }
-}
+      body: BlocProvider.value(
+        value: _tickeadorBloc,
+        child: BlocConsumer<TickeadorBloc, TickeadorState>(
+          listener: (context, state) {
+            if (state is TickeadorLoaded) {
+              _stationName = state.tickeador?.assignedStation;
+            }
+            if (state is VehicleFound) {
+              _selectedVehicle = state.vehicle;
+            }
+            if (state is VehicleNotFound) {
+              _selectedVehicle = null;
+              _showSnack('Vehículo no encontrado', isError: true);
+            }
+            if (state is StationLogSuccess) {
+              _showSnack(state.message);
+            }
+            if (state is TickeadorError) {
+              _showSnack(state.message, isError: true);
+            }
+          },
+          builder: (context, state) {
+            final isBusy = state is TickeadorLoading;
 
-class _HistoryTile extends StatelessWidget {
-  final DriverTripEntity trip;
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── CAMBIAR A MODO ──
+                  _buildSectionTitle('CAMBIAR A MODO'),
+                  Row(
+                    children: [
+                      _buildModeCard(
+                        mode: 'Usuario',
+                        icon: Icons.person_outline,
+                        isActive: false,
+                      ),
+                      const SizedBox(width: 12),
+                      _buildModeCard(
+                        mode: 'Chofer',
+                        icon: Icons.directions_bus_outlined,
+                        isActive: false,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'El modo Tickeador está activo',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
+                    ),
+                  ),
 
-  const _HistoryTile({required this.trip});
+                  // ── Estación asignada ──
+                  _buildSectionTitle('MI ESTACIÓN'),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDarkMode
+                          ? Colors.grey.shade800
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on_outlined,
+                          color: _amarillo,
+                          size: 28,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Estación asignada',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _stationName ?? 'No asignada',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+                  // ── BUSCAR VEHÍCULO POR PLACA ──
+                  _buildSectionTitle('BUSCAR VEHÍCULO POR PLACA'),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _placaController,
+                          textCapitalization: TextCapitalization.characters,
+                          decoration: InputDecoration(
+                            hintText: 'Ej: 2341-ABC',
+                            prefixIcon: const Icon(Icons.search),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: isBusy ? null : _buscarVehiculo,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _amarillo,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                        ),
+                        child: isBusy
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.black,
+                                ),
+                              )
+                            : const Text('Buscar'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Área del vehículo
+                  if (state is VehicleFound)
+                    _buildVehicleCard(state.vehicle)
+                  else if (state is VehicleNotFound)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: const Text(
+                        'Vehículo no encontrado',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    )
+                  else
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDarkMode
+                            ? Colors.grey.shade800
+                            : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.directions_bus_outlined,
+                            color: Colors.grey.shade400,
+                            size: 40,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Busca un vehículo por placa para ver su información',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  // Botones Marcar salida / llegada
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed:
+                              (isBusy || _selectedVehicle == null)
+                              ? null
+                              : _marcarSalida,
+                          icon: const Icon(Icons.login),
+                          label: const Text('Marcar salida'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _amarillo,
+                            foregroundColor: Colors.black,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed:
+                              (isBusy || _selectedVehicle == null)
+                              ? null
+                              : _marcarLlegada,
+                          icon: const Icon(Icons.logout),
+                          label: const Text('Marcar llegada'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey.shade300,
+                            foregroundColor: Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // ── ACTIVIDAD RECIENTE ──
+                  _buildSectionTitle('ACTIVIDAD RECIENTE'),
+                  if (state is ActividadLoaded && state.logs.isNotEmpty)
+                    ...state.logs.map(_buildActividadItem)
+                  else
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDarkMode
+                            ? Colors.grey.shade800
+                            : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.history,
+                            color: Colors.grey.shade400,
+                            size: 40,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No hay actividad registrada todavía',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: isBusy
+                          ? null
+                          : () {
+                              if (_uid != null) {
+                                _tickeadorBloc.add(
+                                  CargarActividadEvent(tickeadorId: _uid!),
+                                );
+                              }
+                            },
+                      icon: const Icon(Icons.visibility_outlined),
+                      label: const Text('Ver Historial'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _amarillo,
+                        foregroundColor: Colors.black,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              trip.routeName.isNotEmpty ? trip.routeName : trip.routeRef,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Text(
-            'Bs. ${(trip.paymentAmount ?? trip.baseFare).toStringAsFixed(2)}',
-            style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withValues(alpha: 0.7)),
-          ),
-        ],
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: 0, // Tickeador is the first tab (index 0)
+        onTap: (index) {
+          navigateBottomNav(context, index);
+        },
       ),
     );
   }

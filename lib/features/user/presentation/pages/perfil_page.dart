@@ -30,7 +30,8 @@ import 'package:mi_ruta/features/stops/presentation/pages/paradas_cercanas_page.
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
-import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/legal_bottom_sheet.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_trip_history_page.dart';
 
 class PerfilPage extends StatefulWidget {
   /// A qué pantalla vuelve la pestaña "Inicio" del pie de navegación.
@@ -280,85 +281,75 @@ class _PerfilPageState extends State<PerfilPage> {
 
                   const Divider(height: 1),
 
-                _buildSectionTitle('MI CUENTA'),
-                _buildMenuItem(
-                  icon: Icons.person_outline,
-                  title: 'Nombre completo',
-                  subtitle: user.fullName,
-                  onTap: () => _navigateToEditarPerfil(
-                    user.uid,
-                    user.fullName,
-                    user.email,
-                    user.phoneNumber,
-                    user.profileImageUrl,
-                  ),
-                ),
-                _buildMenuItem(
-                  icon: Icons.phone_outlined,
-                  title: 'Teléfono',
-                  subtitle: user.phoneNumber.isNotEmpty
-                      ? user.phoneNumber
-                      : 'No registrado',
-                  onTap: () => _navigateToEditarPerfil(
-                    user.uid,
-                    user.fullName,
-                    user.email,
-                    user.phoneNumber,
-                    user.profileImageUrl,
-                  ),
-                ),
-                _buildMenuItem(
-                  icon: Icons.email_outlined,
-                  title: 'Correo electrónico',
-                  subtitle: user.email,
-                  onTap: () {},
-                ),
-                _buildMenuItem(
-                  icon: Icons.history,
-                  title: 'Historial de viajes',
-                  subtitle: 'Ver todos tus viajes',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const HistorialViajesPage(),
-                    ),
-                  ),
-                ),
-                if (user.userType == 'driver')
+                  // ==================================================
+                  // MI CUENTA
+                  // ==================================================
+
+                  _buildSectionTitle('MI CUENTA'),
+
                   _buildMenuItem(
-                    icon: Icons.route_outlined,
-                    title: 'Rutas asignadas',
-                    subtitle: 'Ver ruta y recorrido asignado',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const DriverAssignedRoutesPage(),
-                      ),
+                    icon: Icons.person_outline,
+                    title: 'Información personal',
+                    subtitle: user.fullName,
+                    onTap: () =>
+                        _navigateToEditarPerfil(
+                      user.uid,
+                      user.fullName,
+                      user.email,
+                      user.phoneNumber,
+                      user.profileImageUrl,
                     ),
                   ),
-                if (user.userType == 'driver')
+
                   _buildMenuItem(
-                    icon: Icons.payments_outlined,
-                    title: 'Historial de ingresos',
-                    subtitle: 'Ver tus pagos recibidos',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const HistorialIngresosPage(),
-                      ),
+                    icon: Icons.phone_outlined,
+                    title: 'Teléfono',
+                    subtitle: user.phoneNumber.isNotEmpty
+                        ? user.phoneNumber
+                        : 'No registrado',
+                    onTap: () =>
+                        _navigateToEditarPerfil(
+                      user.uid,
+                      user.fullName,
+                      user.email,
+                      user.phoneNumber,
+                      user.profileImageUrl,
                     ),
                   ),
-                if (user.userType == 'tickeador')
+
                   _buildMenuItem(
-                    icon: Icons.add_circle_outline,
-                    title: 'Registrar operación',
-                    subtitle: 'Registrar una salida o llegada',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const TickeadorOperationRegisterPage(),
-                      ),
-                    ),
+                    icon: Icons.email_outlined,
+                    title: 'Correo electrónico',
+                    subtitle: user.email,
+                    onTap: () {},
+                  ),
+
+                  _buildMenuItem(
+                    icon: Icons.history,
+                    title: (context.read<AuthBloc>().state as AuthLoaded).user.role == 'driver' ? 'Historial del conductor' : 'Historial de viajes',
+                    subtitle: 'Ver todos tus viajes',
+                    onTap: () {
+                      final authState = context.read<AuthBloc>().state;
+                      print("DEBUG PERFIL ROLE: ${authState.user.role}");
+                      print("DEBUG PERFIL UID: ${authState.user.uid}");
+                      if (authState is AuthLoaded) {
+                        if (authState.user.role == "driver") {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DriverTripHistoryPage(driverId: authState.user.uid),
+                            ),
+                          );
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const HistorialViajesPage(),
+                            ),
+                          );
+                        }
+                      }
+                    },
                   ),
                 if (user.userType == 'tickeador')
                   _buildMenuItem(

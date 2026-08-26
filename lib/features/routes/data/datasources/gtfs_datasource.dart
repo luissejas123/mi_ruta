@@ -148,34 +148,97 @@ class GtfsDatasource {
     return result;
   }
 
-  /// Lee stops.txt del GTFS
-  Future<List<Map<String, String>>> parseStops() async {
-    final csv = await rootBundle.loadString('$_base/stops.txt');
-    return _parseCSV(csv);
+  /// Parsea stops.txt y devuelve lista de maps listos para SQLite.
+  /// Cada map tiene: id, name, lat, lng, route_refs (JSON de List<String>).
+  Future<List<Map<String, dynamic>>> parseStopsForLocalDb() async {
+    print('📂 Parseando paradas GTFS desde assets...');
+    try {
+      final stopsCsv = await rootBundle.loadString('$_base/stops.txt');
+      // stops.txt trae campos citados con comas dentro (ej. nombres de
+      // avenidas con coma), a diferencia de routes/trips/shapes — usa un
+      // parser que respeta comillas en vez de _parseCSV (split naive).
+      final rows = _parseQuotedCSV(stopsCsv);
+
+      final result = <Map<String, dynamic>>[];
+      for (final row in rows) {
+        final id = row['stop_id'] ?? '';
+        final name = row['stop_name'] ?? '';
+        final lat = double.tryParse(row['stop_lat'] ?? '');
+        final lng = double.tryParse(row['stop_lon'] ?? '');
+        if (id.isEmpty || name.isEmpty || lat == null || lng == null) {
+          continue;
+        }
+
+        result.add({
+          'id': id,
+          'name': name,
+          'lat': lat,
+          'lng': lng,
+          'route_refs': jsonEncode(_parseStopDescRefs(row['stop_desc'])),
+        });
+      }
+
+      print('✅ ${result.length} paradas parseadas desde stops.txt');
+      return result;
+    } catch (e, st) {
+      print('❌ Error parseando paradas GTFS: $e\n$st');
+      return [];
+    }
   }
 
-  /// Lee stop_times.txt del GTFS
-  Future<List<Map<String, String>>> parseStopTimes() async {
-    final csv = await rootBundle.loadString('$_base/stop_times.txt');
-    return _parseCSV(csv);
-  }
-  
-  /// Lee trips.txt del GTFS
-  Future<List<Map<String, String>>> parseTrips() async {
-    final csv = await rootBundle.loadString('$_base/trips.txt');
-    return _parseCSV(csv);
+  /// Extrae los refs de línea de un stop_desc con formato "23(0-1-108-...)".
+  List<String> _parseStopDescRefs(String? desc) {
+    if (desc == null) return [];
+    final match = RegExp(r'\(([^)]*)\)').firstMatch(desc);
+    if (match == null) return [];
+    final inner = match.group(1) ?? '';
+    if (inner.isEmpty) return [];
+    return inner.split('-').where((r) => r.isNotEmpty).toList();
   }
 
-  /// Lee frequencies.txt del GTFS
-  Future<List<Map<String, String>>> parseFrequencies() async {
-    final csv = await rootBundle.loadString('$_base/frequencies.txt');
-    return _parseCSV(csv);
+  /// Parsea CSV respetando campos citados con comas dentro (RFC4180 simple).
+  List<Map<String, String>> _parseQuotedCSV(String csvContent) {
+    final lines = const LineSplitter().convert(csvContent);
+    if (lines.isEmpty) return [];
+
+    final headers = _splitCsvLine(lines[0]).map((h) => h.trim()).toList();
+    final rows = <Map<String, String>>[];
+
+    for (int i = 1; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (line.isEmpty) continue;
+
+      final values = _splitCsvLine(line);
+      final row = <String, String>{};
+      for (int j = 0; j < headers.length && j < values.length; j++) {
+        row[headers[j]] = values[j].trim();
+      }
+      rows.add(row);
+    }
+
+    return rows;
   }
 
-  /// Lee calendar.txt del GTFS
-  Future<List<Map<String, String>>> parseCalendar() async {
-    final csv = await rootBundle.loadString('$_base/calendar.txt');
-    return _parseCSV(csv);
+  /// Divide una linea CSV por comas, ignorando comas dentro de campos
+  /// citados con comillas dobles (ej. "Av. X, esq. Y").
+  List<String> _splitCsvLine(String line) {
+    final values = <String>[];
+    final buffer = StringBuffer();
+    bool inQuotes = false;
+
+    for (int i = 0; i < line.length; i++) {
+      final char = line[i];
+      if (char == '"') {
+        inQuotes = !inQuotes;
+      } else if (char == ',' && !inQuotes) {
+        values.add(buffer.toString());
+        buffer.clear();
+      } else {
+        buffer.write(char);
+      }
+    }
+    values.add(buffer.toString());
+    return values;
   }
 
   /// Parsea CSV desde un string

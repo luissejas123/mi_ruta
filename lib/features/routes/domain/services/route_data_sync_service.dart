@@ -54,6 +54,11 @@ class RouteDataSyncService {
 
     // Verificar actualización del admin panel en background (no bloquea la búsqueda)
     unawaited(_checkAndSyncVersion());
+
+    // Paradas: seed una sola vez, son estáticas del GTFS (no admin panel).
+    if (await _localDb.countStops() == 0) {
+      await _seedStopsFromGtfs();
+    }
   }
 
   // ──────────────────────────────────────────────────────────────────────
@@ -115,6 +120,17 @@ class RouteDataSyncService {
     await _localDb.upsertRoutes(routes);
     await _localDb.setConfig(_keyVersion, 'gtfs_seed');
     print('✅ ${routes.length} rutas sembradas desde GTFS en SQLite');
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Seed inicial de paradas desde GTFS
+  // ──────────────────────────────────────────────────────────────────────
+
+  Future<void> _seedStopsFromGtfs() async {
+    print('🌱 Primera vez: cargando paradas desde GTFS...');
+    final stops = await _gtfsDatasource.parseStopsForLocalDb();
+    await _localDb.upsertStops(stops);
+    print('✅ ${stops.length} paradas sembradas desde GTFS en SQLite');
   }
 
   // ──────────────────────────────────────────────────────────────────────

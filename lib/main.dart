@@ -18,8 +18,8 @@ import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_bloc.dar
 import 'package:mi_ruta/features/user/presentation/bloc/notification_preferences_cubit.dart';
 import 'dart:async';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
-import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/core/navigation/home_router.dart';
 import 'package:mi_ruta/core/connectivity/connectivity_service.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
@@ -266,23 +266,7 @@ class _AuthGate extends StatelessWidget {
           );
         }
         if (state is AuthLoaded) {
-          final firebaseEmail = FirebaseAuth.instance.currentUser?.email;
-          if (isSuperAdminEmail(state.user.email) ||
-              isSuperAdminEmail(firebaseEmail) ||
-              state.user.qaAccess) {
-            return const SuperAdminSwitcherPage();
-          }
-          final role = state.user.role;
-          if (role == 'driver' || role == 'presidente') {
-            return const DriverHomePage();
-          }
-          if (role == 'admin') {
-            return const AdminHomePage();
-          }
-          if (role == 'tickeador') {
-            return const TickeadorHomePage();
-          }
-          return const MiRutaScreen();
+          return homeScreenForRole(state.user);
         }
         return const IniciarSesionPage();
       },

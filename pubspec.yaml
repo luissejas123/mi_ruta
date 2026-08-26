@@ -53,6 +53,7 @@ flutter:
     - assets/cochabamba_gtfs/trips.txt
     - assets/cochabamba_gtfs/shapes.txt
     - assets/cochabamba_gtfs/stops.txt
+    - assets/cochabamba_gtfs/stops.txt
     - assets/cochabamba_gtfs/stop_times.txt
     - assets/cochabamba_gtfs/frequencies.txt
     - assets/cochabamba_gtfs/calendar.txt

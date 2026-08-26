@@ -46,6 +46,10 @@ import 'package:mi_ruta/features/user/data/repositories/location_repository_impl
 import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
 import 'package:mi_ruta/features/user/domain/usecases/reverse_geocode_usecase.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/features/driver/data/datasources/driver_income_datasource.dart';
+import 'package:mi_ruta/features/driver/domain/services/driver_income_service.dart';
+import 'package:mi_ruta/features/presidente/domain/services/presidente_dashboard_service.dart';
+import 'package:mi_ruta/features/stops/domain/services/bus_stop_service.dart';
 import 'package:mi_ruta/core/connectivity/connectivity_service.dart';
 import 'package:mi_ruta/features/user/domain/services/user_preferences_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
@@ -375,43 +379,27 @@ void setupDependencies() {
   );
 
   // ============================================
-  // DRIVER FEATURE - DATA + DOMAIN LAYER
+  // DRIVER INCOME FEATURE
   // ============================================
-  getIt.registerSingleton<DriverDatasource>(
-    DriverDatasource(firestore: getIt<FirebaseFirestore>()),
+  getIt.registerSingleton<DriverIncomeDatasource>(
+    DriverIncomeDatasource(firestore: getIt<FirebaseFirestore>()),
   );
 
-  getIt.registerSingleton<DriverService>(
-    DriverService(
-      datasource: getIt<DriverDatasource>(),
-      routeService: getIt<RouteService>(),
-      notificationService: getIt<NotificationService>(),
-    ),
+  getIt.registerSingleton<DriverIncomeService>(
+    DriverIncomeService(datasource: getIt<DriverIncomeDatasource>()),
   );
 
   // ============================================
-  // ADMIN FEATURE - DATA + DOMAIN LAYER
+  // PRESIDENTE FEATURE - DOMAIN LAYER (Services)
   // ============================================
-  getIt.registerSingleton<UserManagementDatasource>(
-    UserManagementDatasource(firestore: getIt<FirebaseFirestore>()),
-  );
-
-  getIt.registerSingleton<UserManagementService>(
-    UserManagementService(datasource: getIt<UserManagementDatasource>()),
-  );
-
-  getIt.registerSingleton<AdminService>(
-    AdminService(
-      userManagementService: getIt<UserManagementService>(),
-      driverDatasource: getIt<DriverDatasource>(),
-    ),
+  getIt.registerSingleton<PresidenteDashboardService>(
+    PresidenteDashboardService(localDb: getIt<RouteLocalDatabase>()),
   );
 
   // ============================================
-  // TICKEADOR FEATURE - DOMAIN LAYER
-  // (sin datasource propio: reusa DriverDatasource para `trips`)
+  // STOPS FEATURE
   // ============================================
-  getIt.registerSingleton<TickeadorService>(
-    TickeadorService(driverDatasource: getIt<DriverDatasource>()),
+  getIt.registerSingleton<BusStopService>(
+    BusStopService(localDb: getIt<RouteLocalDatabase>()),
   );
 }

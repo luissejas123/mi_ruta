@@ -5,7 +5,8 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
-import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/mis_solicitudes_beneficio_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/movimientos_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/pago_qr_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/historial_beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recarga_saldo_page.dart';
@@ -92,10 +93,10 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  void _navigateToEstadoBeneficios() {
+  void _navigateToMisSolicitudesBeneficio() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const EstadoBeneficiosPage()),
+      MaterialPageRoute(builder: (_) => const MisSolicitudesBeneficioPage()),
     );
   }
 
@@ -168,9 +169,9 @@ class _WalletPageState extends State<WalletPage> {
         ),
         const SizedBox(height: 12),
         _ActionButton(
-          label: 'CONSULTAR ESTADO',
-          icon: Icons.fact_check_outlined,
-          onPressed: _navigateToEstadoBeneficios,
+          label: 'MIS SOLICITUDES DE BENEFICIO',
+          icon: Icons.history,
+          onPressed: _navigateToMisSolicitudesBeneficio,
         ),
       ],
     );

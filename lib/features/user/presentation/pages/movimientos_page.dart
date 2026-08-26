@@ -167,12 +167,29 @@ class _MovimientosPageState extends State<MovimientosPage> {
     final amount = (transaction['amount'] ?? 0.0).toDouble().abs();
     final timestamp = transaction['timestamp'];
     final transactionType = transaction['transaction_type'] ?? '';
-    
-    final isTopUp = transactionType.contains('top_up') || transactionType.contains('recharge');
-    final isTripIncome = transactionType == 'trip_payment_received';
-    final isPositive = isTopUp || isTripIncome;
-    
     final date = _parseTransactionDate(timestamp);
+
+    if (transactionType == 'benefit_request') {
+      final status = transaction['status'] ?? 'pending';
+      final statusLabel = switch (status) {
+        'approved' => 'Aprobada',
+        'rejected' => 'Rechazada',
+        _ => 'En revisión',
+      };
+      return TransactionCard(
+        icon: Icons.card_membership,
+        title: 'Solicitud de beneficio · $statusLabel',
+        subtitle: statusLabel,
+        amount: '',
+        date: date,
+        iconBackgroundColor: const Color(0xFFFFF9C4),
+        iconColor: _amarillo,
+        amountColor: _amarillo,
+      );
+    }
+
+    final isTopUp = transactionType.contains('top_up') ||
+        transactionType.contains('recharge');
 
     IconData iconData;
     String subtitle;

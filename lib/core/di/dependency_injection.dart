@@ -46,6 +46,13 @@ import 'package:mi_ruta/features/user/data/repositories/location_repository_impl
 import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
 import 'package:mi_ruta/features/user/domain/usecases/reverse_geocode_usecase.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/features/driver/data/datasources/vehicle_remote_datasource.dart';
+import 'package:mi_ruta/features/driver/data/datasources/vehicle_remote_datasource_impl.dart';
+import 'package:mi_ruta/features/driver/data/repositories/vehicle_repository_impl.dart';
+import 'package:mi_ruta/features/driver/domain/repositories/vehicle_repository.dart';
+import 'package:mi_ruta/features/driver/domain/usecases/vehicle_usecases.dart';
+import 'package:mi_ruta/features/driver/presentation/bloc/driver_vehicle_bloc.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/admin_active_vehicles_bloc.dart';
 import 'package:mi_ruta/features/driver/data/datasources/driver_income_datasource.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_income_service.dart';
 import 'package:mi_ruta/features/driver/data/datasources/driver_assigned_routes_datasource.dart';
@@ -121,17 +128,9 @@ void setupDependencies() {
     ResetPasswordUseCase(getIt<AuthRepository>()),
   );
 
-  // ============================================
-  // AUTH FEATURE - PRESENTATION LAYER (BLoC)
-  // ============================================
-  getIt.registerSingleton<AuthBloc>(
-    AuthBloc(
-      registerUseCase: getIt<RegisterUseCase>(),
-      loginUseCase: getIt<LoginUseCase>(),
-      logoutUseCase: getIt<LogoutUseCase>(),
-      getCurrentUserUseCase: getIt<GetCurrentAuthUserUseCase>(),
-      resetPasswordUseCase: getIt<ResetPasswordUseCase>(),
-    ),
+  // TEMPORAL — modo prueba, ver AuthRepository.loginAsDemo
+  getIt.registerSingleton<LoginAsDemoUseCase>(
+    LoginAsDemoUseCase(getIt<AuthRepository>()),
   );
 
   // ============================================
@@ -385,67 +384,59 @@ void setupDependencies() {
   );
 
   // ============================================
-  // DRIVER INCOME FEATURE
+  // VEHICLE FEATURE (driver + admin) - DATA LAYER
   // ============================================
-  getIt.registerSingleton<DriverIncomeDatasource>(
-    DriverIncomeDatasource(firestore: getIt<FirebaseFirestore>()),
+  getIt.registerSingleton<VehicleRemoteDataSource>(
+    VehicleRemoteDataSourceImpl(firestore: getIt<FirebaseFirestore>()),
   );
 
-  getIt.registerSingleton<DriverIncomeService>(
-    DriverIncomeService(datasource: getIt<DriverIncomeDatasource>()),
+  getIt.registerSingleton<VehicleRepository>(
+    VehicleRepositoryImpl(remoteDataSource: getIt<VehicleRemoteDataSource>()),
   );
 
-  // ============================================
-  // DRIVER ASSIGNED ROUTES FEATURE
-  // ============================================
-  getIt.registerSingleton<DriverAssignedRoutesDatasource>(
-    DriverAssignedRoutesDatasource(
-      firestore: getIt<FirebaseFirestore>(),
-      routeDatasource: getIt<RouteDatasource>(),
+  // VEHICLE FEATURE - DOMAIN LAYER (UseCases)
+  getIt.registerSingleton<GetMyVehicleUseCase>(
+    GetMyVehicleUseCase(repository: getIt<VehicleRepository>()),
+  );
+
+  getIt.registerSingleton<GetMyVehicleStreamUseCase>(
+    GetMyVehicleStreamUseCase(repository: getIt<VehicleRepository>()),
+  );
+
+  getIt.registerSingleton<SetVehicleOnDutyUseCase>(
+    SetVehicleOnDutyUseCase(repository: getIt<VehicleRepository>()),
+  );
+
+  getIt.registerSingleton<GetActiveVehiclesStreamUseCase>(
+    GetActiveVehiclesStreamUseCase(repository: getIt<VehicleRepository>()),
+  );
+
+  // VEHICLE FEATURE - PRESENTATION LAYER (BLoC)
+  getIt.registerFactory<DriverVehicleBloc>(
+    () => DriverVehicleBloc(
+      getMyVehicleStreamUseCase: getIt<GetMyVehicleStreamUseCase>(),
+      setVehicleOnDutyUseCase: getIt<SetVehicleOnDutyUseCase>(),
     ),
   );
 
-  getIt.registerSingleton<DriverAssignedRoutesService>(
-    DriverAssignedRoutesService(
-      datasource: getIt<DriverAssignedRoutesDatasource>(),
+  getIt.registerFactory<AdminActiveVehiclesBloc>(
+    () => AdminActiveVehiclesBloc(
+      getActiveVehiclesStreamUseCase: getIt<GetActiveVehiclesStreamUseCase>(),
+      getUsersByIdsUseCase: getIt<GetUsersByIdsUseCase>(),
     ),
   );
 
   // ============================================
-  // TICKEADOR OPERATIONS FEATURE
+  // AUTH FEATURE - PRESENTATION LAYER (BLoC)
   // ============================================
-  getIt.registerSingleton<TickeadorOperationsDatasource>(
-    TickeadorOperationsDatasource(firestore: getIt<FirebaseFirestore>()),
-  );
-
-  getIt.registerSingleton<TickeadorOperationsService>(
-    TickeadorOperationsService(
-      datasource: getIt<TickeadorOperationsDatasource>(),
+  getIt.registerSingleton<AuthBloc>(
+    AuthBloc(
+      registerUseCase: getIt<RegisterUseCase>(),
+      loginUseCase: getIt<LoginUseCase>(),
+      logoutUseCase: getIt<LogoutUseCase>(),
+      getCurrentUserUseCase: getIt<GetCurrentAuthUserUseCase>(),
+      resetPasswordUseCase: getIt<ResetPasswordUseCase>(),
+      loginAsDemoUseCase: getIt<LoginAsDemoUseCase>(),
     ),
-  );
-
-  // ============================================
-  // ADMIN PRIVILEGES FEATURE
-  // ============================================
-  getIt.registerSingleton<AdminPrivilegesDatasource>(
-    AdminPrivilegesDatasource(firestore: getIt<FirebaseFirestore>()),
-  );
-
-  getIt.registerSingleton<AdminPrivilegesService>(
-    AdminPrivilegesService(datasource: getIt<AdminPrivilegesDatasource>()),
-  );
-
-  // ============================================
-  // PRESIDENTE FEATURE - DOMAIN LAYER (Services)
-  // ============================================
-  getIt.registerSingleton<PresidenteDashboardService>(
-    PresidenteDashboardService(localDb: getIt<RouteLocalDatabase>()),
-  );
-
-  // ============================================
-  // STOPS FEATURE
-  // ============================================
-  getIt.registerSingleton<BusStopService>(
-    BusStopService(localDb: getIt<RouteLocalDatabase>()),
   );
 }

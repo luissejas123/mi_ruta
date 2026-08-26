@@ -9,6 +9,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final LogoutUseCase logoutUseCase;
   final GetCurrentAuthUserUseCase getCurrentUserUseCase;
   final ResetPasswordUseCase resetPasswordUseCase;
+  final LoginAsDemoUseCase loginAsDemoUseCase;
 
   AuthBloc({
     required this.registerUseCase,
@@ -16,12 +17,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.logoutUseCase,
     required this.getCurrentUserUseCase,
     required this.resetPasswordUseCase,
+    required this.loginAsDemoUseCase,
   }) : super(const AuthInitial()) {
     on<RegisterEvent>(_onRegisterEvent);
     on<LoginEvent>(_onLoginEvent);
     on<LogoutEvent>(_onLogoutEvent);
     on<GetCurrentUserEvent>(_onGetCurrentUserEvent);
     on<ResetPasswordEvent>(_onResetPasswordEvent);
+    on<LoginAsDemoEvent>(_onLoginAsDemoEvent);
   }
 
   Future<void> _onRegisterEvent(
@@ -78,6 +81,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final result = await getCurrentUserUseCase.call();
     result.fold(
       (failure) => emit(const AuthUnauthenticated()),
+      (user) => emit(AuthLoaded(user: user)),
+    );
+  }
+
+  /// TEMPORAL — modo prueba 100% estático: sin Firebase ni Firestore.
+  Future<void> _onLoginAsDemoEvent(
+    LoginAsDemoEvent event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+    final result = await loginAsDemoUseCase(role: event.role);
+    result.fold(
+      (failure) => emit(AuthError(message: failure.toString())),
       (user) => emit(AuthLoaded(user: user)),
     );
   }

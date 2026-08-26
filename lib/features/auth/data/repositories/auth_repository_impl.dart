@@ -70,6 +70,16 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, AuthEntity>> loginAsDemo({required String role}) async {
+    try {
+      final result = await remoteDataSource.loginAsDemo(role: role);
+      return Right(result);
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> resetPassword(String email) async {
     try {
       await remoteDataSource.resetPassword(email);

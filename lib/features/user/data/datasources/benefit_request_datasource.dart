@@ -68,7 +68,8 @@ class BenefitRequestDatasource {
           .limit(50)
           .get();
 
-      final requests = snapshot.docs.map(_mapToBenefitRequest).toList();
+      final requests =
+          snapshot.docs.map((doc) => _mapToBenefitRequest(doc)).toList();
       requests.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return requests;
     } catch (e) {

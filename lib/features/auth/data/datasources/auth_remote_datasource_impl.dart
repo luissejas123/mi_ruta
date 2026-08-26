@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:mi_ruta/core/demo/demo_constants.dart';
 import 'package:mi_ruta/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:mi_ruta/features/auth/data/models/auth_model.dart';
 import 'package:mi_ruta/core/debug/static_test_accounts.dart';
@@ -144,6 +145,36 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       return AuthModel.fromJson(userDoc.data() as Map<String, dynamic>);
     } catch (e) {
       throw Exception('Error al obtener usuario actual: $e');
+    }
+  }
+
+  @override
+  Future<AuthModel> loginAsDemo({required String role}) async {
+    // 100% estático — sin Firebase Auth, sin Firestore. Uid fijo por rol.
+    final uid = switch (role) {
+      'driver' => kStaticDemoDriverUid,
+      'admin' => kStaticDemoAdminUid,
+      _ => kStaticDemoPassengerUid,
+    };
+    return AuthModel(
+      uid: uid,
+      email: '',
+      fullName: 'Demo (${_demoRoleLabel(role)})',
+      governmentId: '',
+      phoneNumber: '',
+      role: role,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  String _demoRoleLabel(String role) {
+    switch (role) {
+      case 'driver':
+        return 'Chofer';
+      case 'admin':
+        return 'Admin';
+      default:
+        return 'Pasajero';
     }
   }
 

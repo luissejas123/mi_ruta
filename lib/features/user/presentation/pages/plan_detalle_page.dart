@@ -227,7 +227,7 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       // Determine originName: first bus leg uses trip origin, rest use Transbordo
       final isBusLegFirst = busIdx == 0;
 
-      await Navigator.push(
+      final boarded = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
           builder: (_) => RutaLineaPage(
@@ -240,6 +240,7 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       );
 
       if (!mounted) return;
+      if (boarded != true) return;
       setState(() {
         // Mark this bus leg and any preceding walking legs as completed
         _completedLegs[legIndex] = true;

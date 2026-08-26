@@ -22,4 +22,7 @@ abstract class AuthRepository {
   Future<Either<Failure, AuthEntity>> getCurrentUser();
 
   Future<Either<Failure, void>> resetPassword(String email);
+
+  /// TEMPORAL — modo prueba, ver [AuthRemoteDataSource.loginAsDemo].
+  Future<Either<Failure, AuthEntity>> loginAsDemo({required String role});
 }

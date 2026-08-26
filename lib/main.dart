@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:mi_ruta/core/connectivity/connectivity_cubit.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
@@ -20,6 +21,8 @@ import 'package:mi_ruta/features/user/presentation/bloc/notification_preferences
 import 'dart:async';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
 import 'package:mi_ruta/core/widgets/route_update_banner.dart';
 import 'package:mi_ruta/core/navigation/home_router.dart';
 import 'package:mi_ruta/core/connectivity/connectivity_service.dart';
@@ -112,9 +115,11 @@ class MyApp extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         // ✅ ThemeCubit para modo oscuro
-        BlocProvider<ThemeCubit>(create: (context) => ThemeCubit()),
-        BlocProvider<NotificationPreferencesCubit>(
-          create: (context) => NotificationPreferencesCubit(),
+        BlocProvider<ThemeCubit>(
+          create: (context) => ThemeCubit(),
+        ),
+        BlocProvider<ConnectivityCubit>(
+          create: (context) => ConnectivityCubit(),
         ),
         BlocProvider<AuthBloc>(
           create: (context) =>
@@ -259,7 +264,9 @@ class MyApp extends StatelessWidget {
                 child: child ?? const SizedBox.shrink(),
               ),
               home: const _AuthGate(),
-            );
+              builder: (context, child) =>
+                _ConnectivityBanner(child: child ?? const SizedBox.shrink()),
+          );
           },
         ),
       ),
@@ -280,9 +287,63 @@ class _AuthGate extends StatelessWidget {
           );
         }
         if (state is AuthLoaded) {
-          return homeScreenForRole(state.user);
+          switch (state.user.role) {
+            case 'driver':
+              return const DriverHomePage();
+            case 'admin':
+            case 'presidente':
+              return const AdminHomePage();
+            default:
+              return const MiRutaScreen();
+          }
         }
         return const IniciarSesionPage();
+      },
+    );
+  }
+}
+
+
+/// Banner persistente que avisa cuando no hay conexión a internet.
+/// Las rutas/planes ya cacheados en SQLite siguen funcionando sin conexión;
+/// esto solo avisa que operaciones contra Firestore (login, beneficios,
+/// billetera, etc.) no funcionarán hasta reconectar.
+class _ConnectivityBanner extends StatelessWidget {
+  final Widget child;
+
+  const _ConnectivityBanner({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ConnectivityCubit, bool>(
+      builder: (context, isOnline) {
+        return Column(
+          children: [
+            if (!isOnline)
+              Material(
+                color: Colors.red.shade700,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.wifi_off, color: Colors.white, size: 16),
+                        SizedBox(width: 8),
+                        Text(
+                          'Sin conexión. Las rutas guardadas siguen disponibles.',
+                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            Expanded(child: child),
+          ],
+        );
       },
     );
   }

@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+<<<<<<< HEAD
 enum VehicleStatus { approved, pendingReview, rejected }
 
 VehicleStatus vehicleStatusFromString(String value) {
@@ -19,6 +20,12 @@ VehicleStatus vehicleStatusFromString(String value) {
 class VehicleEntity extends Equatable {
   final String vehicleId;
   final String ownerUid;
+=======
+/// Entidad de dominio para una unidad de transporte (vehículo).
+class VehicleEntity extends Equatable {
+  final String vehicleId; // doc id = placa
+  final String ownerUid; // uid del chofer dueño-operador
+>>>>>>> origin/adolfo-dev
   final String vehicleType;
   final String lineNumber;
   final String internalNumber;
@@ -26,6 +33,7 @@ class VehicleEntity extends Equatable {
   final String model;
   final String color;
   final int passengerCapacity;
+<<<<<<< HEAD
   final VehicleStatus status;
   final bool inService;
   final DateTime? serviceStartedAt;
@@ -35,6 +43,13 @@ class VehicleEntity extends Equatable {
   final String? driverLicenseUrl;
   final String? municipalOperationCardUrl;
   final String? ruatUrl;
+=======
+  final String status; // approved / pending_review / rejected
+  final Map<String, String?> legalDocumentation;
+  final bool isOnDuty;
+  final DateTime? isOnDutyUpdatedAt;
+  final DateTime updatedAt;
+>>>>>>> origin/adolfo-dev
 
   const VehicleEntity({
     required this.vehicleId,
@@ -47,6 +62,7 @@ class VehicleEntity extends Equatable {
     required this.color,
     required this.passengerCapacity,
     required this.status,
+<<<<<<< HEAD
     required this.inService,
     this.serviceStartedAt,
     this.soatUrl,
@@ -93,6 +109,15 @@ class VehicleEntity extends Equatable {
       ruatUrl: ruatUrl ?? this.ruatUrl,
     );
   }
+=======
+    required this.legalDocumentation,
+    required this.isOnDuty,
+    this.isOnDutyUpdatedAt,
+    required this.updatedAt,
+  });
+
+  bool get isApproved => status == 'approved';
+>>>>>>> origin/adolfo-dev
 
   @override
   List<Object?> get props => [
@@ -106,6 +131,7 @@ class VehicleEntity extends Equatable {
         color,
         passengerCapacity,
         status,
+<<<<<<< HEAD
         inService,
         serviceStartedAt,
         soatUrl,
@@ -113,5 +139,11 @@ class VehicleEntity extends Equatable {
         driverLicenseUrl,
         municipalOperationCardUrl,
         ruatUrl,
+=======
+        legalDocumentation,
+        isOnDuty,
+        isOnDutyUpdatedAt,
+        updatedAt,
+>>>>>>> origin/adolfo-dev
       ];
 }

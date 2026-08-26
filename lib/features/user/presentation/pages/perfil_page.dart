@@ -18,14 +18,13 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/editar_perfil_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/historial_beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/notificaciones_page.dart';
-import 'package:mi_ruta/features/user/presentation/pages/preferencias_notificacion_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/planificar_viaje_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/legal_bottom_sheet.dart';
 
 class PerfilPage extends StatefulWidget {
   /// A qué pantalla vuelve la pestaña "Inicio" del pie de navegación.
@@ -314,6 +313,18 @@ class _PerfilPageState extends State<PerfilPage> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => const HistorialViajesPage(),
+                    ),
+                  ),
+
+                  _buildMenuItem(
+                    icon: Icons.history,
+                    title: 'Historial de beneficios',
+                    subtitle: 'Ver solicitudes anteriores',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const HistorialBeneficiosPage(),
+                      ),
                     ),
                   ),
 

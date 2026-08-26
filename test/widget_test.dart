@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/auth/presentation/widgets/boton_amarillo.dart';
 import 'package:mi_ruta/features/auth/presentation/widgets/input_con_sombra.dart';
+import 'package:mi_ruta/features/user/domain/entities/trip_history_entry.dart';
+import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
 
 void main() {
   testWidgets('IniciarSesionPage muestra título y botones', (
@@ -48,5 +50,48 @@ void main() {
     );
 
     expect(find.widgetWithText(TextField, 'Test hint'), findsOneWidget);
+  });
+
+  testWidgets('TripHistoryListWidget ordena viajes por fecha más reciente', (
+    WidgetTester tester,
+  ) async {
+    final trips = [
+      TripHistoryEntry(
+        id: '1',
+        userId: 'u1',
+        routeName: 'Línea 12',
+        originName: 'Terminal',
+        destinationName: 'Centro',
+        elapsed: const Duration(minutes: 22),
+        date: DateTime(2026, 3, 9, 15, 45),
+        farePaid: 2.5,
+      ),
+      TripHistoryEntry(
+        id: '2',
+        userId: 'u1',
+        routeName: 'Línea 23',
+        originName: 'Mercado',
+        destinationName: 'Universidad',
+        elapsed: const Duration(minutes: 18),
+        date: DateTime(2026, 3, 10, 8, 30),
+        farePaid: 2.5,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TripHistoryListWidget(trips: trips),
+        ),
+      ),
+    );
+
+    expect(find.text('MOVIMIENTOS'), findsOneWidget);
+    expect(find.text('Hoy'), findsOneWidget);
+    expect(find.text('Pago Transporte Línea 23'), findsOneWidget);
+    final first = tester.element(find.text('Pago Transporte Línea 23')).renderObject;
+    final second = tester.element(find.text('Pago Transporte Línea 12')).renderObject;
+    expect(first, isNotNull);
+    expect(second, isNotNull);
   });
 }

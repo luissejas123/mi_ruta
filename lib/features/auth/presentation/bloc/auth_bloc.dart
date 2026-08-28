@@ -42,7 +42,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
     result.fold(
       (failure) => emit(AuthError(message: failure.message)),
-      (user) => emit(const AuthSuccess(message: 'Registro exitoso')),
+      (user) {
+        // AuthSuccess dispara la navegación a RegistrationSuccessPage (ver
+        // RegisterPage); AuthLoaded deja el estado global correcto de una
+        // vez, para que el resto de la app (perfil, wallet, etc.) no se
+        // quede esperando una sesión "cerrada" hasta el próximo reinicio.
+        emit(const AuthSuccess(message: 'Registro exitoso'));
+        emit(AuthLoaded(user: user));
+      },
     );
   }
 

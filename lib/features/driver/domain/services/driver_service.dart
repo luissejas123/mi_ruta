@@ -41,6 +41,31 @@ class DriverService {
   Future<VehicleEntity?> getAssignedVehicle(String driverUid) =>
       _datasource.getVehicleForOwner(driverUid);
 
+  /// Alta de unidad con documentos, parte de "Registrarme como chofer" — el
+  /// propio solicitante la registra antes de que el dirigente apruebe su
+  /// solicitud (ver `DriverApprovalPage`). Queda `pending_review`.
+  Future<VehicleEntity> registerVehicle({
+    required String ownerUid,
+    required String vehicleType,
+    required String plate,
+    required String lineNumber,
+    required String internalNumber,
+    required String brand,
+    required String color,
+    required int passengerCapacity,
+    required Map<String, String?> legalDocumentation,
+  }) => _datasource.registerVehicle(
+        ownerUid: ownerUid,
+        vehicleType: vehicleType,
+        plate: plate,
+        lineNumber: lineNumber,
+        internalNumber: internalNumber,
+        brand: brand,
+        color: color,
+        passengerCapacity: passengerCapacity,
+        legalDocumentation: legalDocumentation,
+      );
+
   /// Si [driverUid] no tiene unidad asignada, crea una de demostración ya
   /// aprobada (con la línea de una ruta real del catálogo GTFS) y la
   /// devuelve. Solo la usa el selector de perfiles de la cuenta super-admin.

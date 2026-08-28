@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/admin/domain/services/user_management_service.dart';
+import 'package:mi_ruta/features/driver/domain/entities/vehicle_entity.dart';
+import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_approval_bloc.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_approval_event.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_approval_state.dart';
@@ -248,7 +250,17 @@ class _PendingRequestTile extends StatelessWidget {
               color: Colors.orange,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => _VehicleDocumentsSheet.show(context, ownerUid: user.uid),
+              icon: const Icon(Icons.directions_bus_outlined, size: 18),
+              label: const Text('Ver unidad y documentos'),
+              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+            ),
+          ),
+          const SizedBox(height: 6),
           if (isUpdating)
             const Center(
               child: SizedBox(
@@ -346,6 +358,119 @@ class _DriverTile extends StatelessWidget {
                 ),
         ],
       ),
+    );
+  }
+}
+
+/// Vista de la unidad y sus documentos que el solicitante subió en
+/// "Registrarme como chofer" (ver `SolicitudChoferPage`), para que quien
+/// aprueba pueda verificarlos sin salir de esta pantalla.
+class _VehicleDocumentsSheet extends StatelessWidget {
+  final String ownerUid;
+
+  const _VehicleDocumentsSheet({required this.ownerUid});
+
+  static void show(BuildContext context, {required String ownerUid}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _VehicleDocumentsSheet(ownerUid: ownerUid),
+    );
+  }
+
+  static const _docLabels = {
+    'driver_license_url': 'Licencia de conducir',
+    'vehicle_inspection_url': 'Inspección técnica vehicular',
+    'soat_url': 'SOAT',
+    'ruat_url': 'RUAT',
+    'municipal_operation_card_url': 'Tarjeta de operación municipal',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: FutureBuilder<VehicleEntity?>(
+          future: getIt<DriverService>().getAssignedVehicle(ownerUid),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const SizedBox(
+                height: 120,
+                child: Center(child: CircularProgressIndicator(color: _amarillo)),
+              );
+            }
+            final vehicle = snapshot.data;
+            if (vehicle == null) {
+              return const SizedBox(
+                height: 120,
+                child: Center(
+                  child: Text('Esta solicitud no tiene una unidad registrada.'),
+                ),
+              );
+            }
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${vehicle.brand} · Placa ${vehicle.vehicleId}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tipo ${vehicle.vehicleType} · Línea ${vehicle.lineNumber} · '
+                    'Unidad ${vehicle.internalNumber} · ${vehicle.color} · '
+                    '${vehicle.passengerCapacity} pasajeros',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Documentos', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  for (final entry in _docLabels.entries)
+                    _DocumentRow(
+                      label: entry.value,
+                      url: vehicle.legalDocumentation[entry.key],
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _DocumentRow extends StatelessWidget {
+  final String label;
+  final String? url;
+
+  const _DocumentRow({required this.label, required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    final uploaded = url != null && url!.isNotEmpty;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        uploaded ? Icons.check_circle : Icons.cancel_outlined,
+        color: uploaded ? Colors.green : Colors.red.shade300,
+      ),
+      title: Text(label, style: const TextStyle(fontSize: 14)),
+      trailing: uploaded ? const Icon(Icons.chevron_right) : null,
+      onTap: uploaded
+          ? () => showDialog(
+                context: context,
+                builder: (_) => Dialog(
+                  child: InteractiveViewer(child: Image.network(url!)),
+                ),
+              )
+          : null,
     );
   }
 }

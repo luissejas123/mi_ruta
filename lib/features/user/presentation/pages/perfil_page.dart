@@ -1,11 +1,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
-import 'package:mi_ruta/features/admin/domain/services/user_management_service.dart';
 import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
-import 'package:mi_ruta/features/driver/presentation/bloc/driver_request_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
@@ -25,8 +22,8 @@ import 'package:mi_ruta/features/user/presentation/pages/historial_beneficios_pa
 import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/historial_ingresos_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_assigned_routes_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/solicitud_chofer_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/tickeador_operations_history_page.dart';
-import 'package:mi_ruta/features/driver/presentation/pages/tickeador_operation_register_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/notificaciones_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/planificar_viaje_page.dart';
 import 'package:mi_ruta/features/stops/presentation/pages/paradas_cercanas_page.dart';
@@ -64,63 +61,10 @@ class _PerfilPageState extends State<PerfilPage> {
   bool _isPassenger(String userType) =>
       userType == 'user' || userType == 'passenger';
 
-  late final DriverRequestCubit _driverRequestCubit;
-
   @override
   void initState() {
     super.initState();
-    _driverRequestCubit =
-        DriverRequestCubit(service: getIt<UserManagementService>());
     _loadUser();
-  }
-
-  @override
-  void dispose() {
-    _driverRequestCubit.close();
-    super.dispose();
-  }
-
-  /// Envía la solicitud para ser chofer. No cambia el rol: el perfil se
-  /// refresca solo porque `UserBloc` está escuchando `users/{uid}`.
-  Future<void> _confirmarSolicitudChofer(String uid) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Registrarme como chofer'),
-        content: const Text(
-          'Se enviará una solicitud al dirigente de tu línea. '
-          'Tu cuenta seguirá siendo de pasajero hasta que la apruebe.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Enviar solicitud',
-              style: TextStyle(color: _amarillo),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
-    await _driverRequestCubit.requestDriverRole(uid);
-    if (!mounted) return;
-
-    final state = _driverRequestCubit.state;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          state is DriverRequestFailed
-              ? state.message
-              : 'Solicitud enviada. Te avisaremos cuando sea aprobada.',
-        ),
-      ),
-    );
   }
 
   void _loadUser() {
@@ -400,7 +344,11 @@ class _PerfilPageState extends State<PerfilPage> {
 
                   _buildMenuItem(
                     icon: Icons.history,
-                    title: (context.read<AuthBloc>().state as AuthLoaded).user.role == 'driver' ? 'Historial del conductor' : 'Historial de viajes',
+                    title: () {
+                      final authState = context.read<AuthBloc>().state;
+                      final role = authState is AuthLoaded ? authState.user.role : '';
+                      return role == 'driver' ? 'Historial del conductor' : 'Historial de viajes';
+                    }(),
                     subtitle: 'Ver todos tus viajes',
                     onTap: () {
                       final authState = context.read<AuthBloc>().state;
@@ -422,6 +370,18 @@ class _PerfilPageState extends State<PerfilPage> {
                         }
                       }
                     },
+                  ),
+                if (user.userType == 'driver')
+                  _buildMenuItem(
+                    icon: Icons.alt_route_outlined,
+                    title: 'Ruta asignada',
+                    subtitle: 'Elegir la línea que operas',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const DriverAssignedRoutesPage(),
+                      ),
+                    ),
                   ),
                 if (user.userType == 'tickeador')
                   _buildMenuItem(
@@ -486,7 +446,12 @@ class _PerfilPageState extends State<PerfilPage> {
                       icon: Icons.directions_bus_outlined,
                       title: 'Registrarme como chofer',
                       subtitle: 'Enviar solicitud al dirigente de tu línea',
-                      onTap: () => _confirmarSolicitudChofer(user.uid),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SolicitudChoferPage(uid: user.uid),
+                        ),
+                      ),
                     ),
                 ],
 

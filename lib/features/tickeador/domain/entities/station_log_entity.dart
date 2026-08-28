@@ -1,5 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
+import 'package:mi_ruta/core/utils/firestore_date.dart';
 
 /// Entidad que representa un registro de terminal en la colección `station_logs`.
 ///
@@ -61,8 +61,7 @@ class StationLogEntity extends Equatable {
       passengerCount: (json['passenger_count'] as num?)?.toInt() ?? 0,
       maxCapacity: (json['max_capacity'] as num?)?.toInt() ?? 0,
       logType: json['log_type'] as String? ?? '',
-      timestamp:
-          (json['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      timestamp: parseFirestoreDate(json['timestamp']) ?? DateTime.now(),
       timeSinceLastDeparture:
           json['time_since_last_departure'] as String? ?? '',
     );

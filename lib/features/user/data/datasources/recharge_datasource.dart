@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mi_ruta/core/utils/firestore_date.dart';
 import 'package:mi_ruta/features/user/domain/entities/recharge.dart';
 
 class RecargeDatasource {
@@ -185,8 +186,8 @@ class RecargeDatasource {
       currency: data['currency'] ?? 'Bs',
       status: data['status'] ?? 'pending',
       proofImageUrl: data['proof_image_url'],
-      createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      verifiedAt: (data['verified_at'] as Timestamp?)?.toDate(),
+      createdAt: parseFirestoreDate(data['created_at']) ?? DateTime.now(),
+      verifiedAt: parseFirestoreDate(data['verified_at']),
     );
   }
 }

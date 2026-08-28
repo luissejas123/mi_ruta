@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mi_ruta/core/utils/firestore_date.dart';
 import 'package:mi_ruta/features/user/domain/entities/wallet.dart';
 
 class WalletDatasource {
@@ -60,12 +61,8 @@ class WalletDatasource {
         currentBalance:
             (walletData['current_balance'] as num?)?.toDouble() ?? 0.0,
         currency: walletData['currency'] as String? ?? 'Bs',
-        createdAt:
-            (walletData['created_at'] as Timestamp?)?.toDate() ??
-            DateTime.now(),
-        updatedAt:
-            (walletData['updated_at'] as Timestamp?)?.toDate() ??
-            DateTime.now(),
+        createdAt: parseFirestoreDate(walletData['created_at']) ?? DateTime.now(),
+        updatedAt: parseFirestoreDate(walletData['updated_at']) ?? DateTime.now(),
       );
     } catch (e) {
       throw Exception('Error obteniendo billetera: $e');

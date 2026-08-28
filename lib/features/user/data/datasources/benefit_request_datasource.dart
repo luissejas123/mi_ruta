@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mi_ruta/core/utils/firestore_date.dart';
 import 'package:mi_ruta/features/user/domain/entities/benefit_request.dart';
 
 class BenefitRequestDatasource {
@@ -114,8 +115,8 @@ class BenefitRequestDatasource {
       status: data['status'] ?? 'pending',
       documentUrls: List<String>.from(data['document_urls'] ?? []),
       description: data['description'] ?? '',
-      createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      approvedAt: (data['approved_at'] as Timestamp?)?.toDate(),
+      createdAt: parseFirestoreDate(data['created_at']) ?? DateTime.now(),
+      approvedAt: parseFirestoreDate(data['approved_at']),
       adminNotes: data['admin_notes'],
     );
   }

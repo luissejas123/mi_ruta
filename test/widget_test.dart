@@ -1,21 +1,51 @@
-// Tests de widgets que NO dependen de Firebase ni BLoC.
-// InsertarCorreoPage requiere AuthBloc, por lo que se omite aquí.
+// Tests de widgets que NO dependen de Firebase.
+// InsertarCorreoPage requiere más contexto, por lo que se omite aquí.
 // Para tests de integración con Firebase, usar integration_test/.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 
+import 'package:mi_ruta/features/auth/domain/repositories/auth_repository.dart';
+import 'package:mi_ruta/features/auth/domain/usecases/auth_usecases.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/auth/presentation/widgets/boton_amarillo.dart';
 import 'package:mi_ruta/features/auth/presentation/widgets/input_con_sombra.dart';
 import 'package:mi_ruta/features/user/domain/entities/trip_history_entry.dart';
 import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
 
+class MockAuthRepository extends Mock implements AuthRepository {}
+
+/// `IniciarSesionPage` envuelve su body en un `BlocListener<AuthBloc,
+/// AuthState>` (ver `homeScreenForRole`, criterio único de ruteo por rol),
+/// así que necesita un `AuthBloc` real en el árbol — con un repositorio
+/// mockeado, ya que estos tests no dependen de Firebase.
+AuthBloc _buildAuthBloc() {
+  final repository = MockAuthRepository();
+  return AuthBloc(
+    registerUseCase: RegisterUseCase(repository),
+    loginUseCase: LoginUseCase(repository),
+    logoutUseCase: LogoutUseCase(repository),
+    getCurrentUserUseCase: GetCurrentAuthUserUseCase(repository),
+    resetPasswordUseCase: ResetPasswordUseCase(repository),
+    loginAsDemoUseCase: LoginAsDemoUseCase(repository),
+  );
+}
+
 void main() {
   testWidgets('IniciarSesionPage muestra título y botones', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const MaterialApp(home: IniciarSesionPage()));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BlocProvider<AuthBloc>(
+          create: (_) => _buildAuthBloc(),
+          child: const IniciarSesionPage(),
+        ),
+      ),
+    );
 
     expect(find.text('MiRuta'), findsOneWidget);
     expect(find.text('Tu ruta, tu viaje,\ntu pago.'), findsOneWidget);

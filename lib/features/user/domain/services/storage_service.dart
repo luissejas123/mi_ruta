@@ -82,4 +82,28 @@ class StorageService {
       throw Exception('Error al eliminar documento: $e');
     }
   }
+
+  /// Sube un documento legal de una unidad (SOAT, inspección técnica,
+  /// licencia, RUAT, tarjeta de operación municipal — ver
+  /// `VehicleEntity.legalDocumentation` / FIRESTORE_COLLECTIONS_GUIDE.md).
+  /// [docKey] es la clave sin el sufijo `_url` (ej. "soat", "ruat").
+  Future<String> uploadVehicleDocument({
+    required String ownerUid,
+    required String plate,
+    required String docKey,
+    required File imageFile,
+  }) async {
+    try {
+      final fileName = imageFile.path.split('/').last;
+      final fileExtension = fileName.contains('.') ? fileName.split('.').last : 'jpg';
+      final ref = _storage.ref().child(
+        'vehicles/$ownerUid/$plate/$docKey.$fileExtension',
+      );
+      await ref.putFile(imageFile);
+      final downloadUrl = await ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      throw Exception('Error al subir documento de la unidad: $e');
+    }
+  }
 }

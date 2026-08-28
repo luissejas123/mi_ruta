@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
-import 'package:mi_ruta/features/admin/presentation/pages/user_management_page.dart';
 import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
 import 'package:mi_ruta/features/presidente/presentation/pages/presidente_panel_page.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
@@ -20,6 +19,7 @@ import 'package:mi_ruta/features/driver/presentation/bloc/driver_service_bloc.da
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_service_event.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_service_state.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_approval_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/solicitud_chofer_page.dart';
 import 'package:mi_ruta/features/driver/presentation/widgets/driver_service_map.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
@@ -168,8 +168,6 @@ class _DriverHomeView extends StatelessWidget {
                 const SizedBox(height: 24),
                 _SupervisorSection(),
                 const SizedBox(height: 12),
-                _UserManagementSection(),
-                const SizedBox(height: 12),
                 _PresidentePanelSection(),
               ],
               const SizedBox(height: 24),
@@ -221,46 +219,6 @@ class _SupervisorSection extends StatelessWidget {
               ),
             ),
             Icon(Icons.arrow_forward_ios, color: Colors.black54, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _UserManagementSection extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const UserManagementPage()),
-      ),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: DriverHomePage._amarillo, width: 1.5),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.manage_accounts_outlined, color: colorScheme.onSurface, size: 28),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                'Gestión de usuarios (todos los roles)',
-                style: TextStyle(
-                  color: colorScheme.onSurface,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios, color: colorScheme.onSurface.withValues(alpha: 0.5), size: 16),
           ],
         ),
       ),
@@ -356,6 +314,8 @@ class _NoVehicleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final authState = context.read<AuthBloc>().state;
+    final uid = authState is AuthLoaded ? authState.user.uid : '';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -369,17 +329,37 @@ class _NoVehicleCard extends StatelessWidget {
               size: 40, color: colorScheme.onSurface.withValues(alpha: 0.4)),
           const SizedBox(height: 12),
           const Text(
-            'No tienes una unidad asignada',
+            'No tienes una unidad registrada',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
           Text(
-            'Contacta a tu dirigente para que te asigne un vehículo antes de iniciar servicio.',
+            'Registra tu unidad con sus documentos antes de iniciar servicio.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
               color: colorScheme.onSurface.withValues(alpha: 0.6),
             ),
+          ),
+          const SizedBox(height: 14),
+          ElevatedButton.icon(
+            onPressed: uid.isEmpty
+                ? null
+                : () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SolicitudChoferPage(
+                          uid: uid,
+                          isAdditionalUnit: true,
+                        ),
+                      ),
+                    ),
+            icon: const Icon(Icons.add, color: Colors.black),
+            label: const Text(
+              'Registrar unidad',
+              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(backgroundColor: DriverHomePage._amarillo),
           ),
         ],
       ),

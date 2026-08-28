@@ -407,6 +407,16 @@ class RouteDatasource {
     }
   }
 
+  /// Tolera Timestamp nativo (`FieldValue.serverTimestamp()`) o string
+  /// ISO8601 — distintas rutas de escritura de este proyecto usaron cada
+  /// formato, y un cast rígido (`as Timestamp?`) rompía con "type 'String'
+  /// is not a subtype of type 'Timestamp?'" en el que escribió string.
+  DateTime? _parseDate(dynamic value) {
+    if (value is String) return DateTime.tryParse(value);
+    if (value is Timestamp) return value.toDate();
+    return null;
+  }
+
   RouteEntity _mapToRouteEntity(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
 
@@ -446,8 +456,8 @@ class RouteDatasource {
       stops: stops,
       polyline: polyline,
       description: data['description'],
-      createdAt: (data['created_at'] as Timestamp?)?.toDate(),
-      updatedAt: (data['updated_at'] as Timestamp?)?.toDate(),
+      createdAt: _parseDate(data['created_at']),
+      updatedAt: _parseDate(data['updated_at']),
       active: data['active'] ?? true,
       latMin: (data['lat_min'] as num?)?.toDouble(),
       latMax: (data['lat_max'] as num?)?.toDouble(),

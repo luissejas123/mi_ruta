@@ -28,12 +28,15 @@ class DriverDatasource {
       legalDocumentation: legal.map((k, v) => MapEntry(k, v as String?)),
       isOnDuty: d['is_on_duty'] as bool? ?? false,
       isOnDutyUpdatedAt: _parseUpdatedAt(d['is_on_duty_updated_at']),
-      updatedAt: (d['updated_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      updatedAt: _parseUpdatedAt(d['updated_at']) ?? DateTime.now(),
     );
   }
 
-  /// `is_on_duty_updated_at` se guarda como string ISO8601 (ver
-  /// FIRESTORE_COLLECTIONS_GUIDE.md), no como Timestamp nativo.
+  /// Distintos escritores del proyecto guardaron fechas como Timestamp nativo
+  /// (`FieldValue.serverTimestamp()`) o como string ISO8601 según la ruta de
+  /// código; se toleran ambos formatos en vez de asumir uno solo, porque un
+  /// documento escrito por el otro camino rompía el cast rígido (`as
+  /// Timestamp?`) con "type 'String' is not a subtype of type 'Timestamp?'".
   DateTime? _parseUpdatedAt(dynamic value) {
     if (value is String) return DateTime.tryParse(value);
     if (value is Timestamp) return value.toDate();
@@ -53,10 +56,10 @@ class DriverDatasource {
       paymentStatus: d['payment_status'] as String? ?? 'pending',
       passengerId: d['passenger_id'] as String?,
       paymentAmount: (d['payment_amount'] as num?)?.toDouble(),
-      createdAt: (d['created_at'] as Timestamp?)?.toDate(),
-      paidAt: (d['paid_at'] as Timestamp?)?.toDate(),
+      createdAt: _parseUpdatedAt(d['created_at']),
+      paidAt: _parseUpdatedAt(d['paid_at']),
       verifiedBy: d['verified_by'] as String?,
-      verifiedAt: (d['verified_at'] as Timestamp?)?.toDate(),
+      verifiedAt: _parseUpdatedAt(d['verified_at']),
     );
   }
 
@@ -95,6 +98,44 @@ class DriverDatasource {
     };
     final doc = await _firestore.collection('vehicles').add(data);
     final snap = await doc.get();
+    return _vehicleFromDoc(snap);
+  }
+
+  /// Alta de una unidad nueva con sus documentos (parte del flujo
+  /// "Registrarme como chofer"): el propio solicitante la registra antes de
+  /// ser aprobado, no el dirigente. ID del documento = placa (mismo criterio
+  /// documentado en FIRESTORE_COLLECTIONS_GUIDE.md). Queda en
+  /// `pending_review` hasta que `DriverApprovalPage` la revise junto con la
+  /// solicitud de chofer.
+  Future<VehicleEntity> registerVehicle({
+    required String ownerUid,
+    required String vehicleType,
+    required String plate,
+    required String lineNumber,
+    required String internalNumber,
+    required String brand,
+    required String color,
+    required int passengerCapacity,
+    required Map<String, String?> legalDocumentation,
+  }) async {
+    final vehicleId = plate.trim().toUpperCase();
+    final docRef = _firestore.collection('vehicles').doc(vehicleId);
+    await docRef.set({
+      'owner_uid': ownerUid,
+      'vehicle_type': vehicleType,
+      'line_number': lineNumber,
+      'internal_number': internalNumber,
+      'brand': brand,
+      'model': '',
+      'color': color,
+      'passenger_capacity': passengerCapacity,
+      'status': 'pending_review',
+      'legal_documentation': legalDocumentation,
+      'is_on_duty': false,
+      'created_at': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+    final snap = await docRef.get();
     return _vehicleFromDoc(snap);
   }
 

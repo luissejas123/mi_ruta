@@ -8,6 +8,7 @@ import 'package:mi_ruta/features/admin/presentation/bloc/user_management_bloc.da
 import 'package:mi_ruta/features/admin/presentation/bloc/user_management_event.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/user_management_state.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_permissions_edit_page.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/admin_bottom_navigation_bar.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 
@@ -20,7 +21,7 @@ class UserManagementPage extends StatefulWidget {
 
 class _UserManagementPageState extends State<UserManagementPage> {
   late final TextEditingController _searchController;
-  bool _onlyAdmins = false;
+  String? _roleFilter;
 
   @override
   void initState() {
@@ -304,9 +305,11 @@ class _UserManagementPageState extends State<UserManagementPage> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final visible = _onlyAdmins
-              ? state.filteredUsers.where((u) => u.isAdmin).toList()
-              : state.filteredUsers;
+          final visible = _roleFilter == null
+              ? state.filteredUsers
+              : state.filteredUsers
+                  .where((u) => u.role == _roleFilter)
+                  .toList();
 
           return Column(
             children: [
@@ -333,40 +336,18 @@ class _UserManagementPageState extends State<UserManagementPage> {
                       context.read<UserManagementBloc>().add(SearchUsersEvent(value)),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: SegmentedButton<bool>(
-                        segments: const [
-                          ButtonSegment(
-                            value: false,
-                            label: Text('Todos'),
-                            icon: Icon(Icons.people_outline),
-                          ),
-                          ButtonSegment(
-                            value: true,
-                            label: Text('Administradores'),
-                            icon: Icon(Icons.admin_panel_settings_outlined),
-                          ),
-                        ],
-                        selected: {_onlyAdmins},
-                        onSelectionChanged: (selection) =>
-                            setState(() => _onlyAdmins = selection.first),
+                    for (final filter in _roleFilters)
+                      _RoleChip(
+                        label: filter.label,
+                        selected: _roleFilter == filter.role,
+                        onTap: () =>
+                            setState(() => _roleFilter = filter.role),
                       ),
-                    ),
-                    if (_canManageAdmins) ...[
-                      const SizedBox(width: 8),
-                      FloatingActionButton.small(
-                        heroTag: 'add_admin',
-                        backgroundColor: const Color(0xFFFFC12F),
-                        foregroundColor: Colors.black,
-                        tooltip: 'Agregar nuevo administrador',
-                        onPressed: _showAddAdminDialog,
-                        child: const Icon(Icons.add),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -385,81 +366,93 @@ class _UserManagementPageState extends State<UserManagementPage> {
                             .add(const LoadUsersEvent()),
                         child: ListView.builder(
                           physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 90),
                           itemCount: visible.length,
                           itemBuilder: (context, index) {
                             final user = visible[index];
                             return Card(
                               margin:
-                                  const EdgeInsets.symmetric(vertical: 4),
+                                  const EdgeInsets.symmetric(vertical: 6),
+                              elevation: 0,
+                              color: const Color(0xFFF7F1E3),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(16),
+                                side: BorderSide(
+                                  color: Colors.grey.shade300,
+                                ),
                               ),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: const Color(0xFFFFC12F),
-                                  child: Text(
-                                    user.fullName.isNotEmpty
-                                        ? user.fullName[0].toUpperCase()
-                                        : '?',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                ),
-                                title: Text(
-                                  user.fullName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(user.email),
-                                    if (user.phoneNumber.isNotEmpty)
-                                      Text(user.phoneNumber,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(16),
+                                onTap: () => _showUserDetails(user),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 28,
+                                        backgroundColor:
+                                            const Color(0xFFFFC12F),
+                                        child: Text(
+                                          user.fullName.isNotEmpty
+                                              ? user.fullName[0].toUpperCase()
+                                              : '?',
                                           style: const TextStyle(
-                                              fontSize: 12)),
-                                  ],
-                                ),
-                                trailing: user.isAdmin
-                                    ? Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFFFC12F),
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
-                                        child: const Text(
-                                          'ADMIN',
-                                          style: TextStyle(
-                                            fontSize: 11,
+                                            fontSize: 20,
                                             fontWeight: FontWeight.bold,
                                             color: Colors.black,
                                           ),
                                         ),
-                                      )
-                                    : Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade200,
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
-                                        child: Text(
-                                          user.role,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              user.fullName,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              user.email,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                color: Colors.black54,
+                                              ),
+                                            ),
+                                            if (user.phoneNumber.isNotEmpty) ...[
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                user.phoneNumber,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.black54,
+                                                ),
+                                              ),
+                                            ],
+                                            const SizedBox(height: 10),
+                                            Wrap(
+                                              spacing: 8,
+                                              runSpacing: 4,
+                                              children: [
+                                                _RoleBadge(role: user.role),
+                                              ],
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                onTap: () => _showUserDetails(user),
+                                      const SizedBox(width: 8),
+                                      const Icon(
+                                        Icons.chevron_right,
+                                        color: Colors.black45,
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             );
                           },
@@ -469,6 +462,19 @@ class _UserManagementPageState extends State<UserManagementPage> {
             ],
           );
         },
+      ),
+      floatingActionButton: _canManageAdmins
+          ? FloatingActionButton.small(
+              heroTag: 'add_admin',
+              backgroundColor: const Color(0xFFFFC12F),
+              foregroundColor: Colors.black,
+              tooltip: 'Agregar nuevo administrador',
+              onPressed: _showAddAdminDialog,
+              child: const Icon(Icons.add),
+            )
+          : null,
+      bottomNavigationBar: const AdminBottomNavigationBar(
+        currentIndex: 0,
       ),
     );
   }
@@ -499,6 +505,108 @@ class _DetailRow extends StatelessWidget {
           ),
           Expanded(child: Text(value)),
         ],
+      ),
+    );
+  }
+}
+
+class _RoleFilter {
+  final String label;
+  final String? role;
+
+  const _RoleFilter(this.label, this.role);
+}
+
+const _roleFilters = [
+  _RoleFilter('Todos', null),
+  _RoleFilter('Pasajeros', 'user'),
+  _RoleFilter('Choferes', 'driver'),
+  _RoleFilter('Tickeadores', 'tickeador'),
+  _RoleFilter('Administradores', 'admin'),
+  _RoleFilter('Dirigentes', 'presidente'),
+];
+
+class _RoleChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _RoleChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: selected ? const Color(0xFFFFC12F) : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(
+            color: selected ? const Color(0xFFFFC12F) : Colors.grey.shade300,
+          ),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.black87,
+                fontSize: 14,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleBadge extends StatelessWidget {
+  final String role;
+
+  const _RoleBadge({required this.role});
+
+  String get _label {
+    switch (role) {
+      case 'user':
+        return 'Pasajero';
+      case 'driver':
+        return 'Chofer';
+      case 'tickeador':
+        return 'Tickeador';
+      case 'admin':
+        return 'Administrador';
+      case 'presidente':
+        return 'Dirigente';
+      default:
+        return role;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isAdmin = role == 'admin';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isAdmin ? const Color(0xFFFFC12F) : Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        _label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: isAdmin ? Colors.black : Colors.black87,
+        ),
       ),
     );
   }

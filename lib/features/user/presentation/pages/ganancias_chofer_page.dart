@@ -10,14 +10,14 @@ import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dar
 import 'package:mi_ruta/features/user/presentation/widgets/period_filter_button.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/transaction_card.dart';
 
-class MovimientosPage extends StatefulWidget {
-  const MovimientosPage({super.key});
+class GananciasChoferPage extends StatefulWidget {
+  const GananciasChoferPage({super.key});
 
   @override
-  State<MovimientosPage> createState() => _MovimientosPageState();
+  State<GananciasChoferPage> createState() => _GananciasChoferPageState();
 }
 
-class _MovimientosPageState extends State<MovimientosPage> {
+class _GananciasChoferPageState extends State<GananciasChoferPage> {
   static const _navIndexWallet = 1;
   static const _filterOptions = ['Hoy', 'Semanal', 'Mensual', 'Todos'];
   static const _defaultFilter = 'Todos';
@@ -36,7 +36,7 @@ class _MovimientosPageState extends State<MovimientosPage> {
 
   void _initializeUser() {
     _userId = _extractUserIdFromAuth();
-    _loadTransactionHistory();
+    context.read<WalletBloc>().add(LoadDriverEarningsEvent(_userId));
   }
 
   String _extractUserIdFromAuth() {
@@ -45,19 +45,14 @@ class _MovimientosPageState extends State<MovimientosPage> {
     return _defaultUserId;
   }
 
-  void _loadTransactionHistory() {
-    context.read<WalletBloc>().add(LoadTransactionHistoryEvent(_userId));
-  }
-
   void _onNavTap(int index) => navigateBottomNav(context, index);
 
   void _selectFilter(String filter) {
     setState(() => _selectedFilter = filter);
   }
 
-  List<Map<String, dynamic>> _extractTransactionsFromState(WalletState state) {
-    if (state is WalletLoaded) return state.transactions;
-    if (state is TransactionHistoryLoaded) return state.transactions;
+  List<Map<String, dynamic>> _extractEarningsFromState(WalletState state) {
+    if (state is DriverEarningsLoaded) return state.transactions;
     return [];
   }
 
@@ -97,6 +92,14 @@ class _MovimientosPageState extends State<MovimientosPage> {
     }).toList();
   }
 
+  double _sumFiltered(List<Map<String, dynamic>> transactions) {
+    double total = 0.0;
+    for (final tx in transactions) {
+      total += (tx['amount'] as num?)?.toDouble() ?? 0.0;
+    }
+    return total;
+  }
+
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       elevation: 0,
@@ -106,7 +109,7 @@ class _MovimientosPageState extends State<MovimientosPage> {
         onPressed: () => Navigator.of(context).pop(),
       ),
       title: const Text(
-        'MOVIMIENTOS',
+        'MIS GANANCIAS',
         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
       ),
     );
@@ -131,6 +134,57 @@ class _MovimientosPageState extends State<MovimientosPage> {
     );
   }
 
+  Widget _buildEarningsCard(double total) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFC12F), Color(0xFFE6A800)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.trending_up, color: Colors.black),
+              SizedBox(width: 8),
+              Text(
+                'GANANCIAS DEL CHOFER',
+                style: TextStyle(
+                  color: Colors.black54,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Bs. ${total.toStringAsFixed(2)}',
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 36,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLoadingState() {
     return const Center(
       child: CircularProgressIndicator(color: _amarillo),
@@ -146,54 +200,40 @@ class _MovimientosPageState extends State<MovimientosPage> {
           const SizedBox(height: 16),
           Text(
             _selectedFilter == 'Todos'
-                ? 'No hay movimientos registrados'
-                : 'No hay movimientos en este período',
+                ? 'Aún no tienes ganancias registradas'
+                : 'No hay ganancias en este período',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTransactionItem(Map<String, dynamic> transaction) {
-    final title = transaction['description'] ?? 'Transacción';
+  Widget _buildEarningsItem(Map<String, dynamic> transaction) {
+    final title = transaction['description'] ?? 'Pago recibido';
     final amount = (transaction['amount'] ?? 0.0).toDouble().abs();
-    final timestamp = transaction['timestamp'];
-    final transactionType = transaction['transaction_type'] ?? '';
-    final isTopUp = transactionType.contains('top_up') ||
-        transactionType.contains('recharge');
-    final isIncome = transactionType.contains('trip_payment_received') ||
-        transactionType.contains('income');
-    final date = _parseTransactionDate(timestamp);
-
-    if (isIncome) {
-      return TransactionCard(
-        icon: Icons.attach_money,
-        title: title,
-        subtitle: 'Pago de viaje recibido',
-        amount: '+ Bs. ${amount.toStringAsFixed(2)}',
-        date: date,
-        iconBackgroundColor: const Color(0xFFE8F5E9),
-        iconColor: Colors.green.shade700,
-        amountColor: Colors.green.shade700,
-      );
-    }
+    final date = _parseTransactionDate(transaction['timestamp']);
 
     return TransactionCard(
-      icon: isTopUp ? Icons.add_circle : Icons.remove_circle,
+      icon: Icons.attach_money,
       title: title,
-      subtitle: isTopUp ? 'Recarga de saldo' : 'Pago de viaje',
-      amount: '${isTopUp ? '+' : '-'} Bs. ${amount.toStringAsFixed(2)}',
+      subtitle: 'Pago de viaje recibido',
+      amount: '+ Bs. ${amount.toStringAsFixed(2)}',
       date: date,
-      iconBackgroundColor: const Color(0xFFFFF9C4),
-      iconColor: _amarillo,
-      amountColor: isTopUp ? Colors.green : _amarillo,
+      iconBackgroundColor: const Color(0xFFE8F5E9),
+      iconColor: Colors.green.shade700,
+      amountColor: Colors.green.shade700,
     );
   }
 
-  Widget _buildTransactionsList(List<Map<String, dynamic>> transactions) {
+  Widget _buildEarningsList(List<Map<String, dynamic>> transactions) {
+    final filtered = _filterTransactions(transactions);
+    final total = _sumFiltered(filtered);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildEarningsCard(total),
+        const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -205,27 +245,23 @@ class _MovimientosPageState extends State<MovimientosPage> {
               ),
             ),
             Text(
-              '${transactions.length} movimiento${transactions.length != 1 ? 's' : ''}',
+              '${filtered.length} pago${filtered.length != 1 ? 's' : ''}',
               style: const TextStyle(fontSize: 13),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Expanded(
-          child: ListView.builder(
-            itemCount: transactions.length,
-            itemBuilder: (context, index) =>
-                _buildTransactionItem(transactions[index]),
-          ),
+          child: filtered.isEmpty
+              ? _buildEmptyState()
+              : ListView.builder(
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) =>
+                      _buildEarningsItem(filtered[index]),
+                ),
         ),
       ],
     );
-  }
-
-  Widget _buildTransactionsContainer(List<Map<String, dynamic>> transactions) {
-    final filtered = _filterTransactions(transactions);
-    if (filtered.isEmpty) return _buildEmptyState();
-    return _buildTransactionsList(filtered);
   }
 
   @override
@@ -243,8 +279,8 @@ class _MovimientosPageState extends State<MovimientosPage> {
               child: BlocBuilder<WalletBloc, WalletState>(
                 builder: (context, state) {
                   if (state is WalletLoading) return _buildLoadingState();
-                  final transactions = _extractTransactionsFromState(state);
-                  return _buildTransactionsContainer(transactions);
+                  final transactions = _extractEarningsFromState(state);
+                  return _buildEarningsList(transactions);
                 },
               ),
             ),

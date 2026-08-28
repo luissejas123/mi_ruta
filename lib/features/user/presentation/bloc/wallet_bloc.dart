@@ -13,6 +13,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     on<TopUpBalanceEvent>(_onTopUpBalance);
     on<PayTripEvent>(_onPayTrip);
     on<LoadTransactionHistoryEvent>(_onLoadTransactionHistory);
+    on<LoadDriverEarningsEvent>(_onLoadDriverEarnings);
     on<ClearWalletEvent>(_onClearWallet);
   }
 
@@ -154,6 +155,43 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       );
     } catch (e) {
       emit(WalletError(message: 'Error cargando historial: $e'));
+    }
+  }
+
+  /// Maneja la carga de las ganancias del chofer
+  Future<void> _onLoadDriverEarnings(
+    LoadDriverEarningsEvent event,
+    Emitter<WalletState> emit,
+  ) async {
+    try {
+      final earnings = await _walletService.getDriverEarnings(event.userId);
+      final currentWallet = state is WalletLoaded
+          ? (state as WalletLoaded).wallet
+          : state is TransactionHistoryLoaded
+              ? (state as TransactionHistoryLoaded).wallet
+              : null;
+      emit(
+        DriverEarningsLoaded(
+          total: earnings['total_ganancia'] as double,
+          transactions:
+              earnings['transactions'] as List<Map<String, dynamic>>,
+          wallet: currentWallet,
+        ),
+      );
+    } catch (e) {
+      // Si falla la carga de ganancias no se debe bloquear la billetera.
+      final currentWallet = state is WalletLoaded
+          ? (state as WalletLoaded).wallet
+          : state is TransactionHistoryLoaded
+              ? (state as TransactionHistoryLoaded).wallet
+              : null;
+      emit(
+        DriverEarningsLoaded(
+          total: 0.0,
+          transactions: const [],
+          wallet: currentWallet,
+        ),
+      );
     }
   }
 

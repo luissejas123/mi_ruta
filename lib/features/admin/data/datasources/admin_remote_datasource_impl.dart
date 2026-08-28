@@ -44,21 +44,11 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
     String uid,
     Map<String, bool> permissions,
   ) async {
-    final doc = await _firestore.collection('users').doc(uid).get();
-    final data = doc.data() ?? {};
-
-    // Conservar settings existentes (dark_mode_enabled, is_driver_mode, ...)
-    // y actualizar únicamente admin_permissions.
-    final currentSettings = data['settings'];
-    final settings = currentSettings is Map
-        ? Map<String, dynamic>.from(currentSettings)
-        : <String, dynamic>{};
-    settings['admin_permissions'] = permissions;
-
+    // Actualiza solo este campo sin sobrescribir otras preferencias del usuario.
     await _firestore
         .collection('users')
         .doc(uid)
-        .set({'settings': settings}, SetOptions(merge: true));
+        .update({'settings.admin_permissions': permissions});
   }
 
   @override

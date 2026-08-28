@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_event.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_state.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/admin_bottom_navigation_bar.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 
@@ -92,95 +93,6 @@ class _AdminCreateAdminPageState extends State<AdminCreateAdminPage> {
     );
   }
 
-  Future<void> _showSuccessDialog(BuildContext context) async {
-    final name = _nameController.text.trim();
-    final email = _emailController.text.trim();
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.check_circle,
-              color: Colors.green,
-              size: 76,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '¡ÉXITO!',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'La cuenta ha sido creada correctamente',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black54),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFC12F).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Referencia',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black54,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    email,
-                    style: const TextStyle(color: Colors.black54),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFC12F),
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () => Navigator.of(dialogContext)
-                    .popUntil((route) => route.isFirst),
-                child: const Text(
-                  'VOLVER AL INICIO',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -191,7 +103,7 @@ class _AdminCreateAdminPageState extends State<AdminCreateAdminPage> {
       body: BlocConsumer<AdminPrivilegesBloc, AdminPrivilegesState>(
         listener: (context, state) {
           if (state is AdminPrivilegesSuccess && context.mounted) {
-            _showSuccessDialog(context);
+            Navigator.of(context).pop(true);
           }
           if (state is AdminPrivilegesError && context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -356,6 +268,9 @@ class _AdminCreateAdminPageState extends State<AdminCreateAdminPage> {
             ),
           );
         },
+      ),
+      bottomNavigationBar: const AdminBottomNavigationBar(
+        currentIndex: 0,
       ),
     );
   }

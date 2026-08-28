@@ -8,6 +8,7 @@ import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_event.
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_state.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_create_admin_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_permissions_edit_page.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/admin_bottom_navigation_bar.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 
@@ -52,6 +53,9 @@ class _AdminPrivilegesPageState extends State<AdminPrivilegesPage> {
               ],
             ),
           ),
+        ),
+        bottomNavigationBar: const AdminBottomNavigationBar(
+          currentIndex: 0,
         ),
       );
     }
@@ -136,8 +140,8 @@ class _AdminPrivilegesPageState extends State<AdminPrivilegesPage> {
                 'AGREGAR NUEVO ADMINISTRADOR',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                final created = await Navigator.push<bool>(
                   context,
                   MaterialPageRoute(
                     builder: (_) => BlocProvider.value(
@@ -146,9 +150,17 @@ class _AdminPrivilegesPageState extends State<AdminPrivilegesPage> {
                     ),
                   ),
                 );
+                if (created == true && context.mounted) {
+                  context
+                      .read<AdminPrivilegesBloc>()
+                      .add(const LoadAdminsEvent());
+                }
               },
             )
           : null,
+      bottomNavigationBar: const AdminBottomNavigationBar(
+        currentIndex: 0,
+      ),
     );
   }
 }

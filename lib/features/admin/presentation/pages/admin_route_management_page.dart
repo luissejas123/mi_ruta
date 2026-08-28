@@ -5,6 +5,7 @@ import 'package:mi_ruta/features/admin/presentation/bloc/route_management_bloc.d
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_event.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_state.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_route_form_page.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/admin_bottom_navigation_bar.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
@@ -84,6 +85,9 @@ class _AdminRouteManagementPageState extends State<AdminRouteManagementPage> {
               ],
             ),
           ),
+        ),
+        bottomNavigationBar: const AdminBottomNavigationBar(
+          currentIndex: 0,
         ),
       );
     }
@@ -246,6 +250,9 @@ class _AdminRouteManagementPageState extends State<AdminRouteManagementPage> {
             ),
           );
         },
+      ),
+      bottomNavigationBar: const AdminBottomNavigationBar(
+        currentIndex: 0,
       ),
     );
   }

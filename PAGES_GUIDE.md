@@ -224,9 +224,9 @@ Documentación completa de todas las páginas (screens) del proyecto Mi Ruta, in
   - Retorna ubicación seleccionada
   - Manejo de estados de carga y error
 
----
+---// aqui alñadi:el funcionamiento de la billetera y ver las ganancias del chofer
 
-### 15. **WalletPage** (`wallet_page.dart`)
+### 15. **WalletPage** (`wallet_page.dart`)  
 - **Propósito**: Gestor de saldo/billetera del usuario
 - **Ubicación**: `lib/features/user/presentation/pages/`
 - **¿Qué muestra?**:

@@ -6,6 +6,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/movimientos_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/ganancias_chofer_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/pago_qr_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recarga_saldo_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_page.dart';
@@ -36,6 +37,7 @@ class _WalletPageState extends State<WalletPage> {
   void _initializeWallet() {
     _userId = _extractUserIdFromAuth();
     _loadWalletData();
+    context.read<WalletBloc>().add(LoadDriverEarningsEvent(_userId));
   }
 
   String _extractUserIdFromAuth() {
@@ -44,6 +46,12 @@ class _WalletPageState extends State<WalletPage> {
       return authState.user.uid;
     }
     return _defaultUserId;
+  }
+
+  /// El acceso a "Mis Ganancias" solo se muestra a usuarios con role "driver".
+  bool get _isDriver {
+    final authState = context.read<AuthBloc>().state;
+    return authState is AuthLoaded && authState.user.role == 'driver';
   }
 
   void _loadWalletData() {
@@ -79,6 +87,13 @@ class _WalletPageState extends State<WalletPage> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const SolicitudBeneficioPage()),
+    );
+  }
+
+  void _navigateToGanancias() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const GananciasChoferPage()),
     );
   }
 
@@ -153,7 +168,72 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  Widget _buildMainContent(dynamic wallet) {
+  Widget _buildEarningsCard(double total) {
+    return Card(
+      margin: const EdgeInsets.only(top: 16),
+      elevation: 0,
+      color: const Color(0xFFFFC12F),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: _navigateToGanancias,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Colors.black,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.trending_up,
+                  color: Color(0xFFFFC12F),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'GANANCIAS DEL CHOFER',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Bs. ${total.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: Colors.black54),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainContent(dynamic wallet, WalletState state) {
+    double earningsTotal = 0.0;
+    if (state is DriverEarningsLoaded) {
+      earningsTotal = state.total;
+    }
+
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -164,6 +244,7 @@ class _WalletPageState extends State<WalletPage> {
               balance: wallet.currentBalance,
               currency: wallet.currency,
             ),
+            if (_isDriver) _buildEarningsCard(earningsTotal),
             const SizedBox(height: 32),
             const Text(
               'Acciones',
@@ -223,7 +304,7 @@ class _WalletPageState extends State<WalletPage> {
             return const Center(child: Text('No hay datos de billetera'));
           }
 
-          return _buildMainContent(wallet);
+          return _buildMainContent(wallet, state);
         },
       ),
       bottomNavigationBar: CustomBottomNav(

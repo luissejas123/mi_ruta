@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_event.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_state.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/admin_bottom_navigation_bar.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
 
 class AdminRouteFormPage extends StatefulWidget {
@@ -255,6 +256,9 @@ class _AdminRouteFormPageState extends State<AdminRouteFormPage> {
             ),
           );
         },
+      ),
+      bottomNavigationBar: const AdminBottomNavigationBar(
+        currentIndex: 0,
       ),
     );
   }

@@ -49,16 +49,21 @@ class UserManagementBloc
       uid: event.uid,
       role: 'admin',
     );
+    var hasError = false;
     result.fold(
-      (failure) => emit(UserManagementError(failure.message)),
-      (_) async {
-        emit(const UserManagementSuccess('Usuario promovido a administrador'));
-        final reload = await getUsersUseCase.call();
-        reload.fold(
-          (failure) => emit(UserManagementError(failure.message)),
-          (users) => emit(UserManagementLoaded(users: users)),
-        );
+      (failure) {
+        hasError = true;
+        emit(UserManagementError(failure.message));
       },
+      (_) {},
+    );
+    if (hasError) return;
+
+    emit(const UserManagementSuccess('Usuario promovido a administrador'));
+    final reload = await getUsersUseCase.call();
+    reload.fold(
+      (failure) => emit(UserManagementError(failure.message)),
+      (users) => emit(UserManagementLoaded(users: users)),
     );
   }
 }

@@ -7,6 +7,9 @@ class AuthEntity extends Equatable {
   final String governmentId;
   final String phoneNumber;
   final String? profilePictureUrl;
+  // Rol "activo" por defecto (pantalla de inicio tras login). Ver `roles`
+  // para el conjunto completo de roles que tiene la cuenta — una cuenta
+  // puede tener varios a la vez (ver RoleHierarchy).
   final String role;
   final DateTime createdAt;
   final Map<String, dynamic>? wallet;
@@ -18,6 +21,11 @@ class AuthEntity extends Equatable {
   // Vive solo en la base de datos (`users/{uid}.is_super_admin`), nunca en el
   // codigo. El primer superadmin se siembra a mano, ver SECURITY.md.
   final bool isSuperAdmin;
+  // Todos los roles simultáneos que tiene la cuenta (siempre incluye
+  // 'user'). Fuente de verdad para permisos — `role` es solo cuál de ellos
+  // se usa como pantalla de inicio. Ver RoleHierarchy para las
+  // combinaciones válidas.
+  final List<String> roles;
 
   const AuthEntity({
     required this.uid,
@@ -32,6 +40,7 @@ class AuthEntity extends Equatable {
     this.settings,
     this.qaAccess = false,
     this.isSuperAdmin = false,
+    this.roles = const ['user'],
   });
 
   @override
@@ -48,5 +57,6 @@ class AuthEntity extends Equatable {
     settings,
     qaAccess,
     isSuperAdmin,
+    roles,
   ];
 }

@@ -3,7 +3,7 @@
 **Fecha:** 27 de agosto de 2026
 **Objetivo:** dejar funcional el flujo Administrador → Presidente → Chofer/Tickeador, eliminando en el camino los 3 mecanismos de superadmin duplicados, todo dato hardcodeado de presentaciones previas, y el hueco de seguridad en Firestore.
 **Fuentes:** `docs/REQUERIMIENTOS_POR_PERFIL_SPRINT3_SPRINT4.md` §4 (backlog RQ4-*), auditoría de código de esta sesión, y las decisiones de producto tomadas abajo en §0.
-**Estado:** **Fases 0-9 (§4), las reglas de Firestore (§5) y el fix de mensajes de login (§9) implementados** (27 ago 2026). Pendiente: compilar y correr la app — la máquina donde se implementó no tiene el SDK de Flutter, así que nada se compiló ni se ejecutó (lo hace el equipo). Ver §8 para los hallazgos nuevos y lo que queda abierto, y §9 para el fix de login.
+**Estado:** **Fases 0-9 (§4), las reglas de Firestore (§5) y el fix de mensajes de login (§9) implementados** (27 ago 2026). Pendiente: compilar y correr la app — la máquina donde se implementó no tiene el SDK de Flutter, así que nada se compiló ni se ejecutó (lo hace el equipo). Ver §8 para los hallazgos nuevos y lo que queda abierto, y §9 para el fix de login. **28 ago 2026: corrección de roles simultáneos implementada y verificada con `dart analyze` (0 errores) — ver §10.**
 
 ---
 
@@ -226,3 +226,42 @@ Resultado: correo inexistente → **"No existe una cuenta registrada con ese cor
 ### Límite conocido (no es bug)
 
 Si el proyecto de Firebase tiene activada **Email enumeration protection** (por defecto en proyectos nuevos), Firebase Auth devuelve `invalid-credential` **a propósito** tanto para correo inexistente como para contraseña incorrecta, para no revelar qué correos están registrados. En ese caso la app solo puede mostrar **"El correo o la contraseña son incorrectos."**. Distinguirlos desde el cliente exigiría consultar `users` sin autenticar, lo que filtraría nombres/teléfonos/saldos y contradice las reglas de §5. Para recuperar el detalle: *Firebase Console → Authentication → Settings → User account protection*, desactivar esa protección — los mensajes granulares vuelven a funcionar solos, sin cambios de código.
+
+---
+
+## 10. Corrección: roles simultáneos (28 ago 2026)
+
+El modelo de §0-§9 asumía que `role` era un valor único — otorgar un rol nuevo **sobrescribía** el anterior (promover a admin/presidente o aprobar como chofer borraba silenciosamente el `user` base, y no había forma de que un dirigente conservara su rol de chofer). Esto quedó corregido con la decisión de producto real, tomada en esta sesión:
+
+Toda cuenta es `user` por definición. Sobre esa base, las únicas combinaciones válidas son:
+
+| Combinación | Ejemplo |
+|---|---|
+| `[user]` | pasajero |
+| `[user, admin]` | admin que también es pasajero |
+| `[user, driver]` | chofer aprobado |
+| `[user, driver, presidente]` | dirigente que también es chofer |
+| `[user, presidente]` | dirigente sin necesidad de ser chofer |
+| `[user, tickeador]` | tickeador |
+
+`admin`, `driver` y `tickeador` son mutuamente excluyentes entre sí. `presidente` es la única excepción: combina con `driver` o va sola. **Sin límite** en cuántas cuentas pueden tener `admin`/`presidente` a la vez — decisión explícita para las pruebas de Sprint 4, se le pone límite recién al cierre.
+
+### Qué se implementó
+
+1. **`lib/features/admin/domain/entities/role_hierarchy.dart`** (nuevo) — única fuente de verdad de la matriz de compatibilidad: `isValidRoleSet`, `canGrant`, `primaryRole`. Todo el código de grant pasa por acá antes de escribir a Firestore.
+2. **Firestore `users/{uid}.roles`** (nuevo, `array<string>`) — todos los roles simultáneos de la cuenta. `role` (singular) se mantiene, recalculado en cada escritura como `RoleHierarchy.primaryRole(roles)` (admin > presidente > driver > tickeador > user) — decide la pantalla de inicio, pero ya no es la fuente de verdad de permisos.
+3. **Las 3 escrituras de rol pasaron de sobrescribir a ser aditivas y validadas**: `AdminRemoteDataSourceImpl.updateUserRole` (promover admin/presidente), `UserManagementDatasource.resolveDriverRequest` (aprobar chofer), `UserManagementDatasource.assignTickeador` (asignar tickeador). Las tres leen los roles actuales, calculan la unión, y **lanzan** si la combinación resultante no está en `RoleHierarchy` — el repositorio ya envuelve eso en `Left(Failure)`, así que el error llega a la UI sin código nuevo.
+4. **`AdminAccessService`** y los checks de `perfil_page.dart`/`user_management_page.dart` pasaron de `user.role == 'x'` a `user.roles.contains('x')` — si no, una cuenta con varios roles perdía acceso a las funciones de los roles que no fueran el "activo".
+5. **`lib/features/admin/presentation/pages/role_switcher_page.dart`** (nuevo) — reemplaza en `perfil_page.dart` al viejo switch binario "Modo conductor" (ver Figma `node-id=3238-11287`, insuficiente para una cuenta con hasta 3 roles). Solo navega (mismo patrón que `SuperAdminSwitcherPage`, sin escribir en Firestore); se muestra únicamente si `roles.length > 1`, y solo lista los roles que la cuenta realmente tiene — a diferencia de `SuperAdminSwitcherPage`, que es el acceso de prueba QA/superadmin a los 5 perfiles sin importar los roles reales (se dejó intacto, es una herramienta distinta).
+6. **`firestore.rules`**: `roles` se agregó a `touchesPrivilegedField()` — el dueño de la cuenta nunca puede auto-escribírselo, igual que `role`.
+7. Documentado en `FIRESTORE_COLLECTIONS_GUIDE.md` (sección "Roles simultáneos").
+
+### Verificado
+
+`dart analyze lib` — **0 errores** (solo warnings/infos preexistentes, ninguno en los archivos tocados). No se corrió la app (falta `google-services.json`/`.env` en esta máquina) ni se probó contra Firestore real — falta QA manual del flujo completo (promover, aprobar chofer, asignar tickeador, cambiar de perfil) antes de dar esto por cerrado.
+
+### Pendiente / fuera de alcance de esta corrección
+
+- No hay flujo de **revocar** un rol (solo otorgar). No se pidió — si se necesita, agregar un `RoleHierarchy`-aware "quitar rol" simétrico a los métodos de grant.
+- `UserManagementPage` solo pre-valida (oculta el botón) para "promover a admin/presidente" — el flujo de "asignar tickeador"/"aprobar chofer" sigue sin ese guard visual en la UI (la validación server-side/datasource sí aplica siempre, solo falta la mejora de UX).
+- No se migró ningún doc existente: una cuenta creada antes de esta corrección no tiene `roles` hasta que se le otorgue un rol nuevo — mientras tanto, todo el código la trata como `[role]` (fallback automático, ver `AuthModel.fromJson`/`AdminUserModel.fromJson`).

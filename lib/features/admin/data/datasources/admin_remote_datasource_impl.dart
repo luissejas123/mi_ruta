@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mi_ruta/features/admin/data/datasources/admin_remote_datasource.dart';
 import 'package:mi_ruta/features/admin/data/models/admin_user_model.dart';
+import 'package:mi_ruta/features/admin/domain/entities/role_hierarchy.dart';
 
 /// Datasource del panel administrativo sobre la colección real `users`.
 class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
@@ -31,12 +32,41 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
     return AdminUserModel.fromJson(doc.data() as Map<String, dynamic>);
   }
 
+  /// Otorga [role] sin perder los roles que la cuenta ya tenía — **no**
+  /// sobrescribe `role` a secas, porque eso le borraba `driver`/`tickeador`
+  /// a cualquiera que promovieran a admin/presidente. Valida contra
+  /// [RoleHierarchy] antes de escribir: si la combinación resultante no está
+  /// permitida, lanza (el repositorio lo convierte en `Left(Failure)`).
   @override
   Future<void> updateUserRole(String uid, String role) async {
-    await _firestore
-        .collection('users')
-        .doc(uid)
-        .set({'role': role}, SetOptions(merge: true));
+    final ref = _firestore.collection('users').doc(uid);
+    final snap = await ref.get();
+    final data = snap.data() ?? {};
+    final currentRoles = _rolesOf(data);
+
+    if (!RoleHierarchy.canGrant(currentRoles, role)) {
+      throw Exception(
+        'No se puede otorgar "$role": la cuenta ya tiene ${currentRoles.join(", ")} '
+        'y esa combinación no está permitida.',
+      );
+    }
+
+    final newRoles = {...currentRoles, RoleHierarchy.user, role};
+    await ref.set({
+      'roles': newRoles.toList(),
+      'role': RoleHierarchy.primaryRole(newRoles),
+    }, SetOptions(merge: true));
+  }
+
+  /// Roles actuales de un doc de `users`, con fallback al esquema legado
+  /// (un solo `role`/`userType`) para cuentas creadas antes de `roles`.
+  Set<String> _rolesOf(Map<String, dynamic> data) {
+    final raw = data['roles'];
+    if (raw is List && raw.isNotEmpty) {
+      return raw.map((r) => r.toString()).toSet();
+    }
+    final legacy = (data['role'] ?? data['userType']) as String? ?? RoleHierarchy.user;
+    return {legacy};
   }
 
   @override

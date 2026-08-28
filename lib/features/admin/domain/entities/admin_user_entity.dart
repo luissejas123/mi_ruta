@@ -11,6 +11,9 @@ class AdminUserEntity extends Equatable {
   final String phoneNumber;
   final String role;
   final Map<String, dynamic>? settings;
+  // Todos los roles simultáneos de la cuenta (siempre incluye 'user'). Ver
+  // RoleHierarchy para las combinaciones válidas.
+  final List<String> roles;
 
   const AdminUserEntity({
     required this.uid,
@@ -19,9 +22,10 @@ class AdminUserEntity extends Equatable {
     required this.phoneNumber,
     required this.role,
     this.settings,
+    this.roles = const ['user'],
   });
 
-  bool get isAdmin => role == 'admin';
+  bool get isAdmin => roles.contains('admin');
 
   /// Privilegios administrativos guardados en `settings.admin_permissions`.
   Map<String, dynamic> get adminPermissions {
@@ -46,5 +50,6 @@ class AdminUserEntity extends Equatable {
     phoneNumber,
     role,
     settings,
+    roles,
   ];
 }

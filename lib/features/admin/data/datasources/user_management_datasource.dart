@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mi_ruta/features/admin/domain/entities/role_hierarchy.dart';
 import 'package:mi_ruta/features/user/data/models/user_model.dart';
 
 /// Acceso a Firestore para gestión de cuentas de cualquier rol (RQ-71/72).
@@ -58,27 +59,46 @@ class UserManagementDatasource {
     }, SetOptions(merge: true));
   }
 
-  /// Resuelve una solicitud. Al aprobar, el cambio de `role` y el de
+  /// Roles actuales de un doc de `users`, con fallback al esquema legado
+  /// (un solo `role`/`userType`) para cuentas creadas antes de `roles`.
+  Set<String> _rolesOf(Map<String, dynamic> data) {
+    final raw = data['roles'];
+    if (raw is List && raw.isNotEmpty) {
+      return raw.map((r) => r.toString()).toSet();
+    }
+    final legacy = (data['role'] ?? data['userType']) as String? ?? RoleHierarchy.user;
+    return {legacy};
+  }
+
+  /// Resuelve una solicitud. Al aprobar, el nuevo `roles`/`role` y el
   /// `driver_request.status` van en la **misma** escritura para que no pueda
   /// quedar un estado a medias (rol de chofer con solicitud aún pendiente).
+  /// Otorga `driver` de forma aditiva — no le borra `user` (ni `presidente`
+  /// si ya lo tuviera) a la cuenta.
   Future<void> resolveDriverRequest(String uid, {required bool approved}) async {
+    final ref = _firestore.collection('users').doc(uid);
     final data = <String, dynamic>{
       'driver_request': {'status': approved ? 'approved' : 'rejected'},
       'updated_at': DateTime.now().toIso8601String(),
     };
     if (approved) {
-      // Solo `role`, igual que AdminRemoteDataSourceImpl.updateUserRole: es la
-      // clave que escribe todo el repo. Los lectores ya resuelven el legacy
-      // `userType` con `role ?? userType` (ver UserModel.fromJson).
-      data['role'] = 'driver';
-    }
-    await _firestore.collection('users').doc(uid).set(
-          data,
-          SetOptions(merge: true),
+      final snap = await ref.get();
+      final currentRoles = _rolesOf(snap.data() ?? {});
+      if (!RoleHierarchy.canGrant(currentRoles, RoleHierarchy.driver)) {
+        throw Exception(
+          'No se puede aprobar como chofer: la cuenta ya tiene '
+          '${currentRoles.join(", ")} y esa combinación no está permitida.',
         );
+      }
+      final newRoles = {...currentRoles, RoleHierarchy.user, RoleHierarchy.driver};
+      data['roles'] = newRoles.toList();
+      data['role'] = RoleHierarchy.primaryRole(newRoles);
+    }
+    await ref.set(data, SetOptions(merge: true));
   }
 
-  /// Asigna el rol `tickeador` y su información de operación.
+  /// Asigna el rol `tickeador` y su información de operación, de forma
+  /// aditiva (no le borra `user` a la cuenta).
   ///
   /// La forma de `tickeador_info` es exactamente la que espera
   /// `TickeadorEntity.fromJson`: `assigned_station`, `assigned_lines`,
@@ -89,8 +109,19 @@ class UserManagementDatasource {
     required String assignedStation,
     required List<String> assignedLines,
   }) async {
-    await _firestore.collection('users').doc(uid).set({
-      'role': 'tickeador',
+    final ref = _firestore.collection('users').doc(uid);
+    final snap = await ref.get();
+    final currentRoles = _rolesOf(snap.data() ?? {});
+    if (!RoleHierarchy.canGrant(currentRoles, RoleHierarchy.tickeador)) {
+      throw Exception(
+        'No se puede asignar como tickeador: la cuenta ya tiene '
+        '${currentRoles.join(", ")} y esa combinación no está permitida.',
+      );
+    }
+    final newRoles = {...currentRoles, RoleHierarchy.user, RoleHierarchy.tickeador};
+    await ref.set({
+      'roles': newRoles.toList(),
+      'role': RoleHierarchy.primaryRole(newRoles),
       'tickeador_info': {
         'assigned_station': assignedStation,
         'assigned_lines': assignedLines,

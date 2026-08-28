@@ -18,8 +18,10 @@ class AdminAccessService {
 
   static bool hasPermission(AuthEntity user, String permission) {
     if (isSuperAdmin(user)) return true;
-    // Un usuario sin role "admin" nunca tiene privilegios administrativos.
-    if (user.role != 'admin') return false;
+    // Una cuenta sin el rol "admin" entre sus roles nunca tiene privilegios
+    // administrativos. Se usa `roles` (no `role`) porque una cuenta puede
+    // tener admin junto con otros roles sin que admin sea el activo.
+    if (!user.roles.contains('admin')) return false;
     final perms = user.settings?['admin_permissions'];
     if (perms is Map) {
       return perms[permission] == true;
@@ -30,10 +32,14 @@ class AdminAccessService {
   /// Responsabilidades fijas del rol `presidente`. No se mezclan con el esquema
   /// configurable de `admin_permissions`, que aplica solo al rol `admin`.
   static bool canApproveChoferRequests(AuthEntity user) =>
-      isSuperAdmin(user) || user.role == 'presidente' || user.role == 'admin';
+      isSuperAdmin(user) ||
+      user.roles.contains('presidente') ||
+      user.roles.contains('admin');
 
   static bool canAssignTickeador(AuthEntity user) =>
-      isSuperAdmin(user) || user.role == 'presidente' || user.role == 'admin';
+      isSuperAdmin(user) ||
+      user.roles.contains('presidente') ||
+      user.roles.contains('admin');
 }
 
 /// Extensiones cómodas sobre AuthEntity para consultar permisos.

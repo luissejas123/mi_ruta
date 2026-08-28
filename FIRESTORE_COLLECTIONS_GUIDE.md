@@ -83,12 +83,16 @@ Estos tres campos empezaron a escribirse con la jerarquía Administrador → Pre
 | Campo | Tipo | Quién lo escribe | Para qué |
 |---|---|---|---|
 | `is_super_admin` | `bool` (default `false`) | **Nadie desde la app.** Solo consola de Firebase / Admin SDK | SuperAdmin: administrador con acceso total que ignora `admin_permissions`. Reemplaza las antiguas allowlists de correos en código. Ver el runbook en [SECURITY.md](SECURITY.md) |
-| `driver_request` | `map` | El dueño solo puede crear `status: 'pending'`; `admin`/`presidente` escriben `approved`/`rejected` | Solicitud de un pasajero para ser chofer. **El `role` no cambia al solicitar** — solo al aprobar, si no el ruteo por rol lo mandaría a la pantalla de chofer antes de tiempo |
+| `roles` | `array<string>` | `admin`/`presidente`, vía los métodos de grant (`updateUserRole`, `resolveDriverRequest`, `assignTickeador`) | **Todos** los roles simultáneos de la cuenta (siempre incluye `'user'`). Fuente de verdad para permisos — ver "Roles simultáneos" abajo |
+| `role` | `string` | igual que `roles`, se recalcula en la misma escritura | Cuál de los `roles` de la cuenta es el "activo" por defecto (pantalla de inicio tras login). Se mantiene por compatibilidad con lectores que aún no leen `roles` |
+| `driver_request` | `map` | El dueño solo puede crear `status: 'pending'`; `admin`/`presidente` escriben `approved`/`rejected` | Solicitud de un pasajero para ser chofer. **El `role`/`roles` no cambia al solicitar** — solo al aprobar, si no el ruteo por rol lo mandaría a la pantalla de chofer antes de tiempo |
 | `tickeador_info` | `map` | `admin`/`presidente` | Estación y líneas asignadas al tickeador. Lo consume `TickeadorEntity.fromJson` |
 
 ```json
 {
   "is_super_admin": false,
+  "roles": ["user", "driver", "presidente"],
+  "role": "presidente",
   "driver_request": {
     "status": "pending",
     "requested_at": "2026-08-27T10:15:00.000000"
@@ -101,11 +105,28 @@ Estos tres campos empezaron a escribirse con la jerarquía Administrador → Pre
 }
 ```
 
+### Roles simultáneos (Sprint 4, corregido 28 ago 2026)
+
+Una cuenta puede tener **más de un rol a la vez** — otorgar un rol nunca le borra los que ya tenía. Toda cuenta es `user` por definición; sobre esa base, las únicas combinaciones válidas son:
+
+| Combinación | Ejemplo real |
+|---|---|
+| `[user]` | pasajero |
+| `[user, admin]` | admin que también puede usar la app como pasajero |
+| `[user, driver]` | chofer aprobado |
+| `[user, driver, presidente]` | dirigente que también es chofer |
+| `[user, presidente]` | dirigente que no maneja (no hace falta ser chofer para ser presidente) |
+| `[user, tickeador]` | tickeador |
+
+`admin`, `driver` y `tickeador` son mutuamente excluyentes entre sí. `presidente` es la única excepción: se combina con `driver` o va sola, nunca con `admin`/`tickeador`. Validado en código por `RoleHierarchy` (`lib/features/admin/domain/entities/role_hierarchy.dart`) — cualquier escritura de rol pasa por ahí antes de tocar Firestore, y lanza si la combinación no está permitida.
+
+**Sin límite** en la cantidad de cuentas con `admin` o `presidente` simultáneamente — decisión de producto para las pruebas de Sprint 4; se le pondrá límite recién al cierre.
+
 Notas:
 - `requested_at` es **string ISO 8601**, igual que `created_at` de esta colección (no `Timestamp` nativo).
 - `assigned_lines` guarda `ref` de línea reales, tomados de la colección `routes` sembrada desde GTFS — no una lista fija en código.
-- Al aprobar una solicitud, `role: 'driver'` y `driver_request.status: 'approved'` se escriben en la **misma** operación, para que no quede un estado a medias.
-- Al promover se escribe solo `role` (nunca `userType`), igual que hace `AdminRemoteDataSourceImpl.updateUserRole`. Los lectores ya resuelven el legacy con `role ?? userType`.
+- Al aprobar una solicitud, `roles`/`role` y `driver_request.status: 'approved'` se escriben en la **misma** operación, para que no quede un estado a medias.
+- Los lectores ya resuelven el legacy con `role ?? userType`; un doc sin `roles` todavía (creado antes de Sprint 4) se trata como `[role]` sin necesidad de migrarlo.
 
 ---
 

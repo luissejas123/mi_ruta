@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/role_switcher_page.dart';
 import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
@@ -50,10 +51,20 @@ class _PerfilPageState extends State<PerfilPage> {
   static const _amarillo = Color(0xFFFFC12F);
   static const _navIndexPerfil = 3;
 
-  /// El botón del panel administrativo solo se muestra a role == "admin".
+  /// El botón del panel administrativo se muestra si la cuenta tiene el rol
+  /// admin entre sus roles (puede tener otros a la vez, ej. admin + user).
   bool get _isAdmin {
     final authState = context.read<AuthBloc>().state;
-    return authState is AuthLoaded && authState.user.role == 'admin';
+    return authState is AuthLoaded && authState.user.roles.contains('admin');
+  }
+
+  /// "Cambiar de perfil" solo tiene sentido si la cuenta tiene más de un rol
+  /// real (todas tienen 'user' como base). No confundir con
+  /// [SwitchProfileButton], que es el acceso de prueba QA/superadmin a los 5
+  /// perfiles sin importar los roles reales de la cuenta.
+  List<String> get _ownedRoles {
+    final authState = context.read<AuthBloc>().state;
+    return authState is AuthLoaded ? authState.user.roles : const ['user'];
   }
 
   /// `users` arrastra dos valores para una cuenta sin rol especial: 'user'
@@ -470,6 +481,25 @@ class _PerfilPageState extends State<PerfilPage> {
                       ),
                     ),
                   ),
+
+                // ── Cambiar de perfil (cuentas con más de un rol real) ──
+                // Reemplaza el viejo switch binario "Modo conductor": una
+                // cuenta puede tener hasta 3 roles a la vez (ej. chofer +
+                // presidente + user) y un on/off no alcanza para eso.
+                if (_ownedRoles.length > 1) ...[
+                  _buildSectionTitle('PERFILES'),
+                  _buildMenuItem(
+                    icon: Icons.switch_account_outlined,
+                    title: 'Cambiar de perfil',
+                    subtitle: 'Esta cuenta tiene ${_ownedRoles.length} roles',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RoleSwitcherPage(ownedRoles: _ownedRoles),
+                      ),
+                    ),
+                  ),
+                ],
 
                 _buildSectionTitle('BILLETERA'),
                 BlocBuilder<WalletBloc, WalletState>(

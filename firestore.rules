@@ -50,7 +50,7 @@ service cloud.firestore {
     // Campos que otorgan privilegios: nunca los escribe el propio dueño.
     function touchesPrivilegedField() {
       return affected().hasAny([
-        'role', 'userType', 'is_super_admin', 'admin_permissions',
+        'role', 'roles', 'userType', 'is_super_admin', 'admin_permissions',
         'tickeador_info', 'qa_access'
       ]);
     }

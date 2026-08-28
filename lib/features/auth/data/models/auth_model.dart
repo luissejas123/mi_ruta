@@ -14,6 +14,7 @@ class AuthModel extends AuthEntity {
     super.settings,
     super.qaAccess,
     super.isSuperAdmin,
+    super.roles,
   });
 
   factory AuthModel.fromJson(Map<String, dynamic> json) {
@@ -28,6 +29,14 @@ class AuthModel extends AuthEntity {
       return DateTime.now();
     }
 
+    final legacyRole = (json['role'] ?? json['userType']) as String? ?? 'user';
+    // `roles` es nuevo (Sprint 4): un doc que todavia no lo tiene solo
+    // conoce su rol legado. No hace falta migrar los docs existentes.
+    final rawRoles = json['roles'];
+    final roles = rawRoles is List
+        ? rawRoles.map((r) => r.toString()).toList()
+        : <String>[legacyRole];
+
     return AuthModel(
       uid: json['uid'] as String? ?? '',
       // La colección users tiene docs snake_case y camelCase: leer ambas claves.
@@ -36,12 +45,13 @@ class AuthModel extends AuthEntity {
       governmentId: (json['government_id'] ?? json['governmentId']) as String? ?? '',
       phoneNumber: (json['phone_number'] ?? json['phoneNumber']) as String? ?? '',
       profilePictureUrl: (json['profile_picture_url'] ?? json['profileImageUrl']) as String?,
-      role: (json['role'] ?? json['userType']) as String? ?? 'user',
+      role: legacyRole,
       createdAt: parseCreatedAt(json['created_at'] ?? json['createdAt']),
       wallet: json['wallet'] as Map<String, dynamic>?,
       settings: json['settings'] as Map<String, dynamic>?,
       qaAccess: json['qa_access'] as bool? ?? false,
       isSuperAdmin: json['is_super_admin'] as bool? ?? false,
+      roles: roles,
     );
   }
 
@@ -62,6 +72,10 @@ class AuthModel extends AuthEntity {
       // `is_super_admin` se omite a proposito: es un campo privilegiado que el
       // cliente nunca escribe (lo bloquean las reglas de Firestore). Se siembra
       // desde la consola de Firebase / Admin SDK, ver SECURITY.md.
+      // `roles` tambien se omite: tambien es privilegiado (lo bloquean las
+      // reglas), solo lo escriben los metodos dedicados de
+      // UserManagementDatasource/AdminRemoteDataSourceImpl, nunca un guardado
+      // generico de perfil.
     };
   }
 }

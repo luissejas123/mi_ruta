@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/admin/domain/entities/admin_user_entity.dart';
+import 'package:mi_ruta/features/admin/domain/entities/role_hierarchy.dart';
 import 'package:mi_ruta/features/admin/domain/services/admin_access_service.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/user_management_bloc.dart';
@@ -158,7 +159,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
               _DetailRow(label: 'Teléfono', value: user.phoneNumber),
             _DetailRow(label: 'Role', value: user.role),
             const SizedBox(height: 20),
-            if (!user.isAdmin && _canManageAdmins)
+            if (RoleHierarchy.canGrant(user.roles.toSet(), 'admin') && _canManageAdmins)
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -176,7 +177,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
                   ),
                 ),
               ),
-            if (user.role != 'presidente' && !user.isAdmin && _canManageAdmins) ...[
+            if (RoleHierarchy.canGrant(user.roles.toSet(), 'presidente') &&
+                _canManageAdmins) ...[
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,

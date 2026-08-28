@@ -216,6 +216,7 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
                             child: MapPinConfirmPanel(
                               isCameraMoving: state.isCameraMoving,
                               address: state.pinAddress,
+                              confirmButtonText: 'Confirmar destino',
                               onCancel: _togglePinMode,
                               onConfirm: (state.isCameraMoving ||
                                       state.pinAddress == null)

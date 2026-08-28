@@ -1,5 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/admin/data/datasources/operational_report_datasource.dart';
 import 'package:mi_ruta/features/admin/domain/entities/operational_report.dart';
 import 'package:mi_ruta/features/admin/domain/services/operational_report_service.dart';
@@ -33,130 +36,170 @@ class _ReportesOperativosPageState extends State<ReportesOperativosPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Reportes',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-      ),
-      body: FutureBuilder<OperationalReport>(
-        future: _report,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFFFFC12F)),
-            );
-          }
-          if (snapshot.hasError) {
-            return _ErrorView(onRetry: _refresh);
-          }
-          final report = snapshot.data!;
-          return RefreshIndicator(
-            color: const Color(0xFFFFC12F),
-            onRefresh: _refresh,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-              children: [
-                const Text(
-                  'Resumen de desempeño',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 10),
-                Row(
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        final role = authState is AuthLoaded
+            ? authState.user.role.trim().toLowerCase()
+            : '';
+        final canAccess = {
+          'admin',
+          'administrador',
+          'dirigente',
+          'presidente',
+        }.contains(role);
+
+        if (!canAccess) {
+          return const Scaffold(
+            body: Center(
+              child: Text('No tienes permisos para ver este panel.'),
+            ),
+          );
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text(
+              'Panel de dirigencia',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            centerTitle: true,
+          ),
+          body: FutureBuilder<OperationalReport>(
+            future: _report,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(
+                  child: CircularProgressIndicator(color: Color(0xFFFFC12F)),
+                );
+              }
+              if (snapshot.hasError) {
+                return _ErrorView(onRetry: _refresh);
+              }
+              final report = snapshot.data!;
+              return RefreshIndicator(
+                color: const Color(0xFFFFC12F),
+                onRefresh: _refresh,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
                   children: [
-                    _SummaryCard(
-                      label: 'TOTAL',
-                      value: report.totalDrivers,
-                      color: const Color(0xFFFFC12F),
+                    const Text(
+                      'Reporte operativo',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    _SummaryCard(
-                      label: 'SUSPENDIDOS',
-                      value: report.suspendedDrivers.length,
-                      color: const Color(0xFFFFE5E5),
-                      valueColor: Colors.red.shade700,
+                    const SizedBox(height: 10),
+                    GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 1.45,
+                      children: [
+                        _SummaryCard(
+                          icon: Icons.directions_bus,
+                          label: 'Unidades en servicio',
+                          value: report.unitsInService,
+                        ),
+                        _SummaryCard(
+                          icon: Icons.check_circle_outline,
+                          label: 'Unidades aprobadas',
+                          value: report.approvedUnits,
+                        ),
+                        _SummaryCard(
+                          icon: Icons.more_horiz,
+                          label: 'Unidades en revisión',
+                          value: report.unitsUnderReview,
+                        ),
+                        _SummaryCard(
+                          icon: Icons.cancel_outlined,
+                          label: 'Unidades rechazadas',
+                          value: report.rejectedUnits,
+                        ),
+                        _SummaryCard(
+                          icon: Icons.groups_outlined,
+                          label: 'Choferes registrados',
+                          value: report.totalDrivers,
+                        ),
+                        _SummaryCard(
+                          icon: Icons.groups,
+                          label: 'Pasajeros registrados',
+                          value: report.registeredPassengers,
+                        ),
+                        _SummaryCard(
+                          icon: Icons.confirmation_number_outlined,
+                          label: 'Tickeadores',
+                          value: report.registeredTicketers,
+                        ),
+                        _SummaryCard(
+                          icon: Icons.block,
+                          label: 'Cuentas bloqueadas',
+                          value: report.blockedAccounts,
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    _SummaryCard(
-                      label: 'DESTACADOS',
-                      value: report.featuredDrivers.length,
-                      color: const Color(0xFFE2F7EF),
-                      valueColor: Colors.green.shade700,
+                    const SizedBox(height: 18),
+                    _DriverSection(
+                      title: 'Choferes suspendidos',
+                      count: report.suspendedDrivers.length,
+                      drivers: report.suspendedDrivers,
+                      emptyText: 'No hay choferes suspendidos.',
+                      accent: Colors.red.shade700,
+                    ),
+                    const SizedBox(height: 14),
+                    _DriverSection(
+                      title: 'Buen desempeño',
+                      count: report.featuredDrivers.length,
+                      drivers: report.featuredDrivers,
+                      emptyText: 'No hay choferes destacados todavía.',
+                      accent: Colors.green.shade700,
+                      showRating: true,
                     ),
                   ],
                 ),
-                const SizedBox(height: 18),
-                _DriverSection(
-                  title: 'Choferes suspendidos',
-                  count: report.suspendedDrivers.length,
-                  drivers: report.suspendedDrivers,
-                  emptyText: 'No hay choferes suspendidos.',
-                  accent: Colors.red.shade700,
-                ),
-                const SizedBox(height: 14),
-                _DriverSection(
-                  title: 'Buen desempeño',
-                  count: report.featuredDrivers.length,
-                  drivers: report.featuredDrivers,
-                  emptyText: 'No hay choferes destacados todavía.',
-                  accent: Colors.green.shade700,
-                  showRating: true,
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
 
 class _SummaryCard extends StatelessWidget {
+  final IconData icon;
   final String label;
   final int value;
-  final Color color;
-  final Color? valueColor;
 
   const _SummaryCard({
+    required this.icon,
     required this.label,
     required this.value,
-    required this.color,
-    this.valueColor,
   });
 
   @override
-  Widget build(BuildContext context) => Expanded(
-    child: Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              color: Colors.black.withValues(alpha: .55),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '$value',
-            style: TextStyle(
-              fontSize: 23,
-              fontWeight: FontWeight.bold,
-              color: valueColor ?? Colors.black,
-            ),
-          ),
-          const Text('Activos', style: TextStyle(fontSize: 9)),
-        ],
-      ),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF0E7D9),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 24, color: Colors.black54),
+        const Spacer(),
+        Text(
+          '$value',
+          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: Colors.black54),
+        ),
+      ],
     ),
   );
 }

@@ -19,6 +19,7 @@ import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dar
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/administracion_beneficios_page.dart';
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -343,18 +344,41 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () => navigateBottomNav(context, 1),
                 ),
 
-                _buildSectionTitle('SUPERVISIÓN'),
-                _buildMenuItem(
-                  icon: Icons.assessment_outlined,
-                  title: 'Reportes operativos',
-                  subtitle: 'Estado y desempeño de choferes',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ReportesOperativosPage(),
+                if ({
+                  'admin',
+                  'administrador',
+                  'dirigente',
+                  'presidente',
+                }.contains(user.userType.trim().toLowerCase())) ...[
+                  _buildSectionTitle('SUPERVISIÓN'),
+                  _buildMenuItem(
+                    icon: Icons.assessment_outlined,
+                    title: 'Reportes operativos',
+                    subtitle: 'Estado de la línea y sus unidades',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ReportesOperativosPage(),
+                      ),
                     ),
                   ),
-                ),
+                ],
+                if ({
+                  'admin',
+                  'administrador',
+                }.contains(user.userType.trim().toLowerCase())) ...[
+                  _buildMenuItem(
+                    icon: Icons.school_outlined,
+                    title: 'Administración de beneficios',
+                    subtitle: 'Revisar y aprobar solicitudes',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdministracionBeneficiosPage(),
+                      ),
+                    ),
+                  ),
+                ],
 
                 // ── Apariencia ──
                 _buildSectionTitle('APARIENCIA'),

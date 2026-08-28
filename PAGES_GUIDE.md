@@ -348,36 +348,68 @@ Documentación completa de todas las páginas (screens) del proyecto Mi Ruta, in
 ---
 
 ### 22. **SolicitudBeneficioPage** (`solicitud_beneficio_page.dart`)
-- **Propósito**: Formulario para solicitar beneficios/descuentos especiales
+- **Propósito**: Formulario para registrar solicitudes de beneficios
 - **Ubicación**: `lib/features/user/presentation/pages/`
 - **¿Qué muestra?**:
-  - Selector de tipo de beneficio (dropdown)
+  - Selector de tipo de beneficio: estudiante, universitario o adulto mayor
   - Campo de descripción
   - Área para adjuntar documentos
   - Botón para seleccionar documentos de galería
   - Lista de documentos adjuntos
   - Botón de envío
+  - Enlace para consultar el estado de las solicitudes
   - Barra de navegación inferior
 - **Funcionalidad**:
   - Selección de tipo de beneficio
   - Carga de múltiples documentos (fotos)
-  - Validación de información
+  - Validación de información y documentos JPG, JPEG o PNG de hasta 5 MB
+  - Requisito de al menos un documento
+  - Prevención de solicitudes duplicadas pendientes o aprobadas del mismo tipo
   - Envío de solicitud
   - Integración con ImagePicker
 
 ---
 
-### 23. **ConfirmacionBeneficioPage** (`confirmacion_beneficio_page.dart`)
-- **Propósito**: Confirmación de solicitud de beneficio enviada
+### 23. **EstadoBeneficiosPage** (`estado_beneficios_page.dart`)
+- **Propósito**: Consulta del historial y estado de las solicitudes del usuario
 - **Ubicación**: `lib/features/user/presentation/pages/`
 - **¿Qué muestra?**:
-  - Ícono de éxito
-  - Mensaje de confirmación
-  - Referencia de solicitud
-  - Información sobre próximos pasos
+  - Tipo de beneficio solicitado
+  - Descripción y fecha de la solicitud
+  - Estado: en revisión, aprobado o rechazado
+  - Observaciones administrativas, cuando existen
 - **Funcionalidad**:
-  - Confirmación visual de envío
-  - Información sobre revisión de solicitud
+  - Consulta del historial de solicitudes
+  - Actualización manual del estado
+
+---
+
+### 24. **AdministracionBeneficiosPage** (`administracion_beneficios_page.dart`)
+- **Propósito**: Gestión administrativa de solicitudes de beneficios
+- **Ubicación**: `lib/features/admin/presentation/pages/`
+- **Funcionalidad**:
+  - Consulta de solicitudes y datos del solicitante
+  - Búsqueda por nombre, correo, teléfono o tipo de beneficio
+  - Filtros por todas, en revisión, aprobadas y rechazadas
+  - Revisión de la descripción y documentos adjuntos
+  - Aprobación o rechazo de solicitudes pendientes
+  - Registro de observaciones administrativas
+  - Registro del beneficio aprobado en `active_benefits`
+
+---
+
+### RQ-77 – Gestión y consulta de solicitudes de beneficios
+
+El sistema permite a estudiantes, universitarios y adultos mayores registrar
+solicitudes de beneficios, adjuntar documentación de respaldo y consultar el
+estado de sus solicitudes. El administrador puede consultar, buscar y filtrar
+las solicitudes, revisar la información y documentación proporcionada, y
+aprobar o rechazar las solicitudes registrando las observaciones
+correspondientes. Cuando una solicitud es aprobada, el beneficio se registra
+como activo para el usuario.
+
+La aprobación no aplica automáticamente descuentos ni tarifas especiales
+durante un viaje. Esa integración no forma parte del RQ-77 actual.
 
 ---
 

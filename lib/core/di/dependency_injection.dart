@@ -279,7 +279,10 @@ void setupDependencies() {
   // BENEFIT REQUEST FEATURE - DATA LAYER
   // ============================================
   getIt.registerSingleton<BenefitRequestDatasource>(
-    BenefitRequestDatasource(firestore: getIt<FirebaseFirestore>()),
+    BenefitRequestDatasource(
+      firestore: getIt<FirebaseFirestore>(),
+      auth: getIt<FirebaseAuth>(),
+    ),
   );
 
   // ============================================

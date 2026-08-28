@@ -10,6 +10,14 @@ class BenefitRequest extends Equatable {
   final DateTime createdAt;
   final DateTime? approvedAt;
   final String? adminNotes;
+  final DateTime? decisionAt;
+  final String? decisionBy;
+  final DateTime? rejectedAt;
+  final String? rejectedBy;
+  final String? userName;
+  final String? userEmail;
+  final String? userPhone;
+  final String? userType;
 
   const BenefitRequest({
     required this.id,
@@ -21,6 +29,14 @@ class BenefitRequest extends Equatable {
     required this.createdAt,
     this.approvedAt,
     this.adminNotes,
+    this.decisionAt,
+    this.decisionBy,
+    this.rejectedAt,
+    this.rejectedBy,
+    this.userName,
+    this.userEmail,
+    this.userPhone,
+    this.userType,
   });
 
   BenefitRequest copyWith({
@@ -33,6 +49,14 @@ class BenefitRequest extends Equatable {
     DateTime? createdAt,
     DateTime? approvedAt,
     String? adminNotes,
+    DateTime? decisionAt,
+    String? decisionBy,
+    DateTime? rejectedAt,
+    String? rejectedBy,
+    String? userName,
+    String? userEmail,
+    String? userPhone,
+    String? userType,
   }) {
     return BenefitRequest(
       id: id ?? this.id,
@@ -44,6 +68,14 @@ class BenefitRequest extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       approvedAt: approvedAt ?? this.approvedAt,
       adminNotes: adminNotes ?? this.adminNotes,
+      decisionAt: decisionAt ?? this.decisionAt,
+      decisionBy: decisionBy ?? this.decisionBy,
+      rejectedAt: rejectedAt ?? this.rejectedAt,
+      rejectedBy: rejectedBy ?? this.rejectedBy,
+      userName: userName ?? this.userName,
+      userEmail: userEmail ?? this.userEmail,
+      userPhone: userPhone ?? this.userPhone,
+      userType: userType ?? this.userType,
     );
   }
 
@@ -58,5 +90,13 @@ class BenefitRequest extends Equatable {
     createdAt,
     approvedAt,
     adminNotes,
+    decisionAt,
+    decisionBy,
+    rejectedAt,
+    rejectedBy,
+    userName,
+    userEmail,
+    userPhone,
+    userType,
   ];
 }

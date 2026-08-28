@@ -209,6 +209,10 @@ Los campos `discount_percent`, `business_name`, `is_used`, `valid_until` solo ex
   "status": "pending",
   "admin_notes": null,
   "approved_at": null,
+  "decision_at": null,
+  "decision_by": null,
+  "rejected_at": null,
+  "rejected_by": null
   "created_at": "<Timestamp>"
 }
 ```
@@ -216,6 +220,8 @@ Los campos `discount_percent`, `business_name`, `is_used`, `valid_until` solo ex
 **Tipos:** `university`, `senior`, (otros definidos en la UI de solicitud)
 **Estados:** `pending`, `approved`, `rejected`
 **Efecto secundario:** al crear una solicitud se agrega un doc espejo en `transactions` con `transaction_type: "benefit_request"`.
+
+Al aprobar una solicitud, `active_benefits` se agrega al documento correspondiente de `users` mediante `arrayUnion`. La decisión queda registrada en `decision_at` y `decision_by`; los rechazos además usan `rejected_at` y `rejected_by`. La transacción espejo vinculada por `benefit_request_id` sincroniza su estado con la decisión.
 
 ---
 

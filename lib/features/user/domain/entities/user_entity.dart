@@ -14,6 +14,7 @@ class UserEntity extends Equatable {
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final List<String> activeBenefits;
 
   const UserEntity({
     required this.uid,
@@ -28,21 +29,23 @@ class UserEntity extends Equatable {
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
+    this.activeBenefits = const [],
   });
 
   @override
   List<Object> get props => [
-        uid,
-        fullName,
-        email,
-        phoneNumber,
-        userType,
-        profileImageUrl,
-        rating,
-        reviewsCount,
-        walletBalance,
-        isActive,
-        createdAt,
-        updatedAt,
-      ];
+    uid,
+    fullName,
+    email,
+    phoneNumber,
+    userType,
+    profileImageUrl,
+    rating,
+    reviewsCount,
+    walletBalance,
+    isActive,
+    createdAt,
+    updatedAt,
+    activeBenefits,
+  ];
 }

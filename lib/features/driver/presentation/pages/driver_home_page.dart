@@ -118,9 +118,9 @@ class _DriverHomeView extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 duration: const Duration(seconds: 2),
-                backgroundColor: vehicle.inService ? Colors.green.shade700 : Colors.grey.shade800,
+                backgroundColor: vehicle.isOnDuty ? Colors.green.shade700 : Colors.grey.shade800,
                 content: Text(
-                  vehicle.inService ? 'Servicio iniciado' : 'Servicio detenido',
+                  vehicle.isOnDuty ? 'Servicio iniciado' : 'Servicio detenido',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -398,37 +398,41 @@ class _VehicleCard extends StatelessWidget {
     this.assignedRoute,
   });
 
-  Color _statusColor(VehicleStatus status) {
+  Color _statusColor(String status) {
     switch (status) {
-      case VehicleStatus.approved:
+      case 'approved':
         return Colors.green;
-      case VehicleStatus.pendingReview:
+      case 'pending_review':
         return Colors.orange;
-      case VehicleStatus.rejected:
+      case 'rejected':
         return Colors.red;
+      default:
+        return Colors.grey;
     }
   }
 
-  String _statusLabel(VehicleStatus status) {
+  String _statusLabel(String status) {
     switch (status) {
-      case VehicleStatus.approved:
+      case 'approved':
         return 'Aprobada';
-      case VehicleStatus.pendingReview:
+      case 'pending_review':
         return 'En revisión';
-      case VehicleStatus.rejected:
+      case 'rejected':
         return 'Rechazada';
+      default:
+        return status;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final canOperate = vehicle.status == VehicleStatus.approved;
+    final canOperate = vehicle.isApproved;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        DriverServiceMap(assignedRoute: assignedRoute, inService: vehicle.inService),
+        DriverServiceMap(assignedRoute: assignedRoute, inService: vehicle.isOnDuty),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(18),
@@ -503,13 +507,13 @@ class _VehicleCard extends StatelessWidget {
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: vehicle.inService ? Colors.green : Colors.grey,
+                          color: vehicle.isOnDuty ? Colors.green : Colors.grey,
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        vehicle.inService ? 'En servicio' : 'Fuera de servicio',
+                        vehicle.isOnDuty ? 'En servicio' : 'Fuera de servicio',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                     ],
@@ -533,7 +537,7 @@ class _VehicleCard extends StatelessWidget {
             onPressed: !canOperate || isUpdating
                 ? null
                 : () => context.read<DriverServiceBloc>().add(
-                      vehicle.inService ? const StopService() : const StartService(),
+                      vehicle.isOnDuty ? const StopService() : const StartService(),
                     ),
             icon: isUpdating
                 ? const SizedBox(
@@ -542,15 +546,15 @@ class _VehicleCard extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
                   )
                 : Icon(
-                    vehicle.inService ? Icons.stop_circle_outlined : Icons.play_circle_outline,
+                    vehicle.isOnDuty ? Icons.stop_circle_outlined : Icons.play_circle_outline,
                     color: Colors.black,
                   ),
             label: Text(
-              vehicle.inService ? 'Finalizar servicio' : 'Iniciar servicio',
+              vehicle.isOnDuty ? 'Finalizar servicio' : 'Iniciar servicio',
               style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: vehicle.inService ? Colors.grey.shade300 : DriverHomePage._amarillo,
+              backgroundColor: vehicle.isOnDuty ? Colors.grey.shade300 : DriverHomePage._amarillo,
               disabledBackgroundColor: Colors.grey.shade300,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
@@ -675,7 +679,7 @@ class _DriverOperationsSections extends StatelessWidget {
 
         // Usar el vehículo fresco si está disponible, sino el del state
         final activeVehicle = freshVehicle ?? state.vehicle;
-        final canOperate = activeVehicle.status == VehicleStatus.approved;
+        final canOperate = activeVehicle.isApproved;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

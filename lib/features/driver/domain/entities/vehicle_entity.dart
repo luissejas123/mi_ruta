@@ -36,6 +36,40 @@ class VehicleEntity extends Equatable {
 
   bool get isApproved => status == 'approved';
 
+  VehicleEntity copyWith({
+    String? vehicleId,
+    String? ownerUid,
+    String? vehicleType,
+    String? lineNumber,
+    String? internalNumber,
+    String? brand,
+    String? model,
+    String? color,
+    int? passengerCapacity,
+    String? status,
+    Map<String, String?>? legalDocumentation,
+    bool? isOnDuty,
+    DateTime? isOnDutyUpdatedAt,
+    DateTime? updatedAt,
+  }) {
+    return VehicleEntity(
+      vehicleId: vehicleId ?? this.vehicleId,
+      ownerUid: ownerUid ?? this.ownerUid,
+      vehicleType: vehicleType ?? this.vehicleType,
+      lineNumber: lineNumber ?? this.lineNumber,
+      internalNumber: internalNumber ?? this.internalNumber,
+      brand: brand ?? this.brand,
+      model: model ?? this.model,
+      color: color ?? this.color,
+      passengerCapacity: passengerCapacity ?? this.passengerCapacity,
+      status: status ?? this.status,
+      legalDocumentation: legalDocumentation ?? this.legalDocumentation,
+      isOnDuty: isOnDuty ?? this.isOnDuty,
+      isOnDutyUpdatedAt: isOnDutyUpdatedAt ?? this.isOnDutyUpdatedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
   @override
   List<Object?> get props => [
         vehicleId,

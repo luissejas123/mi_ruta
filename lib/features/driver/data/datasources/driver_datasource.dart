@@ -24,15 +24,20 @@ class DriverDatasource {
       model: d['model'] as String? ?? '',
       color: d['color'] as String? ?? '',
       passengerCapacity: (d['passenger_capacity'] as num?)?.toInt() ?? 0,
-      status: vehicleStatusFromString(d['status'] as String? ?? 'pending_review'),
-      inService: d['in_service'] as bool? ?? false,
-      serviceStartedAt: (d['service_started_at'] as Timestamp?)?.toDate(),
-      soatUrl: legal['soat_url'] as String?,
-      vehicleInspectionUrl: legal['vehicle_inspection_url'] as String?,
-      driverLicenseUrl: legal['driver_license_url'] as String?,
-      municipalOperationCardUrl: legal['municipal_operation_card_url'] as String?,
-      ruatUrl: legal['ruat_url'] as String?,
+      status: d['status'] as String? ?? 'pending_review',
+      legalDocumentation: legal.map((k, v) => MapEntry(k, v as String?)),
+      isOnDuty: d['is_on_duty'] as bool? ?? false,
+      isOnDutyUpdatedAt: _parseUpdatedAt(d['is_on_duty_updated_at']),
+      updatedAt: (d['updated_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
+  }
+
+  /// `is_on_duty_updated_at` se guarda como string ISO8601 (ver
+  /// FIRESTORE_COLLECTIONS_GUIDE.md), no como Timestamp nativo.
+  DateTime? _parseUpdatedAt(dynamic value) {
+    if (value is String) return DateTime.tryParse(value);
+    if (value is Timestamp) return value.toDate();
+    return null;
   }
 
   DriverTripEntity _tripFromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -84,7 +89,7 @@ class DriverDatasource {
       'color': 'Blanco',
       'passenger_capacity': 20,
       'status': 'approved',
-      'in_service': false,
+      'is_on_duty': false,
       'created_at': FieldValue.serverTimestamp(),
       'updated_at': FieldValue.serverTimestamp(),
     };
@@ -93,11 +98,10 @@ class DriverDatasource {
     return _vehicleFromDoc(snap);
   }
 
-  Future<void> setVehicleServiceStatus(String vehicleId, bool inService) async {
+  Future<void> setVehicleServiceStatus(String vehicleId, bool isOnDuty) async {
     await _firestore.collection('vehicles').doc(vehicleId).set({
-      'in_service': inService,
-      'service_started_at': inService ? FieldValue.serverTimestamp() : null,
-      'service_updated_at': FieldValue.serverTimestamp(),
+      'is_on_duty': isOnDuty,
+      'is_on_duty_updated_at': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
   }
 
@@ -243,7 +247,7 @@ class DriverDatasource {
   /// Unidades actualmente en servicio (RQ-75, panel de administración).
   Future<List<VehicleEntity>> getActiveVehicles() async {
     final snap =
-        await _firestore.collection('vehicles').where('in_service', isEqualTo: true).get();
+        await _firestore.collection('vehicles').where('is_on_duty', isEqualTo: true).get();
     return snap.docs.map(_vehicleFromDoc).toList();
   }
 

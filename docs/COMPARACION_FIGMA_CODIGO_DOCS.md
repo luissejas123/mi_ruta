@@ -162,15 +162,13 @@ Se verificó el flujo que describiste (Admin crea otros admins / gestiona usuari
 | Presidente asigna usuarios como **tickeador** | ❌ No | No existe ningún evento de bloc ni acción de UI que cambie `role`/`userType` a `'tickeador'`. `PresidentePanelState.totalTickeadores` solo **cuenta** cuántos tickeadores hay, no permite crear/asignar ninguno. |
 | Usuario puede registrarse como chofer | ❌ No | [register_page.dart:92](lib/features/auth/presentation/pages/register_page.dart#L92) fija `role: 'user'` de forma dura — es el único valor que el formulario de registro puede producir. La única aparición de `role: 'driver'` en todo `lib/` es en `static_test_accounts.dart` (cuenta mock, no un flujo real). |
 
-### Bloqueo estructural (hay que resolverlo antes de conectar Presidente)
+### Bloqueo estructural — ✅ RESUELTO (actualizado 28 ago 2026)
 
-`AdminAccessService.hasPermission` ([lib/features/admin/domain/services/admin_access_service.dart:19-28](lib/features/admin/domain/services/admin_access_service.dart#L19-L28)) tiene esta guarda:
+*(Hallazgo original, ya no vigente: `AdminAccessService.hasPermission` tenía `if (user.role != 'admin') return false`, lo que bloqueaba cualquier permiso a un usuario `presidente`.)*
 
-```dart
-if (user.role != 'admin') return false;
-```
+Verificado contra el código actual: **esto ya se corrigió**. `AdminAccessService` ([lib/features/admin/domain/services/admin_access_service.dart](lib/features/admin/domain/services/admin_access_service.dart)) ahora expone `canApproveChoferRequests` y `canAssignTickeador`, ambos `true` para `role == 'presidente'` (además de `admin` y superadmin), con tests dedicados en `test/admin_access_test.dart`. De paso, el SuperAdmin también se resolvió: ya no depende de una allowlist de correos en código (`SuperAdminConfig`/`kSuperAdminEmail` — ambas existían y **se eliminaron**, confirmado por `SECURITY.md`); ahora es un único campo `users/{uid}.is_super_admin` en Firestore, no escribible por el cliente. Y el flujo de "Usuario pide ser chofer" también ya tiene datos reales: campo `driver_request` (`status: pending/approved/rejected`) documentado en `FIRESTORE_COLLECTIONS_GUIDE.md`, con lógica en `perfil_page.dart` (`_confirmarSolicitudChofer`, `hasPendingDriverRequest`).
 
-Esto significa que **aunque se agreguen los botones de UI para que Presidente apruebe choferes o asigne tickeadores, el chequeo de permisos actual jamás dejará pasar a un usuario con `role == 'presidente'`** — el servicio asume que solo `admin` puede tener privilegios. Implementar la jerarquía que describes requiere extender este servicio (o crear un `PresidenteAccessService` equivalente) **antes** de tocar la UI de Presidente, o los botones nuevos no harán nada.
+Sigue pendiente conectar esos permisos ya existentes a botones de UI reales en el panel de Presidente (ver `RQ4-PRE-02`/`RQ4-PRE-03` en `REQUERIMIENTOS_POR_PERFIL_SPRINT3_SPRINT4.md`) — el bloqueo estructural que lo impedía ya no existe.
 
 ---
 
@@ -185,19 +183,18 @@ Evidencia en [route_data_sync_service.dart](lib/features/routes/domain/services/
 - **Conclusión: la lentitud reportada casi con certeza no es Firestore** — es carga de CPU del algoritmo de planificación multi-tramo, agravada por dos factores de entorno de prueba: (a) modo **debug** de Flutter (JIT, notablemente más lento que un build release) y (b) pruebas en **Chrome/web**, donde Dart compilado a JS/Wasm ejecuta bucles numéricos intensivos más lento que Dart nativo ARM de un release APK — esto conecta directamente con el punto 10.3 sobre pruebas en navegador.
 - **Cómo confirmarlo (medición, no fix):** envolver `PlannedTripService.searchOptions()` en un `Stopwatch` y comparar el tiempo en (1) build release en un teléfono real vs (2) `flutter run` debug vs (3) Chrome — así se separa "problema de arquitectura de datos" (no lo es, según el código) de "costo del algoritmo por plataforma" (sí lo es).
 
-### 10.2 "¿Cómo debería crear al superusuario para empezar el flujo de jerarquía?"
+### 10.2 "¿Cómo debería crear al superusuario para empezar el flujo de jerarquía?" — ✅ RESUELTO (actualizado 28 ago 2026)
 
-Hoy existen **tres mecanismos de "superusuario" distintos y no relacionados entre sí** — ya es un riesgo en sí mismo:
+*(Hallazgo original, ya no vigente: existían tres mecanismos de "superusuario" distintos y sin relación entre sí — `DevAdminBootstrap` con `admin@miruta.com`/`unanoche`, `SuperAdminConfig.superAdminEmails`, y un tercer `kSuperAdminEmail` separado solo para el switcher de QA.)*
 
-1. **`DevAdminBootstrap`** ([lib/core/dev/dev_admin_bootstrap.dart](lib/core/dev/dev_admin_bootstrap.dart)): solo en `kDebugMode`, crea automáticamente `admin@miruta.com` / `unanoche` en Auth + Firestore con `role: admin` y todos los `admin_permissions` en `true`. Explícitamente marcado *"SOLO DESARROLLO — ELIMINAR ANTES DE PRODUCCIÓN"*; no corre en release.
-2. **`SuperAdminConfig.superAdminEmails`** ([lib/core/config/super_admin_config.dart](lib/core/config/super_admin_config.dart)): lista fija de correos (hoy solo `admin@miruta.com`) que `AdminAccessService.isSuperAdmin` trata como acceso administrativo total, ignorando `admin_permissions`.
-3. **`kSuperAdminEmail` / `isSuperAdminEmail`** (mismo archivo, correo `'ohcame@gmail.com'`): allowlist **separada**, usada solo por `switch_profile_button.dart` para habilitar el switcher de roles de QA. Un correo puede tener acceso al switcher de pruebas sin ser SuperAdmin administrativo, o viceversa — son dos listas independientes que pueden divergir.
+Verificado contra el código actual: **el equipo ya lo unificó**. `lib/core/config/super_admin_config.dart` **ya no existe** — se eliminó junto con las dos allowlists de correos. `SECURITY.md` lo confirma explícitamente: *"No existe ninguna lista de correos privilegiados en el código [...] antes había dos, con listas distintas entre sí, y se eliminaron."* Ahora hay una única fuente de verdad: el campo `users/{uid}.is_super_admin` en Firestore, que ni el propio dueño de la cuenta puede escribirse (bloqueado por `firestore.rules`). `admin@miruta.com` (la cuenta de `DevAdminBootstrap`) explícitamente **ya no es superadmin por su correo** — hay un test que lo verifica (`test/admin_access_test.dart`: *"el correo ya no otorga superadmin por si solo"*).
 
-Ninguno de los tres está pensado para producción real. Para arrancar la jerarquía con un superusuario de verdad:
+**Procedimiento vigente para sembrar el primer superadmin** (documentado en `SECURITY.md`, un solo paso por entorno, y el único que queda):
+1. Registrar una cuenta normal desde la app con un correo que solo conozca el equipo (nunca commiteado al repo).
+2. Desde la Consola de Firebase / Admin SDK (credenciales de servicio, ignoran las reglas de cliente), editar `users/{uid}` a mano: `{ "role": "admin", "is_super_admin": true }`.
+3. Desde ahí esa cuenta ya promueve admins/presidentes **desde la propia app**.
 
-- Crear el primer documento `admin` **manualmente** desde Firebase Console, o con un script one-off de Admin SDK (adaptando `tools/firestore_init_collections.py`) — nunca haciendo que la propia app cree su primer admin.
-- Retirar `DevAdminBootstrap` de cualquier build que pueda llegar a producción — hoy se protege con `kDebugMode`, pero sigue siendo código en el repo.
-- Unificar los tres puntos de "quién es superadmin" en un solo lugar antes de depender de ellos para la jerarquía real — hoy, cambiar uno y olvidar el otro dos deja privilegios inconsistentes entre sí.
+`DevAdminBootstrap` sigue existiendo para desarrollo (`admin@miruta.com`/`unanoche`, solo `kDebugMode`), pero su propio comentario ya advierte que desde que `firestore.rules` se endureció, no puede sembrar `role`/`is_super_admin` en un entorno nuevo — solo verifica una cuenta que ya era admin de antes.
 
 ### 10.3 Conflictos por pruebas en navegador vs. móvil
 

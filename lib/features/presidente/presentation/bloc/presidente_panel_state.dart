@@ -31,11 +31,11 @@ class PresidentePanelLoaded extends PresidentePanelState {
   });
 
   int get approvedVehicles =>
-      allVehicles.where((v) => v.status == VehicleStatus.approved).length;
+      allVehicles.where((v) => v.status == 'approved').length;
   int get pendingVehicles =>
-      allVehicles.where((v) => v.status == VehicleStatus.pendingReview).length;
+      allVehicles.where((v) => v.status == 'pending_review').length;
   int get rejectedVehicles =>
-      allVehicles.where((v) => v.status == VehicleStatus.rejected).length;
+      allVehicles.where((v) => v.status == 'rejected').length;
 
   int get totalDrivers => allUsers.where((u) => u.userType == 'driver').length;
   int get totalPassengers => allUsers.where((u) => u.userType == 'passenger').length;

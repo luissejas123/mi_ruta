@@ -163,7 +163,7 @@ Cada ítem indica su origen: **[Gap Figma]** (diseñado, sin código, de `COMPAR
 |---|---|---|---|
 | RQ4-USR-01 | Sistema de calificación al conductor post-viaje (pantalla + guardado en Firestore; la colección `ratings` ya existe pero sin código) | Gap Figma | Alta |
 | RQ4-USR-02 | Pantalla de estadísticas del pasajero ("Mis gastos", "Rutas frecuentes") | Gap Figma | Media |
-| RQ4-USR-03 | Habilitar "Registrarme como chofer" desde registro o perfil, creando `role: 'driver'` real (hoy hardcodeado a `'user'`) | Jerarquía | Alta |
+| RQ4-USR-03 | ✅ **Resuelto** (verificado 28 ago 2026) — "Registrarme como chofer" ya existe en `perfil_page.dart` (`_confirmarSolicitudChofer`, `hasPendingDriverRequest`), con campo real `users/{uid}.driver_request` (`status: pending/approved/rejected`). El `role` no cambia al solicitar, solo al aprobar — por diseño. | Jerarquía | — |
 | RQ4-USR-04 | Corregir texto del botón "confirmar destino"/"confirmar origen" que no cambia según contexto | Arrastre S3 (RQ-58) | Alta |
 | RQ4-USR-05 | Límite de monto válido en formulario de recarga (bug: acepta monto sin límite, saldo llega a `1e+39`) | QA (recarga) | Alta |
 | RQ4-USR-06 | Corregir error crítico al retroceder durante reprogramación de viaje | Arrastre S3 (RQ-32, CRÍTICA) | Crítica |
@@ -183,12 +183,12 @@ Cada ítem indica su origen: **[Gap Figma]** (diseñado, sin código, de `COMPAR
 
 | ID | Requerimiento | Origen | Prioridad sugerida |
 |---|---|---|---|
-| RQ4-ADM-01 | Acción "Promover a Presidente" en Gestión de privilegios (hoy solo existe "Promover a administrador") | Jerarquía | Alta |
-| RQ4-ADM-02 | Extender `AdminAccessService` para reconocer permisos del rol `presidente` (hoy `if (user.role != 'admin') return false` bloquea cualquier permiso a Presidente por diseño) | Jerarquía (bloqueante) | Alta |
+| RQ4-ADM-01 | ✅ **Resuelto** (verificado 28 ago 2026) — botón "Promover a presidente" ya existe en `user_management_page.dart` (`_confirmPromoteToPresidente` → `PromoteUserToPresidenteEvent`), junto al de "Promover a administrador". | Jerarquía | — |
+| RQ4-ADM-02 | ✅ **Resuelto** (verificado 28 ago 2026) — `AdminAccessService` ya expone `canApproveChoferRequests`/`canAssignTickeador`, `true` para `role == 'presidente'`, con tests en `test/admin_access_test.dart`. | Jerarquía | — |
 | RQ4-ADM-03 | Pantalla de revisión manual de recargas pendientes (`recharges`) — hoy no existe ninguna, y el código aprueba automáticamente cada recarga | Operativo (punto 4) | Crítica |
 | RQ4-ADM-04 | Pantalla de revisión de `benefit_requests` pendientes — mismo problema que RQ4-ADM-03, y es la causa raíz de que RQ-47 (Usuario) siga bloqueado | QA (RQ-47) | Alta |
 | RQ4-ADM-05 | Cerrar RQ-71: completar las opciones de gestión de usuarios que QA marcó como incompletas | Arrastre S3 | Alta |
-| RQ4-ADM-06 | Unificar los 3 mecanismos de superadmin (`DevAdminBootstrap`, `SuperAdminConfig.superAdminEmails`, `kSuperAdminEmail`) en uno solo, y documentar el procedimiento real para crear el primer admin en producción | Operativo (punto 2) | Alta |
+| RQ4-ADM-06 | ✅ **Resuelto** (verificado 28 ago 2026) — `super_admin_config.dart` se eliminó junto con las dos allowlists de correos; único mecanismo ahora es `users/{uid}.is_super_admin` en Firestore (no escribible por cliente), procedimiento de siembra documentado en `SECURITY.md`. | Operativo (punto 2) | — |
 
 ### 4.4 Presidente (`RQ4-PRE`)
 
@@ -215,7 +215,7 @@ Cada ítem indica su origen: **[Gap Figma]** (diseñado, sin código, de `COMPAR
 | RQ4-SYS-01 | Unificar el ruteo por rol en `home_router.dart` — hoy `main.dart`, `home_router.dart` e `iniciar_sesion_page.dart` tienen 3 tablas de ruteo distintas que no coinciden | Arrastre S3 (`docs/INFORME_AVANCE_SPRINT.md` §4) | Alta |
 | RQ4-SYS-02 | Auditar usos de `Platform.is*`/plugins nativos sin guard `kIsWeb` (caso confirmado: `recarga_qr_page.dart:90`) | Operativo (punto 3) | Media |
 | RQ4-SYS-03 | Medir con `Stopwatch` el costo real de `MultiRoutePlanner` en release/dispositivo vs. Chrome antes de optimizar — descartar primero que sea un problema de Firestore | Operativo (punto 1) | Media |
-| RQ4-SYS-04 | Normalizar el esquema de `users` (`snake_case` vs `camelCase`) — riesgo transversal ya documentado en `FIRESTORE_COLLECTIONS_GUIDE.md` | Deuda técnica | Media |
+| RQ4-SYS-04 | ⚠️ **Parcial** (verificado 28 ago 2026) — la *lectura* ya tolera ambos esquemas (`AuthModel.fromJson`/`UserModel.fromJson` leen `full_name ?? fullName`, etc., ver `FIRESTORE_COLLECTIONS_GUIDE.md`). Falta unificar la *escritura*: `AuthModel.toJson()` es snake_case consistente, `UserModel.toJson()` mezcla (`isActive`/`reviewsCount` quedan en camelCase). No urgente — no rompe nada hoy. | Deuda técnica | Baja |
 | RQ4-SYS-05 | Adoptar formalmente el esquema `RQ4-<PERFIL>-NN` de este documento para todo Sprint 4 en el tracker (`BACKLOG`/`TAREAS`), y marcar RQ-61…RQ-90 de `BACKLOG` como obsoletos/renombrados para que no se vuelvan a asignar | Proceso | Alta |
 | RQ4-SYS-06 | Verificación de comprobantes de recarga con IA como apoyo a `RQ4-ADM-03` (no antes — depende de que exista la cola de revisión) | Operativo (punto 4, viabilidad ya evaluada en `COMPARACION_FIGMA_CODIGO_DOCS.md` §10.4) | Baja (depende de RQ4-ADM-03) |
 

@@ -72,7 +72,7 @@
 }
 ```
 
-**Al leer `users` siempre verificar ambas claves** (`full_name`/`fullName`, `wallet.current_balance`/`wallet.balance`, etc.) o normalizar en el modelo de datos — actualmente cada datasource asume un esquema distinto, lo que es una fuente real de bugs.
+**Estado actual (verificado 28 ago 2026):** `AuthModel.fromJson` y `UserModel.fromJson` ya leen ambas claves con fallback (`json['full_name'] ?? json['fullName']`, `json['role'] ?? json['userType']`, `json['wallet']?['current_balance'] ?? json['wallet']?['balance']`, etc.) — un doc en cualquiera de los dos esquemas se lee bien hoy, no hace falta migrar ni recrear cuentas para que funcionen. La escritura sigue sin unificar del todo: `AuthModel.toJson()` escribe snake_case consistente, `UserModel.toJson()` escribe una mezcla (snake_case salvo `isActive`/`reviewsCount`, que quedan en camelCase) — no rompe nada porque la lectura tolera ambos, pero conviene unificar los dos `toJson()` en algún momento (ver `RQ4-SYS-04` en `docs/REQUERIMIENTOS_POR_PERFIL_SPRINT3_SPRINT4.md`).
 
 **Roles vistos en datos:** `user`. Roles documentados pero sin datos de ejemplo: `driver`, `tickeador`, `admin`, `presidente` (relacionados al módulo de conductores no implementado).
 

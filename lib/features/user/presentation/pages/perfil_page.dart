@@ -34,6 +34,7 @@ import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dar
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/legal_bottom_sheet.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_trip_history_page.dart';
 
@@ -403,8 +404,6 @@ class _PerfilPageState extends State<PerfilPage> {
                     subtitle: 'Ver todos tus viajes',
                     onTap: () {
                       final authState = context.read<AuthBloc>().state;
-                      print("DEBUG PERFIL ROLE: ${authState.user.role}");
-                      print("DEBUG PERFIL UID: ${authState.user.uid}");
                       if (authState is AuthLoaded) {
                         if (authState.user.role == "driver") {
                           Navigator.push(
@@ -601,7 +600,6 @@ class _PerfilPageState extends State<PerfilPage> {
           currentIndex: _navIndexPerfil,
           onTap: _onNavTap,
         ),
-      ),
-    );
+      );
   }
 }

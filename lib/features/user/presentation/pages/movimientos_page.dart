@@ -190,6 +190,9 @@ class _MovimientosPageState extends State<MovimientosPage> {
 
     final isTopUp = transactionType.contains('top_up') ||
         transactionType.contains('recharge');
+    final isTripIncome = transactionType == 'trip_payment_received';
+    final rawAmount = (transaction['amount'] ?? 0.0).toDouble();
+    final isPositive = rawAmount >= 0;
 
     IconData iconData;
     String subtitle;

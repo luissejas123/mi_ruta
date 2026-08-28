@@ -241,6 +241,41 @@ class GtfsDatasource {
     return values;
   }
 
+  // ── Horarios GTFS (usados por GtfsScheduleService) ──────────────────────
+  // Devuelven las filas "crudas" del CSV (claves = columnas GTFS), sin
+  // transformar a formato SQLite — a diferencia de parseRoutesForLocalDb/
+  // parseStopsForLocalDb, que sí preparan datos para insertar en la BD local.
+
+  /// Filas crudas de `stops.txt` (stop_id, stop_name, stop_lat, stop_lon...).
+  Future<List<Map<String, String>>> parseStops() async {
+    final csv = await rootBundle.loadString('$_base/stops.txt');
+    return _parseQuotedCSV(csv);
+  }
+
+  /// Filas crudas de `stop_times.txt` (trip_id, stop_id, arrival_time...).
+  Future<List<Map<String, String>>> parseStopTimes() async {
+    final csv = await rootBundle.loadString('$_base/stop_times.txt');
+    return _parseCSV(csv);
+  }
+
+  /// Filas crudas de `trips.txt` (trip_id, route_id, service_id...).
+  Future<List<Map<String, String>>> parseTrips() async {
+    final csv = await rootBundle.loadString('$_base/trips.txt');
+    return _parseCSV(csv);
+  }
+
+  /// Filas crudas de `frequencies.txt` (trip_id, start_time, end_time, headway_secs).
+  Future<List<Map<String, String>>> parseFrequencies() async {
+    final csv = await rootBundle.loadString('$_base/frequencies.txt');
+    return _parseCSV(csv);
+  }
+
+  /// Filas crudas de `calendar.txt` (service_id, monday..sunday).
+  Future<List<Map<String, String>>> parseCalendar() async {
+    final csv = await rootBundle.loadString('$_base/calendar.txt');
+    return _parseCSV(csv);
+  }
+
   /// Parsea CSV desde un string
   List<Map<String, String>> _parseCSV(String csvContent) {
     final lines = const LineSplitter().convert(csvContent);

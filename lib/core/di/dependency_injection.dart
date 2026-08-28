@@ -158,6 +158,18 @@ void setupDependencies() {
     ChangePasswordBloc(changePasswordUseCase: getIt<ChangePasswordUseCase>()),
   );
 
+  // AUTH FEATURE - PRESENTATION LAYER (BLoC)
+  getIt.registerSingleton<AuthBloc>(
+    AuthBloc(
+      registerUseCase: getIt<RegisterUseCase>(),
+      loginUseCase: getIt<LoginUseCase>(),
+      logoutUseCase: getIt<LogoutUseCase>(),
+      getCurrentUserUseCase: getIt<GetCurrentAuthUserUseCase>(),
+      resetPasswordUseCase: getIt<ResetPasswordUseCase>(),
+      loginAsDemoUseCase: getIt<LoginAsDemoUseCase>(),
+    ),
+  );
+
   // ============================================
   // ADMIN FEATURE - DATA LAYER
   // ============================================
@@ -301,6 +313,7 @@ void setupDependencies() {
       getUserStreamUseCase: getIt<GetUserStreamUseCase>(),
     ),
   );
+  getIt.registerSingleton<UserPreferencesService>(UserPreferencesService());
   getIt.registerSingleton<UserPreferencesBloc>(
     UserPreferencesBloc(
       preferencesService: getIt<UserPreferencesService>(),
@@ -564,6 +577,76 @@ void setupDependencies() {
       getActiveVehiclesStreamUseCase: getIt<GetActiveVehiclesStreamUseCase>(),
       getUsersByIdsUseCase: getIt<GetUsersByIdsUseCase>(),
     ),
+  );
+
+  // ============================================
+  // DRIVER FEATURE - DATA LAYER (unidades/viajes/cobros)
+  // ============================================
+  getIt.registerSingleton<DriverDatasource>(
+    DriverDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  // ============================================
+  // DRIVER FEATURE - DOMAIN LAYER (Services)
+  // ============================================
+  getIt.registerSingleton<DriverService>(
+    DriverService(
+      datasource: getIt<DriverDatasource>(),
+      routeService: getIt<RouteService>(),
+      notificationService: getIt<NotificationService>(),
+    ),
+  );
+
+  getIt.registerSingleton<DriverAssignedRoutesDatasource>(
+    DriverAssignedRoutesDatasource(
+      firestore: getIt<FirebaseFirestore>(),
+      routeDatasource: getIt<RouteDatasource>(),
+    ),
+  );
+  getIt.registerSingleton<DriverAssignedRoutesService>(
+    DriverAssignedRoutesService(
+      datasource: getIt<DriverAssignedRoutesDatasource>(),
+    ),
+  );
+
+  getIt.registerSingleton<DriverIncomeDatasource>(
+    DriverIncomeDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+  getIt.registerSingleton<DriverIncomeService>(
+    DriverIncomeService(datasource: getIt<DriverIncomeDatasource>()),
+  );
+
+  getIt.registerSingleton<TickeadorOperationsDatasource>(
+    TickeadorOperationsDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+  getIt.registerSingleton<TickeadorOperationsService>(
+    TickeadorOperationsService(
+      datasource: getIt<TickeadorOperationsDatasource>(),
+    ),
+  );
+
+  // ============================================
+  // ADMIN FEATURE - Unidades / supervisión (AdminService, RQ-71 a RQ-77)
+  // ============================================
+  getIt.registerSingleton<AdminService>(
+    AdminService(
+      userManagementService: getIt<UserManagementService>(),
+      driverDatasource: getIt<DriverDatasource>(),
+    ),
+  );
+
+  // ============================================
+  // STOPS FEATURE (paradas cercanas)
+  // ============================================
+  getIt.registerSingleton<BusStopService>(
+    BusStopService(localDb: getIt<RouteLocalDatabase>()),
+  );
+
+  // ============================================
+  // ROUTES FEATURE - Horarios GTFS (GtfsScheduleService)
+  // ============================================
+  getIt.registerSingleton<GtfsScheduleService>(
+    GtfsScheduleService(getIt<GtfsDatasource>()),
   );
 
   // ============================================

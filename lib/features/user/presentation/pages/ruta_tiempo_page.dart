@@ -95,7 +95,7 @@ class RutaTiempoPage extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'Línea $routeRef',
+                        'Línea ${route?.ref ?? ''}',
                         style: const TextStyle(
                           fontSize: 30,
                           fontWeight: FontWeight.w800,

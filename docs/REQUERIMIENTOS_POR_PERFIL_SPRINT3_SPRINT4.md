@@ -194,9 +194,9 @@ Cada ítem indica su origen: **[Gap Figma]** (diseñado, sin código, de `COMPAR
 
 | ID | Requerimiento | Origen | Prioridad sugerida |
 |---|---|---|---|
-| RQ4-PRE-01 | Decidir cuál de los dos paneles (`PresidenteHomePage` vs `PresidentePanelPage`) es el definitivo y retirar el otro | Arrastre S3 (RQ-80) | Alta |
-| RQ4-PRE-02 | Enlazar "Aprobar choferes" desde el panel de Presidente elegido — pedido explícito de QA en RQ-80 | QA (OBS_1786993447887) | Alta |
-| RQ4-PRE-03 | Acción "Asignar tickeador" desde el panel de Presidente (no existe hoy en ninguna parte) | Jerarquía | Alta |
+| RQ4-PRE-01 | ✅ **Resuelto** (verificado 28 ago 2026) — `PresidenteHomePage` ya no existe en el código (`grep` sin resultados); `PresidentePanelPage` es el único panel, referenciado desde `home_router.dart`. | Arrastre S3 (RQ-80) | — |
+| RQ4-PRE-02 | ✅ **Resuelto** (verificado 28 ago 2026) — tile "Aprobar choferes" en `PresidentePanelPage` → `DriverApprovalPage`, con cola real de solicitudes pendientes (`driver_request.status == 'pending'`). También se agregó "Asignar tickeador" (cubre `RQ4-PRE-03`). | QA (OBS_1786993447887) | — |
+| RQ4-PRE-03 | ✅ **Resuelto** (verificado 28 ago 2026) — tile "Asignar tickeador" en `PresidentePanelPage` → `AsignarTickeadorPage`, escribe `role: 'tickeador'` + `tickeador_info` (estación, líneas). | Jerarquía | — |
 | RQ4-PRE-04 | Reemplazar los datos hardcodeados de `testPresidenteUid` en pestañas Unidades/Reportes por datos reales de Firestore | Arrastre S3 (dev ya lo reconoció pendiente el 24 ago) | Media |
 | RQ4-PRE-05 | Unificar en Figma el diseño de "vista presidente" (hoy dos frames casi idénticos sin resolver) **antes** de tocar el código de RQ4-PRE-01, para no repetir la duplicación desde el origen | Gap Figma | Alta (bloqueante de RQ4-PRE-01) |
 
@@ -212,7 +212,7 @@ Cada ítem indica su origen: **[Gap Figma]** (diseñado, sin código, de `COMPAR
 
 | ID | Requerimiento | Origen | Prioridad sugerida |
 |---|---|---|---|
-| RQ4-SYS-01 | Unificar el ruteo por rol en `home_router.dart` — hoy `main.dart`, `home_router.dart` e `iniciar_sesion_page.dart` tienen 3 tablas de ruteo distintas que no coinciden | Arrastre S3 (`docs/INFORME_AVANCE_SPRINT.md` §4) | Alta |
+| RQ4-SYS-01 | ✅ **Resuelto** (verificado 28 ago 2026) — `main.dart` (`_AuthGate`) e `iniciar_sesion_page.dart` ya delegan 100% a `homeScreenForRole()` de `home_router.dart`; sin tablas de ruteo duplicadas. | Arrastre S3 (`docs/INFORME_AVANCE_SPRINT.md` §4) | — |
 | RQ4-SYS-02 | Auditar usos de `Platform.is*`/plugins nativos sin guard `kIsWeb` (caso confirmado: `recarga_qr_page.dart:90`) | Operativo (punto 3) | Media |
 | RQ4-SYS-03 | Medir con `Stopwatch` el costo real de `MultiRoutePlanner` en release/dispositivo vs. Chrome antes de optimizar — descartar primero que sea un problema de Firestore | Operativo (punto 1) | Media |
 | RQ4-SYS-04 | ⚠️ **Parcial** (verificado 28 ago 2026) — la *lectura* ya tolera ambos esquemas (`AuthModel.fromJson`/`UserModel.fromJson` leen `full_name ?? fullName`, etc., ver `FIRESTORE_COLLECTIONS_GUIDE.md`). Falta unificar la *escritura*: `AuthModel.toJson()` es snake_case consistente, `UserModel.toJson()` mezcla (`isActive`/`reviewsCount` quedan en camelCase). No urgente — no rompe nada hoy. | Deuda técnica | Baja |
@@ -260,5 +260,5 @@ Este documento, `docs/COMPARACION_FIGMA_CODIGO_DOCS.md` y el Artifact de §0 son
    ```
    Si el marketplace oficial no está registrado, primero: `claude plugin marketplace add anthropics/claude-plugins-official`. Luego, dentro de una sesión de Claude Code, escribe `/mcp` → selecciona `figma` → **Authenticate** → **Allow Access** en el navegador. Confirma con `/mcp` que diga `✓ connected`.
 2. **Leer en este orden:** `docs/INFORME_AVANCE_SPRINT.md` (diagnóstico de duplicidades) → `docs/COMPARACION_FIGMA_CODIGO_DOCS.md` (diseño↔código↔docs) → este documento (requerimientos por perfil + Sprint 4).
-3. **Próximo paso inmediato sugerido:** empezar por los dos ítems que bloquean todo lo demás de su perfil — `RQ4-TIC-01` (decidir qué implementación de Tickeador es la base) y `RQ4-PRE-01`/`RQ4-PRE-05` (retirar el panel de Presidente duplicado, y antes que nada unificar en Figma cuál "vista presidente" es la definitiva). Resolver estos dos primero evita seguir construyendo sobre una base que de todos modos se va a descartar.
+3. **Próximo paso inmediato sugerido (actualizado 28 ago 2026):** la jerarquía de roles y el panel de Presidente ya se resolvieron (`RQ4-ADM-01/02/06`, `RQ4-PRE-01/02/03`, `RQ4-SYS-01`, `RQ4-USR-03` — todos ✅). Lo que sigue bloqueando algo es `RQ4-TIC-01` (decidir qué implementación de Tickeador es la base, `features/tickeador/` vs `features/driver/*tickeador_operations*`) — resolverlo antes de seguir construyendo sobre una base que de todos modos se va a descartar. `RQ4-PRE-05` (unificar en Figma cuál "vista presidente" es la definitiva) sigue abierto pero ya no bloquea nada en código.
 4. **`docs/PAGES_GUIDE.md` y `FIRESTORE_COLLECTIONS_GUIDE.md` siguen desactualizados** (ver `COMPARACION_FIGMA_CODIGO_DOCS.md` §5) — no son fuente confiable todavía para saber qué páginas/colecciones existen; usa el código real o estos dos documentos en su lugar hasta que se actualicen.

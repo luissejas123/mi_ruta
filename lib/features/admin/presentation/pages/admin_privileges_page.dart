@@ -136,8 +136,8 @@ class _AdminPrivilegesPageState extends State<AdminPrivilegesPage> {
                 'AGREGAR NUEVO ADMINISTRADOR',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => BlocProvider.value(
@@ -146,6 +146,13 @@ class _AdminPrivilegesPageState extends State<AdminPrivilegesPage> {
                     ),
                   ),
                 );
+                // El bloc es un singleton compartido con AdminCreateAdminPage:
+                // al volver, su estado ya no es AdminsLoaded (quedó en
+                // AdminPrivilegesSuccess/Loading) — sin este refresh, la lista
+                // se queda mostrando el spinner de "carga" para siempre.
+                if (context.mounted) {
+                  context.read<AdminPrivilegesBloc>().add(const LoadAdminsEvent());
+                }
               },
             )
           : null,
@@ -180,8 +187,8 @@ class _AdminTile extends StatelessWidget {
         ),
         subtitle: Text(admin.email),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () {
-          Navigator.push(
+        onTap: () async {
+          await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => BlocProvider.value(
@@ -190,6 +197,11 @@ class _AdminTile extends StatelessWidget {
               ),
             ),
           );
+          // Mismo motivo que en el botón de agregar admin: refresca la lista
+          // porque el bloc compartido quedó en AdminPermissionsLoaded.
+          if (context.mounted) {
+            context.read<AdminPrivilegesBloc>().add(const LoadAdminsEvent());
+          }
         },
       ),
     );

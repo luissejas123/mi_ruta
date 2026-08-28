@@ -1,0 +1,22 @@
+# Firebase Configuration (from google-services.json)
+FIREBASE_API_KEY=AIzaSyDyVmk3hlxM7neWHhmaxsbyGIXvTPiygFs
+FIREBASE_PROJECT_ID=mi-ruta-4004d
+FIREBASE_PROJECT_NUMBER=1040962818511
+FIREBASE_STORAGE_BUCKET=mi-ruta-4004d.firebasestorage.app
+FIREBASE_APP_ID=1:1040962818511:android:0863ccee41da42ca8f42ba
+FIREBASE_AUTH_DOMAIN=mi-ruta-4004d.firebaseapp.com
+FIREBASE_DATABASE_URL=https://mi-ruta-4004d.firebaseio.com
+
+# Google Maps
+MAPS_API_KEY=AIzaSyDYClxzc-v94UqbSi7LBm-hdxk2NDdBH1A
+
+# Database (Firestore)
+DATABASE_URL=https://mi-ruta-4004d.firebaseio.com
+DATABASE_NAME=default
+
+# App Configuration
+DEBUG_MODE=true
+ENV=development
+APP_NAME=Mi Ruta
+APP_VERSION=1.0.0
+PACKAGE_NAME=com.example.mi_ruta

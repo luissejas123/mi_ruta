@@ -22,16 +22,10 @@ import 'package:mi_ruta/features/user/presentation/bloc/notification_preferences
 import 'dart:async';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
-import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
-import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
 import 'package:mi_ruta/core/widgets/route_update_banner.dart';
 import 'package:mi_ruta/core/navigation/home_router.dart';
 import 'package:mi_ruta/core/connectivity/connectivity_service.dart';
-import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
-import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
-import 'package:mi_ruta/features/admin/presentation/pages/super_admin_switcher_page.dart';
-import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_home_page.dart';
-import 'package:mi_ruta/core/config/super_admin_config.dart';
+import 'package:mi_ruta/core/dev/dev_admin_bootstrap.dart';
 import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
 
 /// Handler de nivel superior para mensajes FCM recibidos en segundo plano
@@ -97,8 +91,6 @@ Future<void> _processOperationalNotification(RemoteMessage message) async {
     debugPrint('[FCM] Error procesando notificación operativa: $e');
   }
 }
-import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
-import 'package:mi_ruta/core/dev/dev_admin_bootstrap.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -362,13 +354,15 @@ class MyApp extends StatelessWidget {
               ),
               // ✅ Aplica el tema según el estado
               themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
+              home: const _AuthGate(),
+              // Ambos banners globales se componen en un unico `builder`:
+              // MaterialApp solo admite uno.
               builder: (context, child) => RouteUpdateBanner(
                 status: getIt<RouteDataSyncService>().syncStatus,
-                child: child ?? const SizedBox.shrink(),
+                child: _ConnectivityBanner(
+                  child: child ?? const SizedBox.shrink(),
+                ),
               ),
-              home: const _AuthGate(),
-              builder: (context, child) =>
-                _ConnectivityBanner(child: child ?? const SizedBox.shrink()),
           );
           },
         ),
@@ -390,12 +384,8 @@ class _AuthGate extends StatelessWidget {
           );
         }
         if (state is AuthLoaded) {
-          // Navegación por role. El SuperAdmin es un admin con acceso total.
-          if (state.user.role == 'admin') {
-            return const AdminHomePage();
-          }
-          // driver / presidente / tickeador / user → pantalla normal por ahora
-          return const MiRutaScreen();
+          // Criterio unico de enrutamiento por rol, ver core/navigation/home_router.dart
+          return homeScreenForRole(state.user);
         }
         return const IniciarSesionPage();
       },

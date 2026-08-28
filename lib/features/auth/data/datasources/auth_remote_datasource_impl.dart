@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mi_ruta/core/demo/demo_constants.dart';
 import 'package:mi_ruta/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:mi_ruta/features/auth/data/models/auth_model.dart';
-import 'package:mi_ruta/core/debug/static_test_accounts.dart';
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   final FirebaseAuth _firebaseAuth;
@@ -85,14 +84,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String email,
     required String password,
   }) async {
-    // MODO PRUEBA TEMPORAL: cuentas estaticas, ver core/debug/static_test_accounts.dart
-    final testAccount = staticTestAccounts[email];
-    if (testAccount != null) {
-      if (testAccount.password != password) {
-        throw Exception('Correo o contraseña incorrectos.');
-      }
-      return testAccount.authModel;
-    }
     try {
       final userCredential =
           await _firebaseAuth.signInWithEmailAndPassword(
@@ -251,23 +242,30 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   // ✅ Mensajes de error de login legibles
   String _mensajeError(String code) {
-    switch (code) {
+    switch (code.toLowerCase()) {
       case 'user-not-found':
-        return 'No existe una cuenta con ese correo.';
+        return 'No existe una cuenta registrada con ese correo.';
       case 'wrong-password':
-        return 'Contraseña incorrecta.';
+        return 'La contraseña es incorrecta.';
+      // Firebase Auth con "email enumeration protection" activada (opción por
+      // defecto en proyectos nuevos) devuelve este código tanto si el correo
+      // no existe como si la contraseña está mal — no se puede distinguir
+      // desde el cliente sin filtrar qué correos están registrados. Para
+      // volver a tener el detalle, desactivar esa protección en la consola:
+      // Authentication → Settings → User account protection.
       case 'invalid-credential':
-        return 'Correo o contraseña incorrectos.';
+      case 'invalid-login-credentials':
+        return 'El correo o la contraseña son incorrectos.';
       case 'invalid-email':
         return 'El correo no tiene un formato válido.';
       case 'user-disabled':
         return 'Esta cuenta ha sido deshabilitada.';
       case 'too-many-requests':
-        return 'Demasiados intentos. Intenta más tarde.';
+        return 'Demasiados intentos fallidos. Espera un momento e intenta de nuevo.';
       case 'network-request-failed':
         return 'Sin conexión a internet.';
       default:
-        return 'Error al iniciar sesión. Intenta de nuevo.';
+        return 'No se pudo iniciar sesión. Intenta de nuevo.';
     }
   }
 }

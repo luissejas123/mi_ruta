@@ -10,6 +10,7 @@ AuthEntity _buildUser({
   String email = 'admin2@miruta.com',
   String role = 'admin',
   Map<String, dynamic>? settings,
+  bool isSuperAdmin = false,
 }) {
   return AuthEntity(
     uid: 'uid_1',
@@ -20,18 +21,22 @@ AuthEntity _buildUser({
     role: role,
     createdAt: DateTime(2026),
     settings: settings,
+    isSuperAdmin: isSuperAdmin,
   );
 }
 
 void main() {
   group('AdminAccessService', () {
     test('SuperAdmin tiene acceso total aunque no tenga permisos', () {
+      // La condicion de superadmin viene del campo `is_super_admin` de
+      // Firestore, no del correo.
       final user = _buildUser(
         email: 'admin@miruta.com',
         settings: null,
+        isSuperAdmin: true,
       );
 
-      expect(AdminAccessService.isSuperAdmin(user.email), isTrue);
+      expect(AdminAccessService.isSuperAdmin(user), isTrue);
       expect(user.canManageUsers, isTrue);
       expect(user.canManageAdmins, isTrue);
       expect(user.canManagePermissions, isTrue);
@@ -71,8 +76,32 @@ void main() {
         'admin_permissions': {AdminPermissions.manageUsers: true},
       });
 
-      expect(AdminAccessService.isSuperAdmin(user.email), isFalse);
+      expect(AdminAccessService.isSuperAdmin(user), isFalse);
       expect(user.canManageUsers, isFalse);
+    });
+
+    test('el correo ya no otorga superadmin por si solo', () {
+      // Antes `admin@miruta.com` estaba en una allowlist hardcodeada.
+      final user = _buildUser(email: 'admin@miruta.com', settings: null);
+
+      expect(AdminAccessService.isSuperAdmin(user), isFalse);
+      expect(user.canManageUsers, isFalse);
+    });
+
+    test('presidente puede aprobar choferes y asignar tickeador', () {
+      final user = _buildUser(role: 'presidente', settings: null);
+
+      expect(user.canApproveChoferRequests, isTrue);
+      expect(user.canAssignTickeador, isTrue);
+      // Pero no hereda los permisos configurables de admin.
+      expect(user.canManagePermissions, isFalse);
+    });
+
+    test('usuario normal no aprueba choferes ni asigna tickeador', () {
+      final user = _buildUser(role: 'user', settings: null);
+
+      expect(user.canApproveChoferRequests, isFalse);
+      expect(user.canAssignTickeador, isFalse);
     });
 
     test('admin_permissions no-mapa no rompe la consulta', () {

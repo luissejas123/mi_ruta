@@ -4,6 +4,11 @@ import 'package:mi_ruta/features/auth/data/datasources/auth_remote_datasource.da
 import 'package:mi_ruta/features/auth/domain/entities/auth_entity.dart';
 import 'package:mi_ruta/features/auth/domain/repositories/auth_repository.dart';
 
+/// El datasource lanza `Exception('<mensaje legible>')`; `toString()` le
+/// antepone `Exception: `. Se quita para que el mensaje llegue limpio a la UI.
+String _mensajeLimpio(Object e) =>
+    e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource remoteDataSource;
 
@@ -29,7 +34,7 @@ class AuthRepositoryImpl implements AuthRepository {
       );
       return Right(result);
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Left(ServerFailure(message: _mensajeLimpio(e)));
     }
   }
 
@@ -45,7 +50,7 @@ class AuthRepositoryImpl implements AuthRepository {
       );
       return Right(result);
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Left(ServerFailure(message: _mensajeLimpio(e)));
     }
   }
 
@@ -55,7 +60,7 @@ class AuthRepositoryImpl implements AuthRepository {
       await remoteDataSource.logout();
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Left(ServerFailure(message: _mensajeLimpio(e)));
     }
   }
 
@@ -65,7 +70,7 @@ class AuthRepositoryImpl implements AuthRepository {
       final result = await remoteDataSource.getCurrentUser();
       return Right(result);
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Left(ServerFailure(message: _mensajeLimpio(e)));
     }
   }
 
@@ -75,7 +80,7 @@ class AuthRepositoryImpl implements AuthRepository {
       final result = await remoteDataSource.loginAsDemo(role: role);
       return Right(result);
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Left(ServerFailure(message: _mensajeLimpio(e)));
     }
   }
 
@@ -85,7 +90,7 @@ class AuthRepositoryImpl implements AuthRepository {
       await remoteDataSource.resetPassword(email);
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Left(ServerFailure(message: _mensajeLimpio(e)));
     }
   }
 
@@ -101,7 +106,7 @@ class AuthRepositoryImpl implements AuthRepository {
       );
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
+      return Left(ServerFailure(message: _mensajeLimpio(e)));
     }
   }
 }

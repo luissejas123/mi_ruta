@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
+import 'package:mi_ruta/features/admin/domain/services/user_management_service.dart';
 import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
+import 'package:mi_ruta/features/driver/presentation/bloc/driver_request_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
@@ -56,10 +58,68 @@ class _PerfilPageState extends State<PerfilPage> {
     return authState is AuthLoaded && authState.user.role == 'admin';
   }
 
+  /// `users` arrastra dos valores para una cuenta sin rol especial: 'user'
+  /// (lo que escribe el registro) y 'passenger' (default de UserModel).
+  bool _isPassenger(String userType) =>
+      userType == 'user' || userType == 'passenger';
+
+  late final DriverRequestCubit _driverRequestCubit;
+
   @override
   void initState() {
     super.initState();
+    _driverRequestCubit =
+        DriverRequestCubit(service: getIt<UserManagementService>());
     _loadUser();
+  }
+
+  @override
+  void dispose() {
+    _driverRequestCubit.close();
+    super.dispose();
+  }
+
+  /// Envía la solicitud para ser chofer. No cambia el rol: el perfil se
+  /// refresca solo porque `UserBloc` está escuchando `users/{uid}`.
+  Future<void> _confirmarSolicitudChofer(String uid) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Registrarme como chofer'),
+        content: const Text(
+          'Se enviará una solicitud al dirigente de tu línea. '
+          'Tu cuenta seguirá siendo de pasajero hasta que la apruebe.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Enviar solicitud',
+              style: TextStyle(color: _amarillo),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    await _driverRequestCubit.requestDriverRole(uid);
+    if (!mounted) return;
+
+    final state = _driverRequestCubit.state;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          state is DriverRequestFailed
+              ? state.message
+              : 'Solicitud enviada. Te avisaremos cuando sea aprobada.',
+        ),
+      ),
+    );
   }
 
   void _loadUser() {
@@ -386,18 +446,15 @@ class _PerfilPageState extends State<PerfilPage> {
                       builder: (_) => const NotificacionesPage(),
                     ),
                   ),
-
-                  _buildMenuItem(
-                    icon: Icons.map_outlined,
-                    title: 'Planificar viaje',
-                    subtitle:
-                        'Combina líneas para llegar a tu destino',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const PlanificarViajePage(),
-                      ),
+                ),
+                _buildMenuItem(
+                  icon: Icons.map_outlined,
+                  title: 'Planificar viaje',
+                  subtitle: 'Combina líneas para llegar a tu destino',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PlanificarViajePage(),
                     ),
                   ),
                 ),
@@ -412,6 +469,27 @@ class _PerfilPageState extends State<PerfilPage> {
                     ),
                   ),
                 ),
+
+                // ── Registrarme como chofer ──
+                // Solo para pasajeros. El `role` no cambia al solicitar: se
+                // queda en 'user' hasta que un presidente/admin aprueba.
+                if (_isPassenger(user.userType)) ...[
+                  _buildSectionTitle('SER CHOFER'),
+                  if (user.hasPendingDriverRequest)
+                    _buildMenuItem(
+                      icon: Icons.hourglass_top_outlined,
+                      title: 'Solicitud enviada',
+                      subtitle: 'Esperando aprobación del dirigente',
+                      onTap: () {},
+                    )
+                  else
+                    _buildMenuItem(
+                      icon: Icons.directions_bus_outlined,
+                      title: 'Registrarme como chofer',
+                      subtitle: 'Enviar solicitud al dirigente de tu línea',
+                      onTap: () => _confirmarSolicitudChofer(user.uid),
+                    ),
+                ],
 
                 // ── Panel administrativo (solo admins) ──
                 if (_isAdmin)

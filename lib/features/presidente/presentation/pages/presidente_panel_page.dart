@@ -7,7 +7,9 @@ import 'package:mi_ruta/features/presidente/presentation/bloc/presidente_panel_b
 import 'package:mi_ruta/features/presidente/presentation/bloc/presidente_panel_event.dart';
 import 'package:mi_ruta/features/presidente/presentation/bloc/presidente_panel_state.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_approval_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
+import 'package:mi_ruta/features/tickeador/presentation/pages/asignar_tickeador_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
@@ -72,6 +74,32 @@ class _PresidentePanelView extends StatelessWidget {
                   const Text('Control de rutas en vivo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 12),
                   _RouteControlSection(state: state),
+                  const SizedBox(height: 24),
+                  const Text('Gestión de personal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 12),
+                  _ActionTile(
+                    icon: Icons.how_to_reg_outlined,
+                    title: 'Aprobar choferes',
+                    subtitle: 'Solicitudes de registro pendientes',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const DriverApprovalPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.confirmation_num_outlined,
+                    title: 'Asignar tickeador',
+                    subtitle: 'Estación y líneas de operación',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AsignarTickeadorPage(),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             );
@@ -85,6 +113,66 @@ class _PresidentePanelView extends StatelessWidget {
           context,
           index,
           homeBuilder: (_) => const DriverHomePage(roleOverride: 'presidente'),
+        ),
+      ),
+    );
+  }
+}
+
+/// Fila de acción del panel (aprobar choferes, asignar tickeador).
+class _ActionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _ActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Icon(icon, size: 22, color: colorScheme.onSurface.withValues(alpha: 0.7)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
+            ],
+          ),
         ),
       ),
     );

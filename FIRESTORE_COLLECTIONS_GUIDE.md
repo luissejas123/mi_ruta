@@ -76,6 +76,37 @@
 
 **Roles vistos en datos:** `user`. Roles documentados pero sin datos de ejemplo: `driver`, `tickeador`, `admin`, `presidente` (relacionados al módulo de conductores no implementado).
 
+### Campos de jerarquía de roles (Sprint 4)
+
+Estos tres campos empezaron a escribirse con la jerarquía Administrador → Presidente → Chofer/Tickeador. **Los tres son privilegiados**: `firestore.rules` impide que el dueño de la cuenta se los escriba a sí mismo.
+
+| Campo | Tipo | Quién lo escribe | Para qué |
+|---|---|---|---|
+| `is_super_admin` | `bool` (default `false`) | **Nadie desde la app.** Solo consola de Firebase / Admin SDK | SuperAdmin: administrador con acceso total que ignora `admin_permissions`. Reemplaza las antiguas allowlists de correos en código. Ver el runbook en [SECURITY.md](SECURITY.md) |
+| `driver_request` | `map` | El dueño solo puede crear `status: 'pending'`; `admin`/`presidente` escriben `approved`/`rejected` | Solicitud de un pasajero para ser chofer. **El `role` no cambia al solicitar** — solo al aprobar, si no el ruteo por rol lo mandaría a la pantalla de chofer antes de tiempo |
+| `tickeador_info` | `map` | `admin`/`presidente` | Estación y líneas asignadas al tickeador. Lo consume `TickeadorEntity.fromJson` |
+
+```json
+{
+  "is_super_admin": false,
+  "driver_request": {
+    "status": "pending",
+    "requested_at": "2026-08-27T10:15:00.000000"
+  },
+  "tickeador_info": {
+    "assigned_station": "Terminal Sur",
+    "assigned_lines": ["138", "200"],
+    "status": "active"
+  }
+}
+```
+
+Notas:
+- `requested_at` es **string ISO 8601**, igual que `created_at` de esta colección (no `Timestamp` nativo).
+- `assigned_lines` guarda `ref` de línea reales, tomados de la colección `routes` sembrada desde GTFS — no una lista fija en código.
+- Al aprobar una solicitud, `role: 'driver'` y `driver_request.status: 'approved'` se escriben en la **misma** operación, para que no quede un estado a medias.
+- Al promover se escribe solo `role` (nunca `userType`), igual que hace `AdminRemoteDataSourceImpl.updateUserRole`. Los lectores ya resuelven el legacy con `role ?? userType`.
+
 ---
 
 ## 🛣️ Colección: routes

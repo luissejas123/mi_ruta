@@ -15,6 +15,7 @@ class UserManagementBloc
     on<LoadUsersEvent>(_onLoadUsers);
     on<SearchUsersEvent>(_onSearch);
     on<PromoteUserToAdminEvent>(_onPromoteUser);
+    on<PromoteUserToPresidenteEvent>(_onPromoteUserToPresidente);
   }
 
   Future<void> _onLoadUsers(
@@ -44,15 +45,40 @@ class UserManagementBloc
     PromoteUserToAdminEvent event,
     Emitter<UserManagementState> emit,
   ) async {
-    emit(const UserManagementLoading());
-    final result = await updateUserRoleUseCase.call(
+    await _promote(
+      emit,
       uid: event.uid,
       role: 'admin',
+      successMessage: 'Usuario promovido a administrador',
     );
-    result.fold(
-      (failure) => emit(UserManagementError(failure.message)),
+  }
+
+  Future<void> _onPromoteUserToPresidente(
+    PromoteUserToPresidenteEvent event,
+    Emitter<UserManagementState> emit,
+  ) async {
+    await _promote(
+      emit,
+      uid: event.uid,
+      role: 'presidente',
+      successMessage: 'Usuario promovido a presidente',
+    );
+  }
+
+  /// Cambia el rol de una cuenta y recarga la lista. Compartido por todas las
+  /// promociones: solo cambian el `role` destino y el mensaje de exito.
+  Future<void> _promote(
+    Emitter<UserManagementState> emit, {
+    required String uid,
+    required String role,
+    required String successMessage,
+  }) async {
+    emit(const UserManagementLoading());
+    final result = await updateUserRoleUseCase.call(uid: uid, role: role);
+    await result.fold(
+      (failure) async => emit(UserManagementError(failure.message)),
       (_) async {
-        emit(const UserManagementSuccess('Usuario promovido a administrador'));
+        emit(UserManagementSuccess(successMessage));
         final reload = await getUsersUseCase.call();
         reload.fold(
           (failure) => emit(UserManagementError(failure.message)),

@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mi_ruta/features/user/data/datasources/user_remote_datasource.dart';
 import 'package:mi_ruta/features/user/data/models/user_model.dart';
-import 'package:mi_ruta/core/debug/static_test_accounts.dart';
 
 /// Implementación de UserRemoteDataSource - Conexión real a Firestore
 class UserRemoteDataSourceImpl implements UserRemoteDataSource {
@@ -18,10 +17,6 @@ class UserRemoteDataSourceImpl implements UserRemoteDataSource {
 
   @override
   Future<UserModel> getUserById(String uid) async {
-    // MODO PRUEBA TEMPORAL: cuentas estaticas, ver core/debug/static_test_accounts.dart
-    for (final account in staticTestAccounts.values) {
-      if (account.uid == uid) return account.userModel;
-    }
     try {
       final docSnapshot = await _firestore
           .collection('users')

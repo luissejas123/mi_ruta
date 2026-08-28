@@ -1,26 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
+import 'package:mi_ruta/core/navigation/home_router.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/pages/insertar_correo_page.dart';
 import 'package:mi_ruta/features/auth/presentation/pages/register_page.dart';
 import 'package:mi_ruta/features/auth/presentation/widgets/boton_amarillo.dart';
-import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
-import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
 
 class IniciarSesionPage extends StatelessWidget {
   const IniciarSesionPage({super.key});
 
   void _onAuthLoaded(BuildContext context, AuthLoaded state) {
-    final Widget destination = switch (state.user.role) {
-      'driver' => const DriverHomePage(),
-      'admin' || 'presidente' => const AdminHomePage(),
-      _ => const MiRutaScreen(),
-    };
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => destination),
+      MaterialPageRoute(builder: (_) => homeScreenForRole(state.user)),
       (route) => false,
     );
   }

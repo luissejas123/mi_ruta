@@ -27,6 +27,17 @@ import 'package:flutter/foundation.dart';
 ///
 /// NO es una puerta trasera de producción: está compilado condicionalmente
 /// bajo kDebugMode.
+///
+/// ⚠️ DESDE EL SPRINT 4 ESTO YA NO FUNCIONA CONTRA UN ENTORNO NUEVO.
+/// `firestore.rules` impide que un cliente se escriba `role` a sí mismo, así
+/// que la escritura de `role: 'admin'` se deniega y el método falla en
+/// silencio (captura el error para no bloquear el arranque). En un entorno
+/// donde la cuenta ya es admin sigue funcionando como verificación.
+/// Para sembrar un entorno nuevo hay que usar el procedimiento manual de
+/// SECURITY.md ("SuperAdmin: cómo se siembra el primero"), que pasa por la
+/// consola de Firebase / Admin SDK e ignora las reglas de cliente.
+/// Nota: `admin@miruta.com` ya NO es superadmin por su correo — esa allowlist
+/// se eliminó; el privilegio total ahora es el campo `is_super_admin`.
 class DevAdminBootstrap {
   static const String devAdminEmail = 'admin@miruta.com';
   static const String devAdminPassword = 'unanoche';

@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:mi_ruta/core/debug/static_test_accounts.dart';
 import 'package:mi_ruta/features/driver/domain/entities/driver_income_entry.dart';
 
 class DriverIncomeDatasource {
@@ -12,8 +11,6 @@ class DriverIncomeDatasource {
   /// al pagar un viaje via QR (transactions.user_id == driverId).
   /// Requiere indice compuesto en Firestore: user_id + transaction_type + timestamp.
   Future<List<DriverIncomeEntry>> getIncomeHistory(String driverId) async {
-    // MODO PRUEBA TEMPORAL: cuentas estaticas, ver core/debug/static_test_accounts.dart
-    if (driverId == testChoferUid) return staticTestDriverIncome;
     final snap = await _firestore
         .collection('transactions')
         .where('user_id', isEqualTo: driverId)

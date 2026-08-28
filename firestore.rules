@@ -1,9 +1,159 @@
 rules_version = '2';
 
+// Reglas de seguridad de Mi Ruta.
+//
+// Objetivo principal: cerrar el escalamiento de privilegios. Antes de esto el
+// archivo era `allow read, write: if true`, así que cualquier cliente podía
+// escribirse `role: 'admin'` directamente por SDK.
+//
+// IMPORTANTE: no agregar un `match /{document=**}` permisivo al final. El
+// comodín recursivo también cubre `users/{uid}`, y en Firestore basta con que
+// UNA regla permita el acceso — un catch-all anularía todo lo de abajo.
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+
+    // ─────────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Documento del solicitante: los privilegios viven en Firestore, no en
+    // custom claims, así que hay que leerlo con get().
+    function requester() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && requester().get('is_super_admin', false) == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && (requester().get('role', 'user') == 'admin' || isSuperAdmin());
+    }
+
+    // Admin o presidente: los dos perfiles que gestionan personal
+    // (aprobar choferes, asignar tickeador, promover a presidente).
+    function isStaffManager() {
+      return isSignedIn()
+        && (requester().get('role', 'user') == 'presidente' || isAdmin());
+    }
+
+    function affected() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // Campos que otorgan privilegios: nunca los escribe el propio dueño.
+    function touchesPrivilegedField() {
+      return affected().hasAny([
+        'role', 'userType', 'is_super_admin', 'admin_permissions',
+        'tickeador_info', 'qa_access'
+      ]);
+    }
+
+    // `is_super_admin` no se otorga desde la app en NINGÚN caso, ni siquiera
+    // por un admin. Se siembra a mano desde la consola de Firebase o con el
+    // Admin SDK, que ignoran estas reglas (ver SECURITY.md).
+    function touchesSuperAdmin() {
+      return affected().hasAny(['is_super_admin']);
+    }
+
+    // Lo único que el dueño puede hacer con su `driver_request` es pedir
+    // 'pending'. Aprobar/rechazar es exclusivo del staff.
+    function driverRequestSelfWriteIsValid() {
+      return !affected().hasAny(['driver_request'])
+        || request.resource.data.driver_request.status == 'pending';
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // users — la colección sensible
+    // ─────────────────────────────────────────────────────────────────
+    match /users/{uid} {
+      // Varios paneles listan choferes, tickeadores y pasajeros.
+      allow read: if isSignedIn();
+
+      // Alta: solo la propia cuenta recién registrada, sin auto-otorgarse
+      // privilegios. `role` solo puede nacer como 'user'.
+      allow create: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.get('is_super_admin', false) == false
+        && request.resource.data.get('qa_access', false) == false
+        && request.resource.data.get('role', 'user') == 'user'
+        && !('admin_permissions' in request.resource.data)
+        && !('tickeador_info' in request.resource.data);
+
+      // El dueño edita su perfil (nombre, teléfono, foto, wallet, settings),
+      // pero no los campos privilegiados.
+      allow update: if isSignedIn()
+        && request.auth.uid == uid
+        && !touchesPrivilegedField()
+        && !touchesSuperAdmin()
+        && driverRequestSelfWriteIsValid();
+
+      // Staff gestiona roles y asignaciones de otras cuentas — pero tampoco
+      // puede tocar `is_super_admin`.
+      allow update: if isStaffManager() && !touchesSuperAdmin();
+
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Datos de rutas sembrados desde GTFS: lectura abierta (la app los
+    // consulta antes de autenticar), escritura solo administrativa.
+    // ─────────────────────────────────────────────────────────────────
+    match /routes/{routeId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /routes_bbox/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Resto de colecciones operativas. Siguen permisivas para cualquier
+    // sesión autenticada: hoy no permiten escalar privilegios, y endurecerlas
+    // (que un pasajero no pueda editar el ledger de otro, etc.) es trabajo
+    // aparte. Se priorizó `users`, que era el hueco real.
+    // Se enumeran una por una a propósito: un comodín recursivo volvería a
+    // abrir `users`.
+    // ─────────────────────────────────────────────────────────────────
+    match /transactions/{docId}    { allow read, write: if isSignedIn(); }
+    match /recharges/{docId}       { allow read, write: if isSignedIn(); }
+    match /benefit_requests/{docId}{ allow read, write: if isSignedIn(); }
+    match /trips/{docId}           { allow read, write: if isSignedIn(); }
+    match /trip_history/{docId}    { allow read, write: if isSignedIn(); }
+    match /planned_trips/{docId}   { allow read, write: if isSignedIn(); }
+    match /vehicles/{docId}        { allow read, write: if isSignedIn(); }
+    match /station_logs/{docId}    { allow read, write: if isSignedIn(); }
+    match /ratings/{docId}         { allow read, write: if isSignedIn(); }
+    match /claims/{docId}          { allow read, write: if isSignedIn(); }
+    match /buses/{docId}           { allow read, write: if isSignedIn(); }
+    match /wallets/{docId}         { allow read, write: if isSignedIn(); }
+
+    // `notifications/{uid}/items/{itemId}` — subcolección por usuario.
+    // La lectura es solo del dueño; la escritura la hace cualquier sesión
+    // autenticada a propósito, porque un chofer/tickeador notifica a otros
+    // usuarios (ver NotificationDatasource.save, que escribe en la
+    // subcolección del destinatario).
+    match /notifications/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if isSignedIn();
+
+      match /items/{itemId} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow write: if isSignedIn();
+      }
     }
   }
 }

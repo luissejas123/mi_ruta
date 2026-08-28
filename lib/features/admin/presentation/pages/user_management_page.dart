@@ -71,6 +71,39 @@ class _UserManagementPageState extends State<UserManagementPage> {
     }
   }
 
+  /// Promueve a `presidente` (dirigente de linea). Solo lo ofrece la vista de
+  /// admin: un Presidente no otorga Presidente.
+  Future<void> _confirmPromoteToPresidente(AdminUserEntity user) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Promover a presidente'),
+        content: Text(
+          '¿Seguro que quieres convertir a "${user.fullName}" en presidente?\n'
+          'Se actualizará su role a "presidente" en Firestore.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Promover',
+              style: TextStyle(color: Color(0xFFFFC12F)),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      context
+          .read<UserManagementBloc>()
+          .add(PromoteUserToPresidenteEvent(user.uid));
+    }
+  }
+
   void _showUserDetails(AdminUserEntity user) {
     showModalBottomSheet(
       context: context,
@@ -143,6 +176,25 @@ class _UserManagementPageState extends State<UserManagementPage> {
                   ),
                 ),
               ),
+            if (user.role != 'presidente' && !user.isAdmin && _canManageAdmins) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFFFC12F), width: 1.5),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    _confirmPromoteToPresidente(user);
+                  },
+                  child: const Text(
+                    'Promover a presidente',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
             if (user.isAdmin)
               SizedBox(
                 width: double.infinity,

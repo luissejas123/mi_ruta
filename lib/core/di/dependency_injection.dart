@@ -73,7 +73,6 @@ import 'package:mi_ruta/features/driver/data/datasources/driver_assigned_routes_
 import 'package:mi_ruta/features/driver/domain/services/driver_assigned_routes_service.dart';
 import 'package:mi_ruta/features/driver/data/datasources/tickeador_operations_datasource.dart';
 import 'package:mi_ruta/features/driver/domain/services/tickeador_operations_service.dart';
-import 'package:mi_ruta/features/presidente/domain/services/presidente_dashboard_service.dart';
 import 'package:mi_ruta/features/admin/data/datasources/admin_privileges_datasource.dart';
 import 'package:mi_ruta/features/admin/domain/services/admin_privileges_service.dart';
 import 'package:mi_ruta/features/stops/domain/services/bus_stop_service.dart';
@@ -173,64 +172,15 @@ void setupDependencies() {
     AdminRepositoryImpl(remoteDataSource: getIt<AdminRemoteDataSource>()),
   );
 
-  // ============================================
-  // ADMIN FEATURE - DOMAIN LAYER (UseCases)
-  // ============================================
-  getIt.registerSingleton<GetAdminUsersUseCase>(
-    GetAdminUsersUseCase(getIt<AdminRepository>()),
+  // Gestion neutral de cuentas (RQ-71/72): aprobacion de choferes y
+  // asignacion de tickeador. Lo consumen DriverApprovalBloc y el panel de
+  // Presidente.
+  getIt.registerSingleton<UserManagementDatasource>(
+    UserManagementDatasource(firestore: getIt<FirebaseFirestore>()),
   );
 
-  getIt.registerSingleton<GetAdminUserByIdUseCase>(
-    GetAdminUserByIdUseCase(getIt<AdminRepository>()),
-  );
-
-  getIt.registerSingleton<UpdateUserRoleUseCase>(
-    UpdateUserRoleUseCase(getIt<AdminRepository>()),
-  );
-
-  getIt.registerSingleton<UpdateAdminPermissionsUseCase>(
-    UpdateAdminPermissionsUseCase(getIt<AdminRepository>()),
-  );
-
-  getIt.registerSingleton<CreateAdminAccountUseCase>(
-    CreateAdminAccountUseCase(getIt<AdminRepository>()),
-  );
-
-  // ============================================
-  // ADMIN FEATURE - PRESENTATION LAYER (BLoC)
-  // ============================================
-  getIt.registerSingleton<UserManagementBloc>(
-    UserManagementBloc(
-      getUsersUseCase: getIt<GetAdminUsersUseCase>(),
-      updateUserRoleUseCase: getIt<UpdateUserRoleUseCase>(),
-    ),
-  );
-
-  getIt.registerSingleton<AdminPrivilegesBloc>(
-    AdminPrivilegesBloc(
-      getUsersUseCase: getIt<GetAdminUsersUseCase>(),
-      getUserByIdUseCase: getIt<GetAdminUserByIdUseCase>(),
-      updatePermissionsUseCase: getIt<UpdateAdminPermissionsUseCase>(),
-      createAdminAccountUseCase: getIt<CreateAdminAccountUseCase>(),
-    ),
-  );
-
-  getIt.registerSingleton<ChangePasswordBloc>(
-    ChangePasswordBloc(changePasswordUseCase: getIt<ChangePasswordUseCase>()),
-  );
-
-  // ============================================
-  // ADMIN FEATURE - DATA LAYER
-  // ============================================
-  getIt.registerSingleton<AdminRemoteDataSource>(
-    AdminRemoteDataSourceImpl(
-      firestore: getIt<FirebaseFirestore>(),
-      firebaseAuth: getIt<FirebaseAuth>(),
-    ),
-  );
-
-  getIt.registerSingleton<AdminRepository>(
-    AdminRepositoryImpl(remoteDataSource: getIt<AdminRemoteDataSource>()),
+  getIt.registerSingleton<UserManagementService>(
+    UserManagementService(datasource: getIt<UserManagementDatasource>()),
   );
 
   // ============================================
@@ -259,7 +209,6 @@ void setupDependencies() {
   // ============================================
   // ADMIN FEATURE - PRESENTATION LAYER (BLoC)
   // ============================================
-  
   getIt.registerSingleton<UserManagementBloc>(
     UserManagementBloc(
       getUsersUseCase: getIt<GetAdminUsersUseCase>(),

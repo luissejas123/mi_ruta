@@ -3,7 +3,7 @@
 **Fecha:** 27 de agosto de 2026
 **Objetivo:** dejar funcional el flujo Administrador → Presidente → Chofer/Tickeador, eliminando en el camino los 3 mecanismos de superadmin duplicados, todo dato hardcodeado de presentaciones previas, y el hueco de seguridad en Firestore.
 **Fuentes:** `docs/REQUERIMIENTOS_POR_PERFIL_SPRINT3_SPRINT4.md` §4 (backlog RQ4-*), auditoría de código de esta sesión, y las decisiones de producto tomadas abajo en §0.
-**Estado:** plan aprobado, implementación **no iniciada**. Este documento es el punto de entrada para continuar el trabajo desde otra máquina.
+**Estado:** **Fases 0-9 (§4), las reglas de Firestore (§5) y el fix de mensajes de login (§9) implementados** (27 ago 2026). Pendiente: compilar y correr la app — la máquina donde se implementó no tiene el SDK de Flutter, así que nada se compiló ni se ejecutó (lo hace el equipo). Ver §8 para los hallazgos nuevos y lo que queda abierto, y §9 para el fix de login.
 
 ---
 
@@ -40,12 +40,23 @@ Los mecanismos 1 y 2 usan **listas de emails diferentes** — un superadmin de p
 
 ## 3. Runbook: cómo se bootstrapea el primer superadmin
 
-Como las reglas de Firestore (§5) van a impedir que un cliente se escriba `role`/`is_super_admin` a sí mismo, el primer superadmin **no se puede crear desde la app**. Procedimiento manual, una sola vez por entorno (dev/staging/prod):
+Como las reglas de Firestore (§5) van a impedir que un cliente se escriba `role`/`is_super_admin` a sí mismo, el primer superadmin **no se puede crear desde la app**. Procedimiento manual, una sola vez por entorno (dev/staging/prod). La versión canónica de este runbook vive en [SECURITY.md](../SECURITY.md) ("SuperAdmin: cómo se siembra el primero"); acá queda el detalle operativo paso a paso.
 
-1. Un desarrollador registra una cuenta normal en la app con un correo que **solo el equipo de desarrollo conoce** (no se commitea en ningún archivo — vive en un gestor de secretos del equipo o se comunica de forma privada, igual que cualquier credencial).
-2. Esa cuenta queda creada en Firestore como `users/{uid}` con `role: 'user'` (comportamiento normal de registro).
-3. Un desarrollador con acceso a la consola de Firebase (o vía Admin SDK con credenciales de servicio, que ignoran las reglas de seguridad de cliente) edita ese documento manualmente y setea `role: 'admin'`, `is_super_admin: true`.
-4. Desde ahí, esa cuenta ya puede usar la propia app (Fase 4 del plan) para promover a otros admins/presidentes — no hace falta repetir el paso manual salvo para sembrar un entorno nuevo.
+1. **Crear la cuenta normal desde la app.** Un desarrollador se registra con un correo que **solo el equipo de desarrollo conoce** (no se commitea en ningún archivo — vive en un gestor de secretos del equipo o se comunica de forma privada, igual que cualquier credencial). Hacerlo por el registro normal, **no** creando el usuario a mano en la consola: así el documento `users/{uid}` queda con el ID correcto (el UID de Auth) y todos los campos que espera `UserModel`/`AuthModel`.
+2. El registro crea `users/{uid}` con `role: 'user'` (comportamiento normal).
+3. **Obtener el UID.** Firebase Console → proyecto → *Build → Authentication → pestaña Users* → buscar el correo → copiar el **User UID**.
+4. **Abrir el documento.** *Build → Firestore Database* → colección `users` → abrir el documento cuyo ID es ese UID (se puede identificar también por el campo `email`).
+5. **Editar dos campos** y guardar:
+
+   | Campo | Tipo | Valor | Notas |
+   |---|---|---|---|
+   | `role` | string | `admin` | En minúsculas, exacto. Si el doc además tiene `userType`, ponerlo también en `admin`. |
+   | `is_super_admin` | **boolean** | **`true`** | Nombre exacto (minúsculas + guion bajo). Debe ser booleano `true`, **no** el string `"true"` — `AuthModel.fromJson` hace `json['is_super_admin'] as bool? ?? false`, así que un string se ignora y queda en `false`. Como el campo no existe todavía, usar *Add field*. |
+
+   La consola escribe con credenciales de administrador, así que pasa por encima de las reglas de §5 que bloquean estos campos desde el cliente. Es el único camino para el primero.
+6. **Recargar la sesión** en la app: cerrar sesión y volver a entrar (o reiniciar la app). El perfil se lee de Firestore al iniciar sesión; hasta entonces sigue con los valores viejos.
+7. **Verificar.** La cuenta debe aterrizar en `AdminHomePage` ("Perfil Administrativo"), mostrar el distintivo de superadmin en la cabecera (`admin_home_page.dart`, `if (user.isSuperAdmin)`) y mostrar el botón "Cambiar de perfil" (`SwitchProfileButton`, visible con `is_super_admin` o `qa_access`).
+8. Desde ahí esa cuenta ya promueve a otros admins/presidentes desde la propia app (Fase 4/5). El paso manual solo se repite para sembrar un entorno nuevo.
 
 ---
 
@@ -155,3 +166,63 @@ Fase 9 (documentar esquema) — al final, cuando los campos ya se están escribi
 - `lib/features/user/presentation/pages/perfil_page.dart`
 - `firestore.rules`
 - `FIRESTORE_COLLECTIONS_GUIDE.md` (actualizar en Fase 9)
+
+---
+
+## 8. Resultado de la implementación (27 ago 2026)
+
+### Errores de compilación encontrados que el plan no registraba
+
+El repo **no compilaba ni arrancaba** antes de este trabajo. Además de los dos puntos de §1:
+
+1. `dependency_injection.dart` registraba `ChangePasswordBloc` dos veces además del bloque `ADMIN FEATURE`. `getIt.registerSingleton` lanza excepción en registro duplicado (nunca se activa `allowReassignment`), así que `setupDependencies()` reventaba al arrancar.
+2. `main.dart` tenía un `import` **después** de declaraciones de función (Dart lo rechaza), `admin_home_page.dart` importado 3 veces y `driver_home_page.dart` 2 veces.
+3. `main.dart` pasaba `builder:` **dos veces** al mismo `MaterialApp` (argumento nombrado duplicado). Se resolvió componiendo `RouteUpdateBanner` y `_ConnectivityBanner` en un solo `builder`.
+4. `perfil_page.dart`: el `_buildMenuItem` de "Notificaciones" nunca se cerraba y el de "Planificar viaje" quedaba anidado dentro como argumento posicional.
+5. El conflicto de `driver_home_page.dart` era de **tres** ramas, no dos: había un conflicto anidado de `origin/pedro-integracion-jesus` dentro del lado HEAD. Se resolvió con HEAD para `adolfo-dev` y con el lado `pedro` en el anidado, porque su import (`CustomBottomNav`) sí se usa en el cuerpo que sobrevive.
+6. `DriverApprovalPage` referenciaba un `UserManagementBloc` con una API totalmente distinta (`service:`, `LoadManagedUsers`, `SetManagedUserActiveState`, `updatingUid`) a la que existe en esa ruta — esa versión se perdió en el mismo merge. Se reescribió la página sobre un `DriverApprovalBloc` nuevo y dedicado.
+7. `UserManagementService`/`UserManagementDatasource` **no estaban registrados** en DI, pese a que `DriverApprovalPage` hacía `getIt<UserManagementService>()`. Ya se registran.
+8. `PresidenteDashboardService` estaba importado en el DI pero nunca registrado, mientras `presidente_home_page.dart` hacía `getIt<PresidenteDashboardService>()` — habría explotado en runtime. Se resolvió solo al borrar esa página (Fase 7).
+
+### Decisiones tomadas durante la implementación
+
+- **Fase 4, home de `admin`:** `homeScreenForRole()` mandaba a `AdminPrivilegesPage`, pero `main.dart` e `iniciar_sesion_page.dart` mandaban a `AdminHomePage`. Se unificó sobre **`AdminHomePage`**, que es el hub "Perfil Administrativo" y ya enlaza a `AdminPrivilegesPage` — el equivocado era `home_router`.
+- **Fase 4, rol `tickeador`:** el plan no decía a dónde mandarlo. Va a `TickeadorHomePage`, que ya existe y es a donde lo manda el switcher de super-admin.
+- **Fase 6, aprobación atómica:** el plan proponía `UpdateUserRoleUseCase(role:'driver')` **más** marcar `driver_request.status`. Se hace en **una sola escritura** (`resolveDriverRequest`) para que no pueda quedar rol de chofer con solicitud pendiente. Se escribe solo `role`, nunca `userType` (regla 1 de CLAUDE.md).
+- **Fase 8, datos reales:** las líneas asignables salen de `RouteService.getAllActiveRoutes()` (GTFS sembrado), no de una lista fija. **No existe catálogo de estaciones** en el backend (`BusStopService` solo resuelve paradas por coordenadas), así que la estación se escribe a mano — no se inventó un listado falso.
+- **`AuthModel.toJson`/`UserModel.toJson` no escriben** `is_super_admin` ni `driver_request`: son campos privilegiados que solo tocan métodos dedicados o la consola.
+
+### Pendiente / abierto
+
+- **Nada se compiló en esta sesión.** No hay SDK de Flutter en la máquina donde se implementó; la compilación y el `flutter analyze`/`flutter test` quedan a cargo del equipo. Cubre también el fix del §9.
+- **`DevAdminBootstrap` queda inoperante en entornos nuevos:** escribe `role: 'admin'` desde el cliente y las reglas nuevas lo deniegan (falla en silencio). Ya está documentado en su propio doc-comment. Decidir si se borra o se reemplaza por el runbook manual de SECURITY.md.
+- **Segundo mecanismo de hardcodeo no previsto en §0.2:** `lib/core/demo/demo_constants.dart` + `LoginAsDemoUseCase` + vehículos demo en `driver_vehicle_bloc.dart` y `admin_active_vehicles_bloc.dart`. **No se tocó** — parece un "modo demo" deliberado y con UI propia, no residuo de presentación. Decidir si entra en la regla de §0.2.
+- **`qa_access` se mantuvo** como mecanismo secundario (vive en la base de datos, cumple §0.1). Sigue pendiente la decisión de §2 sobre retirarlo o documentarlo como QA-only.
+- **Reglas de Firestore:** solo se endureció `users` (el hueco real). El resto de colecciones sigue permisivo para sesión autenticada. Ojo al editar: **no** agregar un `match /{document=**}` permisivo al final — el comodín recursivo también cubre `users/` y anularía toda la protección.
+
+---
+
+## 9. Fix de mensajes de error en el login (27 ago 2026)
+
+Reporte de QA: al equivocarse de correo o contraseña, la app solo mostraba un pop-up genérico tipo "server fail", en vez de decir si falló el correo o la contraseña.
+
+### Causa
+
+El mensaje legible **sí se generaba** (`_mensajeError` en `auth_remote_datasource_impl.dart`), pero nunca llegaba a la UI:
+
+1. **`auth_bloc.dart` emitía `AuthError(message: failure.toString())`** en vez de `failure.message`. `Failure` (`core/error/failures.dart`) no sobreescribe `toString()`, así que el pop-up mostraba literalmente `Instance of 'ServerFailure'`. El bug estaba en los 5 handlers del bloc (login, registro, logout, loginAsDemo, resetPassword).
+2. `auth_repository_impl.dart` envolvía todo como `ServerFailure(message: e.toString())`, dejando el prefijo `Exception: ` en el texto.
+
+### Cambios
+
+| Archivo | Cambio |
+|---|---|
+| `lib/features/auth/presentation/bloc/auth_bloc.dart` | `failure.toString()` → `failure.message` en todos los handlers. |
+| `lib/features/auth/data/repositories/auth_repository_impl.dart` | Helper `_mensajeLimpio()` que quita el prefijo `Exception: `; usado en los 7 catch. |
+| `lib/features/auth/data/datasources/auth_remote_datasource_impl.dart` | `_mensajeError` normaliza el código a minúsculas y agrega el alias `invalid-login-credentials` (variante de firebase_auth 6.x). Ya distinguía `user-not-found` de `wrong-password`. Mensajes reescritos a español claro. |
+
+Resultado: correo inexistente → **"No existe una cuenta registrada con ese correo."**; contraseña mala → **"La contraseña es incorrecta."**
+
+### Límite conocido (no es bug)
+
+Si el proyecto de Firebase tiene activada **Email enumeration protection** (por defecto en proyectos nuevos), Firebase Auth devuelve `invalid-credential` **a propósito** tanto para correo inexistente como para contraseña incorrecta, para no revelar qué correos están registrados. En ese caso la app solo puede mostrar **"El correo o la contraseña son incorrectos."**. Distinguirlos desde el cliente exigiría consultar `users` sin autenticar, lo que filtraría nombres/teléfonos/saldos y contradice las reglas de §5. Para recuperar el detalle: *Firebase Console → Authentication → Settings → User account protection*, desactivar esa protección — los mensajes granulares vuelven a funcionar solos, sin cambios de código.

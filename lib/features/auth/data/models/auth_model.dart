@@ -13,6 +13,7 @@ class AuthModel extends AuthEntity {
     super.wallet,
     super.settings,
     super.qaAccess,
+    super.isSuperAdmin,
   });
 
   factory AuthModel.fromJson(Map<String, dynamic> json) {
@@ -40,6 +41,7 @@ class AuthModel extends AuthEntity {
       wallet: json['wallet'] as Map<String, dynamic>?,
       settings: json['settings'] as Map<String, dynamic>?,
       qaAccess: json['qa_access'] as bool? ?? false,
+      isSuperAdmin: json['is_super_admin'] as bool? ?? false,
     );
   }
 
@@ -57,6 +59,9 @@ class AuthModel extends AuthEntity {
       'settings':
           settings ?? {'dark_mode_enabled': false, 'is_driver_mode': false},
       'qa_access': qaAccess,
+      // `is_super_admin` se omite a proposito: es un campo privilegiado que el
+      // cliente nunca escribe (lo bloquean las reglas de Firestore). Se siembra
+      // desde la consola de Firebase / Admin SDK, ver SECURITY.md.
     };
   }
 }

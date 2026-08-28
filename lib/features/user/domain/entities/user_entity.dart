@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:mi_ruta/features/user/domain/entities/driver_request_entity.dart';
 
 /// Entidad de Usuario - Modelo de Negocio Puro (sin dependencias de Firestore)
 class UserEntity extends Equatable {
@@ -14,9 +15,12 @@ class UserEntity extends Equatable {
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
-  // Acceso libre a los 5 perfiles para pruebas de QA (ver
-  // super_admin_config.dart) — activado/desactivado desde el panel de Admin.
+  // Acceso libre a los 5 perfiles para pruebas de QA (campo `qa_access` en
+  // users/{uid}) — activado/desactivado desde el panel de Admin.
   final bool qaAccess;
+  // Solicitud para ser chofer (`driver_request` en users/{uid}). `null` cuando
+  // la cuenta nunca solicitó. El `role` no cambia hasta la aprobación.
+  final DriverRequestEntity? driverRequest;
 
   const UserEntity({
     required this.uid,
@@ -32,10 +36,14 @@ class UserEntity extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.qaAccess = false,
+    this.driverRequest,
   });
 
+  /// True cuando hay una solicitud de chofer esperando resolución.
+  bool get hasPendingDriverRequest => driverRequest?.isPending ?? false;
+
   @override
-  List<Object> get props => [
+  List<Object?> get props => [
         uid,
         fullName,
         email,
@@ -49,5 +57,6 @@ class UserEntity extends Equatable {
         createdAt,
         updatedAt,
         qaAccess,
+        driverRequest,
       ];
 }

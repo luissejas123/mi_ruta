@@ -265,3 +265,21 @@ Toda cuenta es `user` por definición. Sobre esa base, las únicas combinaciones
 - No hay flujo de **revocar** un rol (solo otorgar). No se pidió — si se necesita, agregar un `RoleHierarchy`-aware "quitar rol" simétrico a los métodos de grant.
 - `UserManagementPage` solo pre-valida (oculta el botón) para "promover a admin/presidente" — el flujo de "asignar tickeador"/"aprobar chofer" sigue sin ese guard visual en la UI (la validación server-side/datasource sí aplica siempre, solo falta la mejora de UX).
 - No se migró ningún doc existente: una cuenta creada antes de esta corrección no tiene `roles` hasta que se le otorgue un rol nuevo — mientras tanto, todo el código la trata como `[role]` (fallback automático, ver `AuthModel.fromJson`/`AdminUserModel.fromJson`).
+
+---
+
+## 11. Observación suelta (no relacionada a roles, encontrada al probar en dispositivo real)
+
+Al correr la app en un teléfono real (`flutter run -d 18201ae9ff5f`, 28 ago 2026) para verificar la corrección de §10, apareció este warning en el log — no lo generó la corrección de roles, ya existía:
+
+```
+W/Firestore: Listen for QueryWrapper(query=Query(target=Query(transactions where user_id==... order by -timestamp, -__name__);limitType=LIMIT_TO_FIRST)) failed:
+Status{code=FAILED_PRECONDITION, description=The query requires an index. ...}
+```
+
+Falta un **índice compuesto** en Firestore para la colección `transactions` (`user_id` + `timestamp` desc). El código ya lo maneja con gracia (`! Índice compuesto requerido. Usando alternativa sin ordenar...` — cae a una consulta sin ordenar en vez de crashear), así que no es bloqueante, pero el historial de movimientos de la wallet no sale ordenado por fecha hasta que se cree.
+
+Link directo para crearlo (generado por Firestore para este proyecto, `mi-ruta-4004d`):
+https://console.firebase.google.com/v1/r/project/mi-ruta-4004d/firestore/indexes?create_composite=ClJwcm9qZWN0cy9taS1ydXRhLTQwMDRkL2RhdGFiYXNlcy8oZGVmYXVsdCkvY29sbGVjdGlvbkdyb3Vwcy90cmFuc2FjdGlvbnMvaW5kZXhlcy9fEAEaCwoHdXNlcl9pZBABGg0KCXRpbWVzdGFtcBACGgwKCF9fbmFtZV9fEAI
+
+Basta con abrirlo con una cuenta que tenga acceso al proyecto y confirmar "Crear índice" — Firestore lo construye solo, sin tocar código.

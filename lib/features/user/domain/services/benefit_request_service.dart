@@ -96,4 +96,19 @@ class BenefitRequestService {
   Future<void> rejectBenefitRequest(String requestId, String adminNotes) async {
     return _datasource.rejectBenefitRequest(requestId, adminNotes);
   }
+
+  /// Renueva una solicitud existente devolviéndola a pending.
+  Future<void> renewBenefitRequest(String requestId) async {
+    return _datasource.renewBenefitRequest(requestId);
+  }
+
+  /// Cancela una solicitud sin perder el historial.
+  Future<void> cancelBenefitRequest(String requestId) async {
+    return _datasource.cancelBenefitRequest(requestId);
+  }
+
+  /// Genera un comprobante PDF real a partir del documento asociado.
+  Future<File> downloadBenefitCertificatePdf(BenefitRequest request) async {
+    return _storageService.generateBenefitPdf(request);
+  }
 }

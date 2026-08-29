@@ -5,6 +5,7 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
+import 'package:mi_ruta/features/user/presentation/pages/beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/movimientos_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/pago_qr_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recarga_saldo_page.dart';
@@ -78,7 +79,7 @@ class _WalletPageState extends State<WalletPage> {
   void _navigateToSolicitudBeneficio() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const SolicitudBeneficioPage()),
+      MaterialPageRoute(builder: (_) => const BeneficiosPage()),
     );
   }
 
@@ -216,8 +217,8 @@ class _WalletPageState extends State<WalletPage> {
           final wallet = state is WalletLoaded
               ? state.wallet
               : state is TransactionHistoryLoaded
-                  ? state.wallet
-                  : null;
+              ? state.wallet
+              : null;
 
           if (wallet == null) {
             return const Center(child: Text('No hay datos de billetera'));

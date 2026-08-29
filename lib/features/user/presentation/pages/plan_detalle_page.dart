@@ -31,6 +31,7 @@ class PlanDetallePage extends StatefulWidget {
 class _PlanDetallePageState extends State<PlanDetallePage> {
   int _currentLeg = 0;
   bool _isLoading = false;
+  bool _isCancelling = false;
   final List<bool> _completedLegs = [];
 
   // Real polyline points per leg loaded from GTFS (null = not loaded yet)
@@ -262,7 +263,12 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       }
     }
 
-    await getIt<PlannedTripService>().markCompleted(userId, widget.trip.id);
+    // Same as cancellation: a trip reached via "Elegir" (never "Guardar"d)
+    // has no Firestore doc yet — save first so markCompleted has one to
+    // update instead of throwing NOT_FOUND.
+    final plannedTripService = getIt<PlannedTripService>();
+    await plannedTripService.save(widget.trip);
+    await plannedTripService.markCompleted(userId, widget.trip.id);
 
     if (mounted) {
       showDialog(
@@ -283,6 +289,61 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
             ),
           ],
         ),
+      );
+    }
+  }
+
+  Future<void> _cancelTrip() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancelar viaje'),
+        content: const Text(
+          '¿Estás seguro que deseas cancelar este viaje? '
+          'Pasará a tu historial de viajes cancelados.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Volver'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
+            child: const Text(
+              'Sí, cancelar',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isCancelling = true);
+    try {
+      final service = getIt<PlannedTripService>();
+      // Trips reached via "Elegir" (without "Guardar" first) were never
+      // persisted, so there's no Firestore doc yet to mark cancelled.
+      // Saving first (idempotent — a no-op overwrite for already-saved
+      // trips) guarantees the doc exists before we update it.
+      await service.save(widget.trip);
+      await service.cancel(widget.userId, widget.trip.id);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Viaje cancelado'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isCancelling = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo cancelar el viaje: $e')),
       );
     }
   }
@@ -357,6 +418,20 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
           'Detalle del plan',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Cancelar viaje',
+            icon: _isCancelling
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.red),
+                  )
+                : const Icon(Icons.close, color: Colors.red),
+            onPressed: _isCancelling ? null : _cancelTrip,
+          ),
+        ],
       ),
       body: Column(
         children: [

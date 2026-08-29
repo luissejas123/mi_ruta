@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:printing/printing.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
@@ -10,6 +11,7 @@ import 'package:mi_ruta/features/routes/domain/services/planned_trip_service.dar
 import 'package:mi_ruta/features/routes/presentation/bloc/trip_planner_bloc.dart';
 import 'package:mi_ruta/features/routes/presentation/bloc/trip_planner_event.dart';
 import 'package:mi_ruta/features/routes/presentation/bloc/trip_planner_state.dart';
+import 'package:mi_ruta/features/user/domain/services/cancelled_trips_pdf_service.dart';
 import 'package:mi_ruta/features/user/presentation/pages/map_location_picker_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/map_search_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/plan_detalle_page.dart';
@@ -48,10 +50,13 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this);
+    _tabs = TabController(length: 3, vsync: this);
     _tabs.addListener(() {
+      if (_tabs.indexIsChanging) return;
       if (_tabs.index == 1) {
         context.read<TripPlannerBloc>().add(LoadMyPlans(_userId));
+      } else if (_tabs.index == 2) {
+        context.read<TripPlannerBloc>().add(LoadCancelledTrips(_userId));
       }
     });
   }
@@ -208,6 +213,7 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
           tabs: const [
             Tab(text: 'Buscar ruta'),
             Tab(text: 'Mis planes'),
+            Tab(text: 'Cancelados'),
           ],
         ),
       ),
@@ -224,6 +230,7 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
             userId: _userId,
           ),
           _MyPlansTab(userId: _userId),
+          _CancelledTripsTab(userId: _userId),
         ],
       ),
     );
@@ -839,6 +846,209 @@ class _SavedPlanCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cancelled trips tab (RQ-33) — history + PDF export
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CancelledTripsTab extends StatefulWidget {
+  final String userId;
+  const _CancelledTripsTab({required this.userId});
+
+  @override
+  State<_CancelledTripsTab> createState() => _CancelledTripsTabState();
+}
+
+class _CancelledTripsTabState extends State<_CancelledTripsTab> {
+  bool _isExporting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    context.read<TripPlannerBloc>().add(LoadCancelledTrips(widget.userId));
+  }
+
+  Future<void> _exportPdf(List<PlannedTrip> trips) async {
+    setState(() => _isExporting = true);
+    try {
+      final bytes = await getIt<CancelledTripsPdfService>().build(trips);
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: 'historial_viajes_cancelados.pdf',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo generar el PDF: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return BlocBuilder<TripPlannerBloc, TripPlannerState>(
+      buildWhen: (prev, curr) =>
+          curr is CancelledTripsLoaded ||
+          curr is TripPlannerLoading ||
+          curr is TripPlannerError,
+      builder: (context, state) {
+        if (state is TripPlannerLoading) {
+          return const Center(
+              child: CircularProgressIndicator(color: Color(0xFFFFC12F)));
+        }
+        if (state is TripPlannerError) {
+          return Center(child: Text(state.message));
+        }
+        final List<PlannedTrip> trips =
+            state is CancelledTripsLoaded ? state.trips : const [];
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed:
+                      (trips.isEmpty || _isExporting) ? null : () => _exportPdf(trips),
+                  icon: _isExporting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.black),
+                        )
+                      : const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                  label: Text(
+                    _isExporting ? 'Generando PDF...' : 'Exportar a PDF',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFC12F),
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: trips.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.cancel_outlined,
+                              size: 56,
+                              color:
+                                  colorScheme.onSurface.withValues(alpha: 0.3)),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Aún no tienes viajes cancelados.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color:
+                                  colorScheme.onSurface.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      itemCount: trips.length,
+                      separatorBuilder: (_, i) => const SizedBox(height: 12),
+                      itemBuilder: (context, i) =>
+                          _CancelledTripCard(trip: trips[i]),
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _CancelledTripCard extends StatelessWidget {
+  final PlannedTrip trip;
+  const _CancelledTripCard({required this.trip});
+
+  String _formatDate(DateTime d) {
+    const months = [
+      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+    ];
+    return '${d.day} ${months[d.month - 1]}. ${d.year} · '
+        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.cancel_outlined,
+                color: Colors.red, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  trip.routesSummary.isEmpty ? 'Viaje cancelado' : trip.routesSummary,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${trip.originName} → ${trip.destinationName}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Cancelado el ${_formatDate(trip.cancelledAt ?? trip.createdAt)}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.red,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

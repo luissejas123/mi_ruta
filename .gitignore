@@ -7,6 +7,10 @@
 .buildlog/
 .history
 
+# Archivos de configuración con secretos (NO subir a GitHub)
+.env
+android/local.properties
+
 
 
 # Flutter repo-specific
@@ -201,3 +205,6 @@ local_override.properties
 # Node modules (for web development)
 node_modules/
 npm-debug.log
+
+# Claude Code MCP configuration (local dev tool, not part of project)
+.mcp.json

@@ -24,11 +24,17 @@ class SwitchTile extends StatelessWidget {
       ),
       child: ListTile(
         leading: Icon(icon, color: Colors.black),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
         trailing: Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: Colors.black,
+          activeThumbColor: Colors.black,
           activeTrackColor: Colors.white60,
         ),
       ),

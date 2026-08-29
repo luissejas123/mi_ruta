@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class LogoutButton extends StatelessWidget {
-  const LogoutButton({super.key});
+  final VoidCallback? onPressed;
+
+  const LogoutButton({super.key, this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -11,7 +13,7 @@ class LogoutButton extends StatelessWidget {
         width: double.infinity,
         height: 55,
         child: ElevatedButton(
-          onPressed: () {},
+          onPressed: onPressed,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFFFC107),
             foregroundColor: Colors.black,

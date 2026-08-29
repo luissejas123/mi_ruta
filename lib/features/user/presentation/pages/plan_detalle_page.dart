@@ -263,7 +263,12 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       }
     }
 
-    await getIt<PlannedTripService>().markCompleted(userId, widget.trip.id);
+    // Same as cancellation: a trip reached via "Elegir" (never "Guardar"d)
+    // has no Firestore doc yet — save first so markCompleted has one to
+    // update instead of throwing NOT_FOUND.
+    final plannedTripService = getIt<PlannedTripService>();
+    await plannedTripService.save(widget.trip);
+    await plannedTripService.markCompleted(userId, widget.trip.id);
 
     if (mounted) {
       showDialog(
@@ -295,7 +300,7 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
         title: const Text('Cancelar viaje'),
         content: const Text(
           '¿Estás seguro que deseas cancelar este viaje? '
-          'Se eliminará de tus viajes programados.',
+          'Pasará a tu historial de viajes cancelados.',
         ),
         actions: [
           TextButton(
@@ -319,7 +324,13 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
 
     setState(() => _isCancelling = true);
     try {
-      await getIt<PlannedTripService>().delete(widget.userId, widget.trip.id);
+      final service = getIt<PlannedTripService>();
+      // Trips reached via "Elegir" (without "Guardar" first) were never
+      // persisted, so there's no Firestore doc yet to mark cancelled.
+      // Saving first (idempotent — a no-op overwrite for already-saved
+      // trips) guarantees the doc exists before we update it.
+      await service.save(widget.trip);
+      await service.cancel(widget.userId, widget.trip.id);
       if (!mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(

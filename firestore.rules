@@ -51,7 +51,7 @@ service cloud.firestore {
     function touchesPrivilegedField() {
       return affected().hasAny([
         'role', 'roles', 'userType', 'is_super_admin', 'admin_permissions',
-        'tickeador_info', 'qa_access'
+        'tickeador_info', 'qa_access', 'assigned_route_ref'
       ]);
     }
 
@@ -132,8 +132,21 @@ service cloud.firestore {
     match /recharges/{docId}       { allow read, write: if isSignedIn(); }
     match /benefit_requests/{docId}{ allow read, write: if isSignedIn(); }
     match /trips/{docId}           { allow read, write: if isSignedIn(); }
-    match /trip_history/{docId}    { allow read, write: if isSignedIn(); }
-    match /planned_trips/{docId}   { allow read, write: if isSignedIn(); }
+
+    // trip_history y planned_trips son subcolecciones reales
+    // (trip_history/{uid}/trips/{tripId}, ver TripHistoryDatasource/
+    // PlannedTripDatasource) — un match plano de un solo nivel NO cubre la
+    // subcolección `trips` anidada; sin el match anidado, Firestore deniega
+    // por defecto y se rompe Planificar Viaje / Historial de viajes.
+    match /trip_history/{uid} {
+      allow read, write: if isSignedIn();
+      match /trips/{tripId} { allow read, write: if isSignedIn(); }
+    }
+    match /planned_trips/{uid} {
+      allow read, write: if isSignedIn();
+      match /trips/{tripId} { allow read, write: if isSignedIn(); }
+    }
+
     match /vehicles/{docId}        { allow read, write: if isSignedIn(); }
     match /station_logs/{docId}    { allow read, write: if isSignedIn(); }
     match /ratings/{docId}         { allow read, write: if isSignedIn(); }

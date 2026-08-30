@@ -210,6 +210,14 @@ void setupDependencies() {
     UpdateUserRoleUseCase(getIt<AdminRepository>()),
   );
 
+  getIt.registerSingleton<RevokeUserRoleUseCase>(
+    RevokeUserRoleUseCase(getIt<AdminRepository>()),
+  );
+
+  getIt.registerSingleton<ResetToPlainUserUseCase>(
+    ResetToPlainUserUseCase(getIt<AdminRepository>()),
+  );
+
   getIt.registerSingleton<UpdateAdminPermissionsUseCase>(
     UpdateAdminPermissionsUseCase(getIt<AdminRepository>()),
   );
@@ -234,6 +242,8 @@ void setupDependencies() {
       getUserByIdUseCase: getIt<GetAdminUserByIdUseCase>(),
       updatePermissionsUseCase: getIt<UpdateAdminPermissionsUseCase>(),
       createAdminAccountUseCase: getIt<CreateAdminAccountUseCase>(),
+      revokeUserRoleUseCase: getIt<RevokeUserRoleUseCase>(),
+      resetToPlainUserUseCase: getIt<ResetToPlainUserUseCase>(),
     ),
   );
 

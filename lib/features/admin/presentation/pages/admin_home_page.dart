@@ -9,10 +9,11 @@ import 'package:mi_ruta/features/admin/presentation/pages/admin_privileges_page.
 import 'package:mi_ruta/features/admin/presentation/pages/admin_route_management_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/user_management_page.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/widgets/change_password_dialog.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart';
+import 'package:mi_ruta/features/user/presentation/pages/perfil_page.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' show confirmLogout;
 
 class AdminHomePage extends StatelessWidget {
   const AdminHomePage({super.key});
@@ -29,14 +30,20 @@ class AdminHomePage extends StatelessWidget {
         final user = authState.user;
 
         return Scaffold(
+          // Sin `leading` forzado: esta es la pantalla raíz del admin
+          // (home_router la usa directo tras login), así que no hay nada
+          // que retroceder — Flutter no muestra flecha si no hay nada que
+          // popear, igual que el resto de las pantallas raíz de la app.
           appBar: AppBar(
-            leading: IconButton(
-              tooltip: 'Volver',
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
             title: const Text('Perfil Administrativo'),
             centerTitle: true,
+            actions: [
+              IconButton(
+                tooltip: 'Cerrar sesión',
+                icon: const Icon(Icons.logout),
+                onPressed: () => confirmLogout(context),
+              ),
+            ],
           ),
           body: SafeArea(
             child: SingleChildScrollView(
@@ -189,9 +196,46 @@ class AdminHomePage extends StatelessWidget {
               ),
             ),
           ),
-          bottomNavigationBar: LogoutButton(
-            onPressed: () =>
-                context.read<AuthBloc>().add(const LogoutEvent()),
+          // Sin Billetera (el admin no tiene): tabs 0/2/3 en vez de las 4.
+          // "Rutas" (índice 2) no es la del pasajero — es Gestión de rutas,
+          // permiso-gateada — por eso no se delega a `navigateBottomNav`.
+          bottomNavigationBar: CustomBottomNav(
+            currentIndex: 0,
+            tabs: const [0, 2, 3],
+            onTap: (index) {
+              switch (index) {
+                case 0:
+                  break; // ya estamos en Inicio
+                case 2:
+                  if (!user.canManageRoutes) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No tienes permiso para gestionar rutas'),
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BlocProvider.value(
+                        value: getIt<RouteManagementBloc>(),
+                        child: const AdminRouteManagementPage(),
+                      ),
+                    ),
+                  );
+                  break;
+                case 3:
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          PerfilPage(homeBuilder: (_) => const AdminHomePage()),
+                    ),
+                  );
+                  break;
+              }
+            },
           ),
         );
       },

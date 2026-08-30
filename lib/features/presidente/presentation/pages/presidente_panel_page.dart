@@ -9,9 +9,11 @@ import 'package:mi_ruta/features/presidente/presentation/bloc/presidente_panel_s
 import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_approval_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
+import 'package:mi_ruta/features/presidente/presentation/pages/asignar_ruta_chofer_page.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/asignar_tickeador_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' show confirmLogout;
 
 const _amarillo = Color(0xFFFFC12F);
 
@@ -45,7 +47,14 @@ class _PresidentePanelView extends StatelessWidget {
           'Panel de dirigencia',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
-        actions: const [SwitchProfileButton()],
+        actions: [
+          const SwitchProfileButton(),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Cerrar sesión',
+            onPressed: () => confirmLogout(context),
+          ),
+        ],
       ),
       body: BlocBuilder<PresidentePanelBloc, PresidentePanelState>(
         builder: (context, state) {
@@ -71,10 +80,6 @@ class _PresidentePanelView extends StatelessWidget {
                   const SizedBox(height: 12),
                   _StatsGrid(state: state),
                   const SizedBox(height: 24),
-                  const Text('Control de rutas en vivo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  const SizedBox(height: 12),
-                  _RouteControlSection(state: state),
-                  const SizedBox(height: 24),
                   const Text('Gestión de personal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 12),
                   _ActionTile(
@@ -90,6 +95,18 @@ class _PresidentePanelView extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   _ActionTile(
+                    icon: Icons.alt_route_outlined,
+                    title: 'Asignar ruta a chofer',
+                    subtitle: 'El chofer elige la unidad; acá se asigna la línea',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AsignarRutaChoferPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
                     icon: Icons.confirmation_num_outlined,
                     title: 'Asignar tickeador',
                     subtitle: 'Estación y líneas de operación',
@@ -100,6 +117,10 @@ class _PresidentePanelView extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 24),
+                  const Text('Control de rutas en vivo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 12),
+                  _RouteControlSection(state: state),
                 ],
               ),
             );
@@ -233,57 +254,116 @@ class _StatsGrid extends StatelessWidget {
   }
 }
 
-class _RouteControlSection extends StatelessWidget {
+class _RouteControlSection extends StatefulWidget {
   final PresidentePanelLoaded state;
 
   const _RouteControlSection({required this.state});
 
   @override
+  State<_RouteControlSection> createState() => _RouteControlSectionState();
+}
+
+class _RouteControlSectionState extends State<_RouteControlSection> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    if (state.activeRoutes.isEmpty) {
+    if (widget.state.activeRoutes.isEmpty) {
       return Text(
         'No hay rutas activas registradas.',
         style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withValues(alpha: 0.6)),
       );
     }
-    final byLine = state.activeVehiclesByLine;
+    final byLine = widget.state.activeVehiclesByLine;
+    final query = _query.trim().toLowerCase();
+    final routes = query.isEmpty
+        ? widget.state.activeRoutes
+        : widget.state.activeRoutes
+            .where((r) =>
+                r.name.toLowerCase().contains(query) ||
+                r.ref.toLowerCase().contains(query))
+            .toList();
+
     return Column(
-      children: state.activeRoutes.map((route) {
-        final count = byLine[route.ref] ?? 0;
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _searchCtrl,
+          onChanged: (v) => setState(() => _query = v),
+          decoration: InputDecoration(
+            hintText: 'Buscar por línea o nombre de ruta',
+            prefixIcon: const Icon(Icons.search, size: 20),
+            isDense: true,
+            filled: true,
+            fillColor: colorScheme.surfaceContainerHighest,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: count > 0 ? Colors.green : Colors.grey,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '${route.name} · Línea ${route.ref}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Text(
-                '$count unidad${count == 1 ? '' : 'es'} en ruta',
-                style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6)),
-              ),
-            ],
+        ),
+        const SizedBox(height: 10),
+        if (routes.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'Ninguna ruta activa coincide con "$_query".',
+              style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withValues(alpha: 0.6)),
+            ),
+          )
+        else
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: routes.length,
+              separatorBuilder: (context, i) => const SizedBox(height: 10),
+              itemBuilder: (context, i) {
+                final route = routes[i];
+                final count = byLine[route.ref] ?? 0;
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: count > 0 ? Colors.green : Colors.grey,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '${route.name} · Línea ${route.ref}',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        '$count unidad${count == 1 ? '' : 'es'} en ruta',
+                        style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
-        );
-      }).toList(),
+      ],
     );
   }
 }

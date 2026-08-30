@@ -43,12 +43,23 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
     return s is AuthLoaded ? s.user.uid : '';
   }
 
+  /// El chofer no ve viajes/recargas/regalos del pasajero: sus
+  /// notificaciones son alertas operativas de la vía (mantenimiento,
+  /// bloqueos, avisos de parada) — un feed plano, sin el selector de
+  /// categorías ni sus preferencias.
+  bool get _isDriver {
+    final s = context.read<AuthBloc>().state;
+    return s is AuthLoaded && s.user.role == 'driver';
+  }
+
   void _markAllRead() {
     context.read<NotificationBloc>().add(MarkAllNotificationsRead(_userId));
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isDriver) return _buildDriverView(context);
+
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
@@ -144,8 +155,48 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
               }
               return const SizedBox.shrink();
             },
-          );          
+          );
         }
+      ),
+    );
+  }
+
+  Widget _buildDriverView(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text(
+          'Alertas operativas',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _markAllRead,
+            child: const Text(
+              'Marcar leídas',
+              style: TextStyle(color: Color(0xFFFFC12F), fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+      body: BlocBuilder<NotificationBloc, NotificationState>(
+        builder: (context, state) {
+          if (state is NotificationLoading) {
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFFFFC12F)),
+            );
+          }
+          if (state is NotificationError) {
+            return Center(child: Text(state.message));
+          }
+          if (state is NotificationLoaded) {
+            final operational = state.all
+                .where((n) => n.type == NotificationType.operational)
+                .toList();
+            return _NotificationList(items: operational, userId: _userId);
+          }
+          return const SizedBox.shrink();
+        },
       ),
     );
   }

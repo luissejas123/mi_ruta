@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
 import 'package:mi_ruta/features/presidente/presentation/pages/presidente_panel_page.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
-import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/driver/domain/entities/driver_trip_entity.dart';
 import 'package:mi_ruta/features/driver/domain/entities/vehicle_entity.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
@@ -19,10 +16,14 @@ import 'package:mi_ruta/features/driver/presentation/bloc/driver_service_bloc.da
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_service_event.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_service_state.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_approval_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_rutas_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_wallet_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/solicitud_chofer_page.dart';
+import 'package:mi_ruta/features/driver/presentation/widgets/charge_section.dart';
 import 'package:mi_ruta/features/driver/presentation/widgets/driver_service_map.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' show confirmLogout;
 import 'package:mi_ruta/features/driver/presentation/pages/driver_trip_history_page.dart';
 
 class DriverHomePage extends StatelessWidget {
@@ -62,34 +63,6 @@ class _DriverHomeView extends StatelessWidget {
   final String role;
 
   const _DriverHomeView({required this.fullName, required this.role});
-
-  void _cerrarSesion(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text('¿Estás seguro que deseas cerrar sesión?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              context.read<AuthBloc>().add(const LogoutEvent());
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const IniciarSesionPage()),
-                (route) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
-            child: const Text('Cerrar sesión', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -132,16 +105,16 @@ class _DriverHomeView extends StatelessWidget {
         appBar: AppBar(
           centerTitle: true,
           automaticallyImplyLeading: false,
-          title: const Text(
-            'Modo Chofer',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+          title: Text(
+            isSupervisor ? 'Panel del Dirigente' : 'Modo Chofer',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
           ),
           actions: [
             const SwitchProfileButton(),
             IconButton(
               icon: const Icon(Icons.logout),
               tooltip: 'Cerrar sesión',
-              onPressed: () => _cerrarSesion(context),
+              onPressed: () => confirmLogout(context),
             ),
           ],
         ),
@@ -162,16 +135,23 @@ class _DriverHomeView extends StatelessWidget {
                   color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
-              const SizedBox(height: 24),
-              const _VehicleServiceSection(),
+              // "Registrar unidad"/estado de servicio es exclusivo del perfil
+              // de chofer — el dirigente entra aquí solo para las tarjetas de
+              // supervisión de abajo, nunca para gestionar una unidad propia.
+              if (!isSupervisor) ...[
+                const SizedBox(height: 24),
+                const _VehicleServiceSection(),
+              ],
               if (isSupervisor) ...[
                 const SizedBox(height: 24),
                 _SupervisorSection(),
                 const SizedBox(height: 12),
                 _PresidentePanelSection(),
               ],
-              const SizedBox(height: 24),
-              _DriverOperationsSections(fullName: fullName),
+              if (!isSupervisor) ...[
+                const SizedBox(height: 24),
+                _DriverOperationsSections(fullName: fullName),
+              ],
             ],
           ),
         ),
@@ -181,6 +161,8 @@ class _DriverHomeView extends StatelessWidget {
             context,
             index,
             homeBuilder: (_) => DriverHomePage(roleOverride: role),
+            walletBuilder: (_) => DriverWalletPage(role: role),
+            routesBuilder: (_) => DriverRutasPage(role: role),
           ),
         ),
       ),
@@ -678,7 +660,11 @@ class _DriverOperationsSections extends StatelessWidget {
                     ),
             ),
             _VehicleInfoEditSection(vehicle: activeVehicle, isBusy: state.isBusy),
-            _ChargeSection(state: state),
+            _SectionCard(
+              title: 'Cobro de viaje',
+              icon: Icons.qr_code_2,
+              child: ChargeSection(state: state),
+            ),
             _NotifyStopSection(state: state),
             _PerformanceSection(state: state),
             _TripHistorySection(trips: state.trips),
@@ -823,107 +809,6 @@ class _EditField extends StatelessWidget {
         isDense: true,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
       ),
-    );
-  }
-}
-
-class _ChargeSection extends StatefulWidget {
-  final DriverOperationsLoaded state;
-
-  const _ChargeSection({required this.state});
-
-  @override
-  State<_ChargeSection> createState() => _ChargeSectionState();
-}
-
-class _ChargeSectionState extends State<_ChargeSection> {
-  final _amountCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _amountCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final state = widget.state;
-    return _SectionCard(
-      title: 'Cobro de viaje',
-      icon: Icons.qr_code_2,
-      child: state.activeChargeQr != null
-          ? Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: QrImageView(data: state.activeChargeQr!, size: 200),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Monto: Bs. ${state.activeChargeAmount?.toStringAsFixed(2)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'El pasajero escanea este código para pagar.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    onPressed: () =>
-                        context.read<DriverOperationsBloc>().add(const ClearTripCharge()),
-                    child: const Text('Cerrar cobro'),
-                  ),
-                ),
-              ],
-            )
-          : Column(
-              children: [
-                TextField(
-                  controller: _amountCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    labelText: 'Monto (Bs.)',
-                    isDense: true,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: state.isBusy
-                        ? null
-                        : () {
-                            final amount = double.tryParse(_amountCtrl.text.trim());
-                            if (amount == null || amount <= 0) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Ingresa un monto válido.')),
-                              );
-                              return;
-                            }
-                            context
-                                .read<DriverOperationsBloc>()
-                                .add(GenerateTripCharge(amount));
-                          },
-                    icon: const Icon(Icons.qr_code, color: Colors.black),
-                    label: const Text(
-                      'Generar código de cobro',
-                      style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: DriverHomePage._amarillo,
-                    ),
-                  ),
-                ),
-              ],
-            ),
     );
   }
 }

@@ -97,10 +97,28 @@ class TickeadorDatasource {
           .map((doc) => StationLogEntity.fromJson(doc.data()))
           .toList();
     } catch (e) {
-      throw Exception(
-        'Error obteniendo actividad reciente. '
-        'Si el error es por índice compuesto, créalo en Firestore. $e',
-      );
+      // Antes esta excepción llegaba cruda a la UI (pantalla roja) cada vez
+      // que faltaba el índice compuesto de station_logs. Mismo fallback que
+      // ya existe para 'transactions' en wallet_datasource.dart: sin el
+      // índice, se pide sin ordenar y se ordena en memoria.
+      if (e.toString().contains('failed-precondition') ||
+          e.toString().contains('index')) {
+        try {
+          final snapshot = await _firestore
+              .collection('station_logs')
+              .where('tickeador_id', isEqualTo: tickeadorId)
+              .limit(limit * 2)
+              .get();
+          final logs = snapshot.docs
+              .map((doc) => StationLogEntity.fromJson(doc.data()))
+              .toList()
+            ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return logs.take(limit).toList();
+        } catch (e2) {
+          throw Exception('Error obteniendo actividad reciente: $e2');
+        }
+      }
+      throw Exception('Error obteniendo actividad reciente: $e');
     }
   }
 }

@@ -12,6 +12,16 @@ class UserManagementDatasource {
   UserManagementDatasource({required FirebaseFirestore firestore})
       : _firestore = firestore;
 
+  /// Asigna una ruta/línea (por `ref`) al PERFIL del chofer — no a la unidad.
+  /// El chofer elige qué vehículo usar por su cuenta; DriverService.
+  /// getAssignedRoute() prioriza este campo sobre vehicles.line_number.
+  Future<void> assignRouteToDriver(String uid, String routeRef) async {
+    await _firestore.collection('users').doc(uid).set({
+      'assigned_route_ref': routeRef,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, SetOptions(merge: true));
+  }
+
   Future<List<UserModel>> getUsers({String? userTypeFilter}) async {
     final snap = await _firestore.collection('users').get();
     final users = snap.docs.map((d) => UserModel.fromJson(d.data())).toList();

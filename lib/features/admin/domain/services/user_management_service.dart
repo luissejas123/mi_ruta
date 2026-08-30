@@ -13,6 +13,10 @@ class UserManagementService {
   Future<List<UserEntity>> getUsers({String? userTypeFilter}) =>
       _datasource.getUsers(userTypeFilter: userTypeFilter);
 
+  /// Asigna una ruta al perfil del chofer (RQ4-PRE), no a la unidad.
+  Future<void> assignRouteToDriver(String uid, String routeRef) =>
+      _datasource.assignRouteToDriver(uid, routeRef);
+
   Future<void> setUserActive(String uid, bool isActive) =>
       _datasource.setUserActiveState(uid, isActive);
 

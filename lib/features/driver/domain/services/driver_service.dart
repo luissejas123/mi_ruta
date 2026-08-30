@@ -135,11 +135,19 @@ class DriverService {
     );
   }
 
-  /// Ruta/línea asignada a la unidad del chofer (RQ-63), resuelta contra
-  /// el catálogo real de rutas GTFS-sincronizado.
-  Future<RouteEntity?> getAssignedRoute(VehicleEntity vehicle) {
-    if (vehicle.lineNumber.isEmpty) return Future.value(null);
-    return _routeService.getRouteByRef(vehicle.lineNumber);
+  /// Ruta/línea asignada al chofer (RQ-63), resuelta contra el catálogo real
+  /// de rutas GTFS-sincronizado.
+  ///
+  /// Prioridad (RQ4-PRE: "el presidente asigna rutas al chofer, no a la
+  /// unidad — el chofer elige qué vehículo usar"):
+  /// 1. users/{uid}.assigned_route_ref, si el presidente ya asignó una.
+  /// 2. vehicles.line_number (comportamiento legado), para no romper choferes
+  ///    que ya tenían su línea puesta en la unidad antes de esta corrección.
+  Future<RouteEntity?> getAssignedRoute(VehicleEntity vehicle) async {
+    final profileRef = await _datasource.getAssignedRouteRef(vehicle.ownerUid);
+    final ref = profileRef ?? vehicle.lineNumber;
+    if (ref.isEmpty) return null;
+    return _routeService.getRouteByRef(ref);
   }
 
   /// Genera un cobro de viaje (RQ-65): crea el `trips` pendiente y arma el

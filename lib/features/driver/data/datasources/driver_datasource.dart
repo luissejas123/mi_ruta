@@ -63,6 +63,14 @@ class DriverDatasource {
     );
   }
 
+  /// Ruta asignada al PERFIL del chofer (RQ4-PRE: el presidente asigna rutas
+  /// al chofer, no a la unidad). Vive en users/{uid}.assigned_route_ref.
+  Future<String?> getAssignedRouteRef(String uid) async {
+    final doc = await _firestore.collection('users').doc(uid).get();
+    final ref = doc.data()?['assigned_route_ref'] as String?;
+    return (ref != null && ref.isNotEmpty) ? ref : null;
+  }
+
   /// Unidad asignada a un chofer (owner_uid = uid del chofer).
   Future<VehicleEntity?> getVehicleForOwner(String ownerUid) async {
     final snap = await _firestore

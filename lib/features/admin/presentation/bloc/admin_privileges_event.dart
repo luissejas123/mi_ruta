@@ -20,6 +20,17 @@ class LoadAdminPermissionsEvent extends AdminPrivilegesEvent {
   List<Object?> get props => [uid];
 }
 
+/// Quita el rol 'admin' a una cuenta (la vuelve 'user' llano, salvo que
+/// tenga otro rol operativo — no debería, admin es mutuamente excluyente).
+class RevokeAdminRoleEvent extends AdminPrivilegesEvent {
+  final String uid;
+
+  const RevokeAdminRoleEvent(this.uid);
+
+  @override
+  List<Object?> get props => [uid];
+}
+
 class UpdateAdminPermissionsEvent extends AdminPrivilegesEvent {
   final String uid;
   final Map<String, bool> permissions;

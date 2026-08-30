@@ -1,7 +1,10 @@
 import 'dart:convert';
 
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+
+import 'package:mi_ruta/core/utils/distance_utils.dart';
 
 /// Base de datos SQLite local para rutas.
 /// Almacena metadatos + bbox + polylines para búsqueda offline instantánea.
@@ -146,6 +149,55 @@ class RouteLocalDatabase {
         lng - radiusDeg,
       ],
     );
+  }
+
+  /// Rutas cuya polilínea pasa dentro de [radiusMeters] del punto
+  /// [lat],[lng] — "qué trufis pasan cerca de mí". No usa `stops_meta`
+  /// (no hay paradas reales sembradas hoy, ver `countStops`): en su lugar
+  /// mide la intersección ruta↔radio contra las polylines GTFS ya
+  /// sincronizadas. Pre-filtra por bbox (barato, mismo patrón que
+  /// [getRoutesInBbox]) antes de decodificar polyline_json y medir la
+  /// distancia real segmento a segmento. Devuelve las filas de
+  /// `routes_meta` que califican, más una clave `distance_meters`,
+  /// ordenadas de más cerca a más lejos.
+  Future<List<Map<String, dynamic>>> getRoutesNearPoint(
+    double lat,
+    double lng, {
+    required double radiusMeters,
+  }) async {
+    final radiusDeg = radiusMeters / 111000;
+    final db = await _database;
+    final candidates = await db.query(
+      _tableRoutes,
+      where: 'polyline_json IS NOT NULL AND '
+          'lat_min <= ? AND lat_max >= ? AND lng_min <= ? AND lng_max >= ?',
+      whereArgs: [
+        lat + radiusDeg,
+        lat - radiusDeg,
+        lng + radiusDeg,
+        lng - radiusDeg,
+      ],
+    );
+
+    final origin = LatLng(lat, lng);
+    final results = <Map<String, dynamic>>[];
+    for (final row in candidates) {
+      final polylineJson = row['polyline_json'] as String?;
+      if (polylineJson == null) continue;
+      final points = (jsonDecode(polylineJson) as List)
+          .map((p) => LatLng(
+                (p['lat'] as num).toDouble(),
+                (p['lng'] as num).toDouble(),
+              ))
+          .toList();
+      final distance = DistanceUtils.distanceToPolylineMeters(origin, points);
+      if (distance <= radiusMeters) {
+        results.add({...row, 'distance_meters': distance});
+      }
+    }
+    results.sort((a, b) =>
+        (a['distance_meters'] as double).compareTo(b['distance_meters'] as double));
+    return results;
   }
 
   /// Guarda la polyline de una ruta en caché para uso offline.

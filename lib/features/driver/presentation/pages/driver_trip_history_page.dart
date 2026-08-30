@@ -16,7 +16,7 @@ class DriverTripHistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => DriverTripHistoryBloc(driverService: context.read())..add(LoadTripHistory(driverId)),
+      create: (context) => DriverTripHistoryBloc(driverService: getIt())..add(LoadTripHistory(driverId)),
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Historial de Viajes'),

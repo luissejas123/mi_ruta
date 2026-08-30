@@ -9,17 +9,42 @@ class AdminPrivilegesBloc
   final GetAdminUserByIdUseCase getUserByIdUseCase;
   final UpdateAdminPermissionsUseCase updatePermissionsUseCase;
   final CreateAdminAccountUseCase createAdminAccountUseCase;
+  final RevokeUserRoleUseCase revokeUserRoleUseCase;
+  final ResetToPlainUserUseCase resetToPlainUserUseCase;
 
   AdminPrivilegesBloc({
     required this.getUsersUseCase,
     required this.getUserByIdUseCase,
     required this.updatePermissionsUseCase,
     required this.createAdminAccountUseCase,
+    required this.revokeUserRoleUseCase,
+    required this.resetToPlainUserUseCase,
   }) : super(const AdminPrivilegesInitial()) {
     on<LoadAdminsEvent>(_onLoadAdmins);
     on<LoadAdminPermissionsEvent>(_onLoadAdminPermissions);
     on<UpdateAdminPermissionsEvent>(_onUpdatePermissions);
     on<CreateAdminAccountEvent>(_onCreateAdminAccount);
+    on<RevokeAdminRoleEvent>(_onRevokeAdmin);
+  }
+
+  Future<void> _onRevokeAdmin(
+    RevokeAdminRoleEvent event,
+    Emitter<AdminPrivilegesState> emit,
+  ) async {
+    emit(const AdminPrivilegesLoading());
+    // Reseteo incondicional a {user}, no un revokeUserRole(uid, 'admin')
+    // puntual: si la cuenta llegó a tener una combinación inválida (ej.
+    // admin + presidente a la vez, escrita a mano desde la consola de
+    // Firebase — algo que la app nunca otorga por sí sola), quitar solo
+    // 'admin' dejaría 'presidente' colgado. Esto garantiza "vuelve a ser
+    // usuario" sin importar el estado previo.
+    final result = await resetToPlainUserUseCase.call(uid: event.uid);
+    result.fold(
+      (failure) => emit(AdminPrivilegesError(failure.message)),
+      (_) => emit(const AdminPrivilegesSuccess(
+        'Privilegios de administrador retirados. La cuenta vuelve a ser usuario.',
+      )),
+    );
   }
 
   Future<void> _onLoadAdmins(

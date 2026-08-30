@@ -5,9 +5,12 @@ import 'package:mi_ruta/features/admin/presentation/bloc/route_management_bloc.d
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_event.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_state.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_route_form_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
+import 'package:mi_ruta/features/user/presentation/pages/perfil_page.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
 class AdminRouteManagementPage extends StatefulWidget {
   const AdminRouteManagementPage({super.key});
@@ -204,18 +207,25 @@ class _AdminRouteManagementPageState extends State<AdminRouteManagementPage> {
                             final route = visible[index];
                             return _RouteTile(
                               route: route,
-                              onTap: () {
-                                Navigator.push(
+                              onTap: () async {
+                                final bloc = context.read<RouteManagementBloc>();
+                                await Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => BlocProvider.value(
-                                      value: context.read<RouteManagementBloc>(),
+                                      value: bloc,
                                       child: AdminRouteFormPage(
                                         route: route,
                                       ),
                                     ),
                                   ),
                                 );
+                                // RouteManagementBloc es singleton compartido con
+                                // AdminRouteFormPage: si se vuelve sin guardar,
+                                // el estado no cambia solo, pero si se sale en
+                                // medio de un guardado el builder puede quedar
+                                // esperando AdminRoutesLoaded para siempre.
+                                bloc.add(const LoadAdminRoutesEvent());
                               },
                             );
                           },
@@ -235,16 +245,43 @@ class _AdminRouteManagementPageState extends State<AdminRouteManagementPage> {
           'Nueva ruta',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        onPressed: () {
-          Navigator.push(
+        onPressed: () async {
+          final bloc = context.read<RouteManagementBloc>();
+          await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => BlocProvider.value(
-                value: context.read<RouteManagementBloc>(),
+                value: bloc,
                 child: const AdminRouteFormPage(),
               ),
             ),
           );
+          bloc.add(const LoadAdminRoutesEvent());
+        },
+      ),
+      // Antes esta pantalla no tenía barra propia: al llegar desde el tab
+      // "Rutas" del admin, la navegación entera desaparecía hasta volver
+      // atrás — el bug reportado. Misma barra que AdminHomePage.
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: 2,
+        tabs: const [0, 2, 3],
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              Navigator.of(context).pop();
+              break;
+            case 2:
+              break; // ya estamos en Rutas
+            case 3:
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      PerfilPage(homeBuilder: (_) => const AdminHomePage()),
+                ),
+              );
+              break;
+          }
         },
       ),
     );

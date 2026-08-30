@@ -26,7 +26,9 @@ class PresidentePanelBloc extends Bloc<PresidentePanelEvent, PresidentePanelStat
   ) async {
     emit(const PresidentePanelLoading());
     try {
-      final routes = await _routeService.getAllActiveRoutes();
+      // Ligero (routes_bbox): la sección "Control de rutas en vivo" solo
+      // necesita name/ref, no el polyline completo de cada ruta.
+      final routes = await _routeService.getAllActiveRoutesLight();
       final activeVehicles = await _adminService.getActiveVehicles();
       final allVehicles = await _adminService.getAllVehicles();
       final allUsers = await _adminService.getUsers();

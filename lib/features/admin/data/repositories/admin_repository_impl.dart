@@ -43,6 +43,29 @@ class AdminRepositoryImpl implements AdminRepository {
   }
 
   @override
+  Future<Either<Failure, void>> revokeUserRole(
+    String uid,
+    String role,
+  ) async {
+    try {
+      await remoteDataSource.revokeUserRole(uid, role);
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> resetToPlainUser(String uid) async {
+    try {
+      await remoteDataSource.resetToPlainUser(uid);
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> updateAdminPermissions(
     String uid,
     Map<String, bool> permissions,

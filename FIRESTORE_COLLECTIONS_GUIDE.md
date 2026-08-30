@@ -87,6 +87,7 @@ Estos tres campos empezaron a escribirse con la jerarquía Administrador → Pre
 | `role` | `string` | igual que `roles`, se recalcula en la misma escritura | Cuál de los `roles` de la cuenta es el "activo" por defecto (pantalla de inicio tras login). Se mantiene por compatibilidad con lectores que aún no leen `roles` |
 | `driver_request` | `map` | El dueño solo puede crear `status: 'pending'`; `admin`/`presidente` escriben `approved`/`rejected` | Solicitud de un pasajero para ser chofer. **El `role`/`roles` no cambia al solicitar** — solo al aprobar, si no el ruteo por rol lo mandaría a la pantalla de chofer antes de tiempo |
 | `tickeador_info` | `map` | `admin`/`presidente` | Estación y líneas asignadas al tickeador. Lo consume `TickeadorEntity.fromJson` |
+| `assigned_route_ref` | `string` | `presidente`/`admin` | Ruta (`ref`) asignada al **perfil** del chofer, no a la unidad — el chofer elige qué vehículo usar. `DriverService.getAssignedRoute()` prioriza este campo sobre `vehicles.line_number` (que se mantiene como fallback legado). Escrito por `UserManagementDatasource.assignRouteToDriver` |
 
 ```json
 {

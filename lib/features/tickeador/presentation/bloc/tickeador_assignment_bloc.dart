@@ -110,7 +110,8 @@ class TickeadorAssignmentBloc
     try {
       final users = await _userService.getUsers();
       // Las líneas salen de las rutas GTFS sembradas, no de una lista fija.
-      final routes = await _routeService.getAllActiveRoutes();
+      // Ligero: solo se usa route.ref para armar la lista de líneas.
+      final routes = await _routeService.getAllActiveRoutesLight();
       final lines = routes
           .map((r) => r.ref)
           .where((ref) => ref.isNotEmpty)

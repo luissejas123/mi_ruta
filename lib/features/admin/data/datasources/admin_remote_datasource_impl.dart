@@ -58,6 +58,49 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
     }, SetOptions(merge: true));
   }
 
+  /// Quita [role] de la cuenta (revocar admin/presidente, ej. "volver a
+  /// usuario"). Simétrico a [updateUserRole]. Si al quitarlo no queda ningún
+  /// rol operativo, la cuenta cae de vuelta a un 'user' llano — nunca se
+  /// escribe un array de roles vacío.
+  @override
+  Future<void> revokeUserRole(String uid, String role) async {
+    final ref = _firestore.collection('users').doc(uid);
+    final snap = await ref.get();
+    final data = snap.data() ?? {};
+    final currentRoles = _rolesOf(data);
+
+    final newRoles = currentRoles.where((r) => r != role).toSet();
+    if (newRoles.isEmpty) newRoles.add(RoleHierarchy.user);
+
+    if (!RoleHierarchy.isValidRoleSet(newRoles)) {
+      throw Exception(
+        'No se puede quitar "$role": la combinación resultante '
+        '(${newRoles.join(", ")}) no es válida.',
+      );
+    }
+
+    await ref.set({
+      'roles': newRoles.toList(),
+      'role': RoleHierarchy.primaryRole(newRoles),
+    }, SetOptions(merge: true));
+  }
+
+  /// Resetea la cuenta a un 'user' llano sin importar qué tenga hoy en
+  /// `roles` — a diferencia de [revokeUserRole] (que quita un rol puntual),
+  /// esto no depende de que la combinación actual sea válida. Pensado para
+  /// "Quitar privilegios de administrador": si la cuenta llegó a tener una
+  /// combinación inválida (ej. admin + presidente a la vez, escrita a mano
+  /// desde la consola de Firebase, algo que la app nunca permite otorgar),
+  /// revokeUserRole(uid, 'admin') dejaría 'presidente' colgado. Esto no.
+  @override
+  Future<void> resetToPlainUser(String uid) async {
+    final ref = _firestore.collection('users').doc(uid);
+    await ref.set({
+      'roles': [RoleHierarchy.user],
+      'role': RoleHierarchy.user,
+    }, SetOptions(merge: true));
+  }
+
   /// Roles actuales de un doc de `users`, con fallback al esquema legado
   /// (un solo `role`/`userType`) para cuentas creadas antes de `roles`.
   Set<String> _rolesOf(Map<String, dynamic> data) {

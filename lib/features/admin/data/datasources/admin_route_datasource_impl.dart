@@ -21,7 +21,10 @@ class AdminRouteDataSourceImpl implements AdminRouteDataSource {
 
   @override
   Future<List<RouteEntity>> getRoutes() async {
-    return await _routeDatasource.getAllRoutes();
+    // Ligero (routes_bbox, sin polyline): la lista solo muestra nombre/ref/
+    // color. Cargar el polyline completo de ~280 rutas acá era lo que
+    // crasheaba "Gestión de rutas" (OOM en dispositivo real).
+    return await _routeDatasource.getAllRoutesLight();
   }
 
   @override
@@ -103,9 +106,12 @@ class AdminRouteDataSourceImpl implements AdminRouteDataSource {
           }
         }
 
-        await _routeDatasource.createRoute(
+        // upsert por ref+direction_id (no .add()): antes, presionar "Cargar
+        // rutas desde GTFS" dos veces duplicaba las ~280 rutas cada vez.
+        await _routeDatasource.upsertRouteByRef(
           name: routeData['name'] as String? ?? 'Ruta sin nombre',
           ref: routeData['ref'] as String? ?? '',
+          directionId: routeData['direction_id'] as String?,
           color: routeData['color'] as String?,
           polyline: polyline,
           description: 'Cargada desde GTFS',

@@ -16,8 +16,12 @@ class BusStopService {
     double lat,
     double lng, {
     int maxResults = 30,
+    double radiusMeters = 500,
   }) async {
-    final rows = await _localDb.getStopsNearPoint(lat, lng);
+    // ~111km por grado de latitud en Cochabamba; suficiente para un radio
+    // configurable de UI (hasta 500m) sin necesitar Haversine acá.
+    final radiusDeg = radiusMeters / 111000;
+    final rows = await _localDb.getStopsNearPoint(lat, lng, radiusDeg: radiusDeg);
     final origin = LatLng(lat, lng);
 
     final stops = rows.map(_rowToEntity).toList();

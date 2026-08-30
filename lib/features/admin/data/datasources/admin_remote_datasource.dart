@@ -7,6 +7,19 @@ abstract class AdminRemoteDataSource {
 
   Future<void> updateUserRole(String uid, String role);
 
+  /// Quita [role] de la cuenta (ej: revocar admin y volverla 'user' llano),
+  /// simétrico a [updateUserRole]. Nunca deja la cuenta sin ningún rol —
+  /// si queda vacía, cae de vuelta a 'user'.
+  Future<void> revokeUserRole(String uid, String role);
+
+  /// Resetea la cuenta a un 'user' llano sin importar qué roles tenga hoy
+  /// (a diferencia de [revokeUserRole], que quita un rol puntual y solo
+  /// funciona si la combinación resultante ya es válida). Pensado para
+  /// "Quitar privilegios de administrador": protege contra estados
+  /// inválidos escritos a mano en Firestore (ej. admin + presidente a la
+  /// vez, algo que la app nunca otorga por sí sola).
+  Future<void> resetToPlainUser(String uid);
+
   Future<void> updateAdminPermissions(
     String uid,
     Map<String, bool> permissions,

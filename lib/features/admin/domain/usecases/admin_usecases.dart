@@ -36,6 +36,29 @@ class UpdateUserRoleUseCase {
   }
 }
 
+class RevokeUserRoleUseCase {
+  final AdminRepository repository;
+
+  RevokeUserRoleUseCase(this.repository);
+
+  Future<Either<Failure, void>> call({
+    required String uid,
+    required String role,
+  }) async {
+    return await repository.revokeUserRole(uid, role);
+  }
+}
+
+class ResetToPlainUserUseCase {
+  final AdminRepository repository;
+
+  ResetToPlainUserUseCase(this.repository);
+
+  Future<Either<Failure, void>> call({required String uid}) async {
+    return await repository.resetToPlainUser(uid);
+  }
+}
+
 class UpdateAdminPermissionsUseCase {
   final AdminRepository repository;
 

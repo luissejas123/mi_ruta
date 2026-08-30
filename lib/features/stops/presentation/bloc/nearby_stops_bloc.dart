@@ -18,7 +18,11 @@ class NearbyStopsBloc extends Bloc<NearbyStopsEvent, NearbyStopsState> {
   ) async {
     emit(NearbyStopsLoading());
     try {
-      final stops = await _service.getNearbyStops(event.lat, event.lng);
+      final stops = await _service.getNearbyStops(
+        event.lat,
+        event.lng,
+        radiusMeters: event.radiusMeters,
+      );
       emit(NearbyStopsLoaded(stops, event.lat, event.lng));
     } catch (e) {
       emit(NearbyStopsError('Error al cargar paradas: $e'));

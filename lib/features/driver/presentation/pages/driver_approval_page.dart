@@ -25,8 +25,32 @@ class DriverApprovalPage extends StatelessWidget {
   }
 }
 
-class _DriverApprovalView extends StatelessWidget {
+class _DriverApprovalView extends StatefulWidget {
   const _DriverApprovalView();
+
+  @override
+  State<_DriverApprovalView> createState() => _DriverApprovalViewState();
+}
+
+class _DriverApprovalViewState extends State<_DriverApprovalView> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// Nombre o correo — igual que UserManagementPage. UserEntity no tiene
+  /// DNI/governmentId, así que la búsqueda por DNI queda pendiente hasta
+  /// que ese campo se agregue a esta entidad (ver observación en Excel).
+  bool _matches(UserEntity user) {
+    if (_query.isEmpty) return true;
+    final q = _query.toLowerCase();
+    return user.fullName.toLowerCase().contains(q) ||
+        user.email.toLowerCase().contains(q);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,34 +75,64 @@ class _DriverApprovalView extends StatelessWidget {
           }
           if (state is DriverApprovalLoaded) {
             if (state.isEmpty) return const _EmptyState();
-            return ListView(
-              padding: const EdgeInsets.all(16),
+            final pending = state.pendingRequests.where(_matches).toList();
+            final drivers = state.approvedDrivers.where(_matches).toList();
+            return Column(
               children: [
-                if (state.pendingRequests.isNotEmpty) ...[
-                  _SectionTitle(
-                    'Solicitudes pendientes (${state.pendingRequests.length})',
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar por nombre o correo...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _query = '');
+                              },
+                            ),
+                    ),
+                    onChanged: (value) => setState(() => _query = value),
                   ),
-                  const SizedBox(height: 10),
-                  for (final user in state.pendingRequests) ...[
-                    _PendingRequestTile(
-                      user: user,
-                      isUpdating: state.updatingUid == user.uid,
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  const SizedBox(height: 12),
-                ],
-                if (state.approvedDrivers.isNotEmpty) ...[
-                  _SectionTitle('Choferes (${state.approvedDrivers.length})'),
-                  const SizedBox(height: 10),
-                  for (final driver in state.approvedDrivers) ...[
-                    _DriverTile(
-                      driver: driver,
-                      isUpdating: state.updatingUid == driver.uid,
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                ],
+                ),
+                Expanded(
+                  child: pending.isEmpty && drivers.isEmpty
+                      ? const _EmptyState()
+                      : ListView(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          children: [
+                            if (pending.isNotEmpty) ...[
+                              _SectionTitle(
+                                'Solicitudes pendientes (${pending.length})',
+                              ),
+                              const SizedBox(height: 10),
+                              for (final user in pending) ...[
+                                _PendingRequestTile(
+                                  user: user,
+                                  isUpdating: state.updatingUid == user.uid,
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                              const SizedBox(height: 12),
+                            ],
+                            if (drivers.isNotEmpty) ...[
+                              _SectionTitle('Choferes (${drivers.length})'),
+                              const SizedBox(height: 10),
+                              for (final driver in drivers) ...[
+                                _DriverTile(
+                                  driver: driver,
+                                  isUpdating: state.updatingUid == driver.uid,
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                            ],
+                          ],
+                        ),
+                ),
               ],
             );
           }

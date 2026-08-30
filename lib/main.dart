@@ -216,6 +216,12 @@ class MyApp extends StatelessWidget {
         BlocProvider<ConnectivityCubit>(
           create: (context) => ConnectivityCubit(),
         ),
+        // Sin este provider, NotificacionesPage/PreferenciasNotificacionPage
+        // reventaban con "Could not find the correct Provider<...>": no
+        // estaba registrado en ningún lado (ni DI, ni BlocProvider local).
+        BlocProvider<NotificationPreferencesCubit>(
+          create: (context) => NotificationPreferencesCubit(),
+        ),
         BlocProvider<AuthBloc>(
           create: (context) =>
               getIt<AuthBloc>()..add(const GetCurrentUserEvent()),

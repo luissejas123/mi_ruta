@@ -34,6 +34,17 @@ class RouteService {
     return _datasource.getAllRoutes();
   }
 
+  /// Versión ligera de [getAllRoutes] (sin polyline/stops, lee `routes_bbox`).
+  /// Usar en cualquier lista que solo muestre nombre/ref.
+  Future<List<RouteEntity>> getAllRoutesLight() {
+    return _datasource.getAllRoutesLight();
+  }
+
+  /// Versión ligera de [getAllActiveRoutes] (sin polyline/stops).
+  Future<List<RouteEntity>> getAllActiveRoutesLight() {
+    return _datasource.getAllActiveRoutesLight();
+  }
+
   /// Obtiene una ruta por ID
   Future<RouteEntity?> getRouteById(String routeId) {
     return _datasource.getRouteById(routeId);

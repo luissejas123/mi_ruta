@@ -55,6 +55,97 @@ class RouteDatasource {
     }
   }
 
+  /// Versión ligera de getAllRoutes()/getAllActiveRoutes(): lee `routes_bbox`
+  /// (solo metadatos: name/ref/color/bbox/active, SIN polyline ni stops) en
+  /// vez de `routes` completo. Usar en cualquier pantalla que solo necesite
+  /// listar nombre/ref (ej. gestión de rutas, panel de presidente, asignación
+  /// de tickeador) — cargar el polyline completo de ~280 rutas solo para
+  /// mostrar texto es lo que causaba el crash de "Gestión de rutas" (OOM).
+  Future<List<RouteEntity>> getAllRoutesLight() async {
+    try {
+      final snapshot = await _firestore.collection('routes_bbox').get();
+      final routes = snapshot.docs.map(_mapBboxToRouteEntity).toList();
+      routes.sort((a, b) => a.name.compareTo(b.name));
+      return routes;
+    } catch (e) {
+      throw Exception('Error al obtener rutas (ligero): $e');
+    }
+  }
+
+  /// Igual que [getAllRoutesLight] pero solo rutas activas.
+  Future<List<RouteEntity>> getAllActiveRoutesLight() async {
+    try {
+      final snapshot = await _firestore
+          .collection('routes_bbox')
+          .where('active', isEqualTo: true)
+          .get();
+      final routes = snapshot.docs.map(_mapBboxToRouteEntity).toList();
+      routes.sort((a, b) => a.name.compareTo(b.name));
+      return routes;
+    } catch (e) {
+      throw Exception('Error al obtener rutas activas (ligero): $e');
+    }
+  }
+
+  RouteEntity _mapBboxToRouteEntity(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return RouteEntity(
+      id: doc.id,
+      name: data['name'] ?? '',
+      ref: data['ref'] ?? '',
+      color: data['color'],
+      active: data['active'] ?? true,
+      directionId: data['direction_id'] as String?,
+      latMin: (data['lat_min'] as num?)?.toDouble(),
+      latMax: (data['lat_max'] as num?)?.toDouble(),
+      lngMin: (data['lng_min'] as num?)?.toDouble(),
+      lngMax: (data['lng_max'] as num?)?.toDouble(),
+    );
+  }
+
+  /// Crea la ruta si no existe una con el mismo `ref` (+ `direction_id`
+  /// cuando se da), o la actualiza si ya existe. A diferencia de
+  /// [createRoute] (siempre `.add()`), esto es idempotente — pensado para
+  /// "Cargar rutas desde GTFS", que antes duplicaba las ~280 rutas completas
+  /// cada vez que se presionaba el botón.
+  Future<void> upsertRouteByRef({
+    required String name,
+    required String ref,
+    String? directionId,
+    String? color,
+    List<Map<String, double>>? stops,
+    List<Map<String, double>>? polyline,
+    String? description,
+  }) async {
+    Query<Map<String, dynamic>> query =
+        _firestore.collection('routes').where('ref', isEqualTo: ref);
+    if (directionId != null) {
+      query = query.where('direction_id', isEqualTo: directionId);
+    }
+    final existing = await query.limit(1).get();
+
+    final data = {
+      'name': name,
+      'ref': ref,
+      'direction_id': directionId,
+      'color': color,
+      'stops': stops ?? [],
+      'polyline': polyline ?? [],
+      'description': description,
+      'active': true,
+      'updated_at': FieldValue.serverTimestamp(),
+    };
+
+    if (existing.docs.isNotEmpty) {
+      await existing.docs.first.reference.set(data, SetOptions(merge: true));
+    } else {
+      await _firestore.collection('routes').add({
+        ...data,
+        'created_at': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
   /// Obtiene rutas activas para migración (en lotes para evitar OOM)
   /// Carga datos de FIRESTORE en LOTES de 20 rutas a la vez
   Future<List<RouteEntity>> getAllActiveRoutesForMigration() async {

@@ -1,14 +1,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/role_switcher_page.dart';
 import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/widgets/change_password_dialog.dart';
-import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_bloc.dart';
@@ -23,18 +22,22 @@ import 'package:mi_ruta/features/user/presentation/pages/historial_beneficios_pa
 import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/historial_ingresos_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_assigned_routes_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/gestionar_unidades_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/solicitud_chofer_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/tickeador_operations_history_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/notificaciones_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/planificar_viaje_page.dart';
-import 'package:mi_ruta/features/stops/presentation/pages/paradas_cercanas_page.dart';
+import 'package:mi_ruta/features/stops/presentation/pages/paradas_cercanas_page.dart' show ParadasCercanasPage;
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' show confirmLogout;
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/legal_bottom_sheet.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_trip_history_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/acerca_de_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_page.dart';
 
 class PerfilPage extends StatefulWidget {
   /// A qué pantalla vuelve la pestaña "Inicio" del pie de navegación.
@@ -58,6 +61,13 @@ class _PerfilPageState extends State<PerfilPage> {
     return authState is AuthLoaded && authState.user.roles.contains('admin');
   }
 
+  /// La sección "SUPERVISIÓN" (reportes operativos) es exclusiva de
+  /// presidente — antes se mostraba a cualquier cuenta logueada.
+  bool get _isPresidente {
+    final authState = context.read<AuthBloc>().state;
+    return authState is AuthLoaded && authState.user.roles.contains('presidente');
+  }
+
   /// "Cambiar de perfil" solo tiene sentido si la cuenta tiene más de un rol
   /// real (todas tienen 'user' como base). No confundir con
   /// [SwitchProfileButton], que es el acceso de prueba QA/superadmin a los 5
@@ -72,10 +82,15 @@ class _PerfilPageState extends State<PerfilPage> {
   bool _isPassenger(String userType) =>
       userType == 'user' || userType == 'passenger';
 
+  PackageInfo? _packageInfo;
+
   @override
   void initState() {
     super.initState();
     _loadUser();
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) setState(() => _packageInfo = info);
+    });
   }
 
   void _loadUser() {
@@ -115,44 +130,6 @@ class _PerfilPageState extends State<PerfilPage> {
         ),
       ),
     ).then((_) => _loadUser());
-  }
-
-  void _cerrarSesion() {    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text(
-          '¿Estás seguro que deseas cerrar sesión?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-
-              context.read<AuthBloc>().add(
-                const LogoutEvent(),
-              );
-
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const IniciarSesionPage()),
-                (route) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-            ),
-            child: const Text(
-              'Cerrar sesión',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildMenuItem({
@@ -382,7 +359,7 @@ class _PerfilPageState extends State<PerfilPage> {
                       }
                     },
                   ),
-                if (user.userType == 'driver')
+                if (user.userType == 'driver') ...[
                   _buildMenuItem(
                     icon: Icons.alt_route_outlined,
                     title: 'Ruta asignada',
@@ -394,6 +371,18 @@ class _PerfilPageState extends State<PerfilPage> {
                       ),
                     ),
                   ),
+                  _buildMenuItem(
+                    icon: Icons.directions_bus_outlined,
+                    title: 'Gestionar Unidades',
+                    subtitle: 'Editar tu unidad y su estado de servicio',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const GestionarUnidadesPage(),
+                      ),
+                    ),
+                  ),
+                ],
                 if (user.userType == 'tickeador')
                   _buildMenuItem(
                     icon: Icons.history,
@@ -417,17 +406,20 @@ class _PerfilPageState extends State<PerfilPage> {
                     ),
                   ),
                 ),
-                _buildMenuItem(
-                  icon: Icons.map_outlined,
-                  title: 'Planificar viaje',
-                  subtitle: 'Combina líneas para llegar a tu destino',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const PlanificarViajePage(),
+                // No aplica al chofer: no planifica un viaje propio, opera
+                // la ruta que le asignaron (ver "Gestionar Unidades" arriba).
+                if (user.userType != 'driver')
+                  _buildMenuItem(
+                    icon: Icons.map_outlined,
+                    title: 'Planificar viaje',
+                    subtitle: 'Combina líneas para llegar a tu destino',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PlanificarViajePage(),
+                      ),
                     ),
                   ),
-                ),
                 _buildMenuItem(
                   icon: Icons.pin_drop_outlined,
                   title: 'Paradas cercanas',
@@ -435,7 +427,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const PlanificarViajePage(),
+                      builder: (_) => const ParadasCercanasPage(),
                     ),
                   ),
                 ),
@@ -523,25 +515,39 @@ class _PerfilPageState extends State<PerfilPage> {
                     );
                   },
                 ),
-                _buildMenuItem(
-                  icon: Icons.star_outline,
-                  title: 'Acceder a beneficios',
-                  subtitle: 'Estudiante, Universitario, Adulto mayor',
-                  onTap: () => navigateBottomNav(context, 1),
-                ),
-
-                _buildSectionTitle('SUPERVISIÓN'),
-                _buildMenuItem(
-                  icon: Icons.assessment_outlined,
-                  title: 'Reportes operativos',
-                  subtitle: 'Estado y desempeño de choferes',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ReportesOperativosPage(),
+                // "Acceder a beneficios" (estudiante/universitario/adulto
+                // mayor) es un trámite exclusivo del pasajero — un chofer,
+                // tickeador, presidente o admin no aplica a ese descuento.
+                if (_isPassenger(user.userType))
+                  _buildMenuItem(
+                    icon: Icons.star_outline,
+                    title: 'Acceder a beneficios',
+                    subtitle: 'Estudiante, Universitario, Adulto mayor',
+                    // Antes abría la Billetera (había que tocar "Acceder a
+                    // beneficios" otra vez ahí); ahora va directo al
+                    // formulario de solicitud.
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SolicitudBeneficioPage(),
+                      ),
                     ),
                   ),
-                ),
+
+                if (_isPresidente) ...[
+                  _buildSectionTitle('SUPERVISIÓN'),
+                  _buildMenuItem(
+                    icon: Icons.assessment_outlined,
+                    title: 'Reportes operativos',
+                    subtitle: 'Estado y desempeño de choferes',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ReportesOperativosPage(),
+                      ),
+                    ),
+                  ),
+                ],
 
                 // ── Apariencia ──
                 _buildSectionTitle('APARIENCIA'),
@@ -567,8 +573,13 @@ class _PerfilPageState extends State<PerfilPage> {
                   _buildMenuItem(
                     icon: Icons.info_outline,
                     title: 'Acerca de MiRuta',
-                    subtitle: 'Versión 1.0.0',
-                    onTap: () {},
+                    subtitle: _packageInfo == null
+                        ? 'Versión…'
+                        : 'Versión ${_packageInfo!.version}',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AcercaDePage()),
+                    ),
                   ),
 
                   // ==================================================
@@ -582,7 +593,7 @@ class _PerfilPageState extends State<PerfilPage> {
                     title: 'Cerrar sesión',
                     iconColor: Colors.red.shade400,
                     titleColor: Colors.red.shade400,
-                    onTap: _cerrarSesion,
+                    onTap: () => confirmLogout(context),
                   ),
 
                   const SizedBox(height: 24),

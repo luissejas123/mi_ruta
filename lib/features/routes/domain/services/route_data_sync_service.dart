@@ -116,6 +116,28 @@ class RouteDataSyncService {
     return routes;
   }
 
+  /// Rutas cuya polilínea pasa dentro de [radiusMeters] del punto dado —
+  /// "qué trufis pasan cerca de mí". No hay paradas GTFS sembradas hoy (ver
+  /// `stops_meta`/`countStops`), así que en vez de buscar paradas puntuales
+  /// se mide la intersección ruta↔radio contra las polylines ya
+  /// sincronizadas. A diferencia de [getRoutesNearPoint] (solo bbox), mide
+  /// la distancia real segmento a segmento. Devuelve pares (ruta, distancia
+  /// en metros) ordenados de más cerca a más lejos.
+  Future<List<(RouteEntity, double)>> getRoutesWithinRadius({
+    required double latitude,
+    required double longitude,
+    required double radiusMeters,
+  }) async {
+    final rows = await _localDb.getRoutesNearPoint(
+      latitude,
+      longitude,
+      radiusMeters: radiusMeters,
+    );
+    return rows
+        .map((row) => (_rowToEntity(row), row['distance_meters'] as double))
+        .toList();
+  }
+
   // ──────────────────────────────────────────────────────────────────────
   // Seed inicial desde GTFS
   // ──────────────────────────────────────────────────────────────────────

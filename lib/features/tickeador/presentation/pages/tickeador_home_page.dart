@@ -4,9 +4,7 @@ import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
-import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/tickeador/domain/entities/station_log_entity.dart';
 import 'package:mi_ruta/features/tickeador/domain/entities/vehicle_entity.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_bloc.dart';
@@ -15,6 +13,7 @@ import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_state.dar
 import 'package:mi_ruta/features/user/presentation/pages/qr_scanner_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' show confirmLogout;
 
 /// Pantalla principal del Modo Tickeador (RQ-78).
 ///
@@ -73,41 +72,6 @@ class _TickeadorHomePageState extends State<TickeadorHomePage> {
       _tickeadorBloc.add(CargarTickeadorEvent(uid: _uid!));
       _tickeadorBloc.add(CargarActividadEvent(tickeadorId: _uid!));
     }
-  }
-
-  void _cerrarSesion() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text('¿Estás seguro que deseas cerrar sesión?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              context.read<AuthBloc>().add(const LogoutEvent());
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (_) => const IniciarSesionPage(),
-                ),
-                (route) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-            ),
-            child: const Text(
-              'Cerrar sesión',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   void _buscarVehiculo() {
@@ -389,7 +353,7 @@ class _TickeadorHomePageState extends State<TickeadorHomePage> {
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Cerrar sesión',
-            onPressed: _cerrarSesion,
+            onPressed: () => confirmLogout(context),
           ),
         ],
       ),
@@ -680,8 +644,17 @@ class _TickeadorHomePageState extends State<TickeadorHomePage> {
       ),
       bottomNavigationBar: CustomBottomNav(
         currentIndex: 0, // Tickeador is the first tab (index 0)
+        // Sin Billetera ni Rutas (Figma "Modo Tickeador", node 3896-5285):
+        // el tickeador no tiene ninguna de las dos — antes el bottom nav
+        // compartido las mostraba igual y llevaban a las pantallas del
+        // pasajero por error.
+        tabs: const [0, 3],
         onTap: (index) {
-          navigateBottomNav(context, index);
+          navigateBottomNav(
+            context,
+            index,
+            homeBuilder: (_) => const TickeadorHomePage(),
+          );
         },
       ),
     );

@@ -47,6 +47,36 @@ class _AdminPermissionsEditPageState extends State<AdminPermissionsEditPage> {
     );
   }
 
+  Future<void> _confirmRevoke() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Quitar privilegios de administrador'),
+        content: Text(
+          '¿Seguro que quieres quitarle el rol de administrador a '
+          '"${widget.user.fullName}"? La cuenta vuelve a ser un usuario '
+          'normal — desde ahí se le puede asignar otro rol limpiamente.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              'Quitar privilegios',
+              style: TextStyle(color: Colors.red.shade700),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      context.read<AdminPrivilegesBloc>().add(RevokeAdminRoleEvent(widget.user.uid));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -224,6 +254,26 @@ class _AdminPermissionsEditPageState extends State<AdminPermissionsEditPage> {
                               fontSize: 16,
                             ),
                           ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.red.shade400),
+                      foregroundColor: Colors.red.shade700,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed:
+                        state is AdminPrivilegesLoading ? null : _confirmRevoke,
+                    child: const Text(
+                      'QUITAR PRIVILEGIOS DE ADMINISTRADOR',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
                   ),
                 ),
               ],

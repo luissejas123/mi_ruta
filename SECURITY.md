@@ -6,6 +6,7 @@ Estos archivos contienen información confidencial y **NUNCA** deben subirse a G
 
 ### ❌ Prohibido Commitear:
 - `.env` - Variables de entorno locales
+- `firebase_options.dart` - Config de Firebase generada por FlutterFire (ya citado por CLAUDE.md, faltaba aquí)
 - `google-services.json` - Configuración de Firebase (Android)
 - `GoogleService-Info.plist` - Configuración de Firebase (iOS)
 - `*.pem`, `*.key`, `*.p12` - Certificados y claves privadas
@@ -112,4 +113,4 @@ R: Resetéala desde la [Consola de Firebase](https://console.firebase.google.com
 
 ---
 
-**Última actualización:** 29 de abril de 2026
+**Última actualización:** 31 de agosto de 2026

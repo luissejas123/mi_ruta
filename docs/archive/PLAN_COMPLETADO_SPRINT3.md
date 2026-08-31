@@ -1,5 +1,9 @@
 # Plan de cierre — Sprint 3 (sesión del 28 ago, parte 2)
 
+> **Archivado el 2026-08-31.** Documento histórico — no es fuente vigente de ningún concepto (ver tabla concepto→fuente en `README.md`).
+>
+> **Corrección post-mortem (verificada por dos revisiones independientes, Soberbia e Ira, el 2026-08-31):** la sección "Ruta en vez de unidad" más abajo afirma que `DriverAssignedRoutesPage` "ya existía completa y funcional" al conectarla desde `perfil_page.dart`. **Eso era falso incluso en el momento de escribirlo.** Esa pantalla lee `driver_profile.assigned_route_id`, un campo que el flujo real de asignación del presidente (`asignar_ruta_chofer_page.dart` → `assigned_route_ref`) nunca escribe — la pantalla sale vacía para cualquier chofer real. Detalle completo en `docs/DEUDA_TECNICA.md`.
+
 **Fuentes:** verificación directa contra Figma (fileKey `VEgf3Hb8pe4CVkT07DG7Xi`, nodos Chofer `3238:7814/8018/8060`), `docs/COMPARACION_FIGMA_CODIGO_DOCS.md`, código real, y `flutter analyze` (0 errores tras los cambios de esta sesión).
 
 ---

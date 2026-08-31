@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mi_ruta/core/utils/firestore_date.dart';
 import 'package:mi_ruta/features/driver/domain/entities/driver_trip_entity.dart';
 import 'package:mi_ruta/features/driver/domain/entities/vehicle_entity.dart';
 
@@ -27,20 +28,9 @@ class DriverDatasource {
       status: d['status'] as String? ?? 'pending_review',
       legalDocumentation: legal.map((k, v) => MapEntry(k, v as String?)),
       isOnDuty: d['is_on_duty'] as bool? ?? false,
-      isOnDutyUpdatedAt: _parseUpdatedAt(d['is_on_duty_updated_at']),
-      updatedAt: _parseUpdatedAt(d['updated_at']) ?? DateTime.now(),
+      isOnDutyUpdatedAt: parseFirestoreDate(d['is_on_duty_updated_at']),
+      updatedAt: parseFirestoreDate(d['updated_at']) ?? DateTime.now(),
     );
-  }
-
-  /// Distintos escritores del proyecto guardaron fechas como Timestamp nativo
-  /// (`FieldValue.serverTimestamp()`) o como string ISO8601 según la ruta de
-  /// código; se toleran ambos formatos en vez de asumir uno solo, porque un
-  /// documento escrito por el otro camino rompía el cast rígido (`as
-  /// Timestamp?`) con "type 'String' is not a subtype of type 'Timestamp?'".
-  DateTime? _parseUpdatedAt(dynamic value) {
-    if (value is String) return DateTime.tryParse(value);
-    if (value is Timestamp) return value.toDate();
-    return null;
   }
 
   DriverTripEntity _tripFromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -56,10 +46,10 @@ class DriverDatasource {
       paymentStatus: d['payment_status'] as String? ?? 'pending',
       passengerId: d['passenger_id'] as String?,
       paymentAmount: (d['payment_amount'] as num?)?.toDouble(),
-      createdAt: _parseUpdatedAt(d['created_at']),
-      paidAt: _parseUpdatedAt(d['paid_at']),
+      createdAt: parseFirestoreDate(d['created_at']),
+      paidAt: parseFirestoreDate(d['paid_at']),
       verifiedBy: d['verified_by'] as String?,
-      verifiedAt: _parseUpdatedAt(d['verified_at']),
+      verifiedAt: parseFirestoreDate(d['verified_at']),
     );
   }
 

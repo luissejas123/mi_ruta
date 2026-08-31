@@ -104,9 +104,12 @@ lib/core/
   - Trip planning: `PlannedTripService` + `MultiRoutePlanner.planAsync()` search up to 3 bus legs plus explicit walking segments between origin/destination, scoring candidates by walk distance × penalty + transit distance, deduplicated by `ref|directionId` (not list index — `OsmRoute.id` is just an array position)
   - Entities: `RouteEntity`, `PlannedTrip`, `PlannedTripLeg` (`LegType.bus` / `LegType.walking`)
   - Presentation: `TripPlannerBloc` drives the "Planificar Viaje" flow
-- **driver/** — Placeholder only (`.gitkeep` files in domain/presentation), not implemented
+- **driver/** — Implemented: vehicle registration + documents (`SolicitudChoferPage`), approval queue (`DriverApprovalPage`), assigned routes, income, trip history, performance, tickeador operations. 12 presentation pages.
 - **payment/** — Structural stub; real payment/recharge logic lives in `user/domain/services/` (`TripPaymentService`, `RechargeService`)
-- **admin/** — Placeholder only, not implemented
+- **admin/** — Implemented: user management, route management, admin privileges, operational reports. 10 presentation pages.
+- **presidente/** — Panel de dirigencia (`PresidentePanelPage`): control de rutas/unidades en vivo, aprobar choferes, asignar tickeadores.
+- **tickeador/** — Modo tickeador (búsqueda de vehículo por placa, marcar salida/llegada, historial). Ver `docs/DEUDA_TECNICA.md` — hay una segunda implementación parcial dentro de `driver/` sin consolidar todavía.
+- **stops/** — Paradas cercanas (`NearbyRoutesBloc`).
 
 ## Setup
 

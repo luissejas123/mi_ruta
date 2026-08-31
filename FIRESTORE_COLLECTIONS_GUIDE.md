@@ -1,6 +1,6 @@
 # 📚 Firestore Collections Guide - Mi Ruta
 
-> Verificado directamente contra el proyecto Firebase (`mi-ruta-4004d`) el 2026-06-29 y contra el código en `lib/`. Las colecciones marcadas como **"sin referencias en código"** existen como datos semilla/demo pero ningún datasource las lee o escribe todavía — corresponden al módulo de conductores (`driver/`), que en `lib/features/driver/` es solo un placeholder (`.gitkeep`).
+> Verificado directamente contra el proyecto Firebase (`mi-ruta-4004d`) el 2026-06-29 y contra el código en `lib/`. Las colecciones marcadas como **"sin referencias en código"** existen como datos semilla/demo pero ningún datasource las lee o escribe todavía. `driver/` **no** es un placeholder — está implementado (ver `CLAUDE.md`); esta nota quedó de una versión anterior del proyecto y se corrigió el 2026-08-31 tras verificarse contra el código real (`station_logs` y `ratings` sí tienen lector/escritor; solo `claims` sigue sin referencias — ver `docs/DEUDA_TECNICA.md`).
 
 ## Estructura General
 
@@ -18,9 +18,9 @@
 | `config` | Documentos de configuración global de la app | clave fija (`qr_recarga`, `routes_meta`) | ✅ |
 | `trips` | Registro de viajes de conductor (ingresos, pasajeros) | `trip_id` | ✅ (leído por `TripPaymentService`) |
 | `vehicles` | Datos técnicos/documentación legal de vehículos | `vehicle_id` (placa) | ✅ (leído/escrito por `VehicleRemoteDataSourceImpl`, features `driver`/`admin`) |
-| `ratings` | Calificaciones de pasajero → conductor | `rating_id` | ⚠️ Sin referencias en código |
+| `ratings` | Calificaciones de pasajero → conductor | `rating_id` | ⚠️ Se lee (reporte admin), falta UI para escribir |
 | `claims` | Reclamos/denuncias | `claim_id` | ⚠️ Sin referencias en código |
-| `station_logs` | Registro de salidas/llegadas en terminal | `log_id` | ⚠️ Sin referencias en código |
+| `station_logs` | Registro de salidas/llegadas en terminal | `log_id` | ✅ (duplicado, ver `docs/DEUDA_TECNICA.md`) |
 
 **Nota:** `transport_lines` y la subcolección `schedules` que aparecían en versiones previas de este documento **no existen** en el proyecto Firebase real — se han eliminado de esta guía.
 
@@ -378,18 +378,18 @@ Leído/escrito por: `lib/features/driver/data/datasources/vehicle_remote_datasou
 
 ---
 
-## ⚠️ Colecciones sin referencias en código (datos demo del futuro módulo conductor)
+## ⚠️ Colecciones parcialmente conectadas (corregido 2026-08-31)
 
-Estas colecciones tienen datos en Firestore pero **ningún archivo en `lib/` las lee o escribe**. Documentadas aquí tal como existen hoy en la base, para cuando se implemente el módulo:
+Corrección: esta sección decía que ninguna de las tres tenía código — falso para dos de tres, verificado contra `lib/` (ver `docs/DEUDA_TECNICA.md` para el detalle de la verificación).
 
 ### ratings
-ID = `rating_id`. Campos: `trip_id`, `reviewer_uid`, `target_uid`, `stars` (1-5), `selected_tags` (array de strings predefinidos), `created_at`.
+ID = `rating_id`. Campos: `trip_id`, `reviewer_uid`, `target_uid`, `stars` (1-5), `selected_tags` (array de strings predefinidos), `created_at`. **Sí se lee** desde `lib/features/admin/data/datasources/operational_report_datasource.dart` (reporte operativo del admin). No hay UI todavía para *emitir* una calificación (escribir en la colección) — el hueco real es esa pantalla, no la colección.
 
 ### claims
-ID = `claim_id`. Campos: `reporter_id`, `target_id` (nullable), `line_id`, `claim_type` (`driver`/`user`/`service`), `title`, `description`, `status` (`open`/`resolved`), `created_at`, `resolved_at`, `resolved_by`.
+ID = `claim_id`. Campos: `reporter_id`, `target_id` (nullable), `line_id`, `claim_type` (`driver`/`user`/`service`), `title`, `description`, `status` (`open`/`resolved`), `created_at`, `resolved_at`, `resolved_by`. **Sigue sin ningún archivo en `lib/` que la lea o escriba** — esta es la única de las tres genuinamente huérfana hoy.
 
 ### station_logs
-ID = `log_id`. Campos: `tickeador_id`, `station_name`, `line_id`, `vehicle_plate`, `driver_id`, `passenger_count`, `max_capacity`, `log_type` (`departure`/`arrival`), `timestamp`, `time_since_last_departure`.
+ID = `log_id`. Campos: `tickeador_id`, `station_name`, `line_id`, `vehicle_plate`, `driver_id`, `passenger_count`, `max_capacity`, `log_type` (`departure`/`arrival`), `timestamp`, `time_since_last_departure`. **Sí se lee y escribe**, desde dos datasources distintos: `lib/features/tickeador/data/datasources/tickeador_datasource.dart` y `lib/features/driver/data/datasources/tickeador_operations_datasource.dart` — la duplicidad de Tickeador (ver `docs/DEUDA_TECNICA.md`) hace que dos implementaciones distintas escriban esta misma colección.
 
 ---
 
@@ -407,7 +407,7 @@ ID = `log_id`. Campos: `tickeador_id`, `station_name`, `line_id`, `vehicle_plate
 | Beneficio → Transacción | `transactions.benefit_request_id = benefit_requests.{id}` |
 | Ruta → BBox | `routes_bbox.ref = routes.ref` |
 
-**Relaciones del módulo conductor (sin código, solo datos demo):** `vehicles.owner_uid`, `trips.driver_uid`/`vehicle_id`, `ratings.target_uid`/`trip_id`, `claims.target_id`, `station_logs.driver_id`/`tickeador_id` — todas referencian `users.uid` o `trips.trip_id`, pero no hay datasources implementados todavía.
+**Relaciones del módulo conductor:** `vehicles.owner_uid`, `trips.driver_uid`/`vehicle_id`, `ratings.target_uid`/`trip_id`, `claims.target_id`, `station_logs.driver_id`/`tickeador_id` — todas referencian `users.uid` o `trips.trip_id`. `vehicles`, `trips` y `station_logs` ya tienen datasources reales; `ratings` solo lectura; `claims` sigue sin implementar.
 
 ---
 

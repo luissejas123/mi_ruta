@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mi_ruta/core/utils/firestore_date.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
 
 class RouteDatasource {
@@ -498,16 +499,6 @@ class RouteDatasource {
     }
   }
 
-  /// Tolera Timestamp nativo (`FieldValue.serverTimestamp()`) o string
-  /// ISO8601 — distintas rutas de escritura de este proyecto usaron cada
-  /// formato, y un cast rígido (`as Timestamp?`) rompía con "type 'String'
-  /// is not a subtype of type 'Timestamp?'" en el que escribió string.
-  DateTime? _parseDate(dynamic value) {
-    if (value is String) return DateTime.tryParse(value);
-    if (value is Timestamp) return value.toDate();
-    return null;
-  }
-
   RouteEntity _mapToRouteEntity(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
 
@@ -547,8 +538,8 @@ class RouteDatasource {
       stops: stops,
       polyline: polyline,
       description: data['description'],
-      createdAt: _parseDate(data['created_at']),
-      updatedAt: _parseDate(data['updated_at']),
+      createdAt: parseFirestoreDate(data['created_at']),
+      updatedAt: parseFirestoreDate(data['updated_at']),
       active: data['active'] ?? true,
       latMin: (data['lat_min'] as num?)?.toDouble(),
       latMax: (data['lat_max'] as num?)?.toDouble(),

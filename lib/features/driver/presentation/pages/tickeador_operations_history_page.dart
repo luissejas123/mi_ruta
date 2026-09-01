@@ -9,6 +9,13 @@ import 'package:mi_ruta/features/driver/presentation/bloc/tickeador_operations_b
 import 'package:mi_ruta/features/driver/presentation/bloc/tickeador_operations_event.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/tickeador_operations_state.dart';
 
+enum _HistoryFilter {
+  today,
+  yesterday,
+  week,
+  all,
+}
+
 class TickeadorOperationsHistoryPage extends StatelessWidget {
   const TickeadorOperationsHistoryPage({super.key});
 
@@ -26,16 +33,27 @@ class TickeadorOperationsHistoryPage extends StatelessWidget {
   }
 }
 
-class _TickeadorOperationsView extends StatelessWidget {
+class _TickeadorOperationsView extends StatefulWidget {
   const _TickeadorOperationsView();
+
+  @override
+  State<_TickeadorOperationsView> createState() => _TickeadorOperationsViewState();
+}
+
+class _TickeadorOperationsViewState extends State<_TickeadorOperationsView> {
+  _HistoryFilter _selectedFilter = _HistoryFilter.today;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF6F7F9),
       appBar: AppBar(
         centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
         title: const Text(
-          'Historial',
+          'Historial de operaciones',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
       ),
@@ -81,7 +99,11 @@ class _TickeadorOperationsView extends StatelessWidget {
           }
           if (state is TickeadorOperationsLoaded) {
             if (state.operations.isEmpty) return const _EmptyState();
-            return _OperationsList(operations: state.operations);
+            return _OperationsList(
+              operations: state.operations,
+              filter: _selectedFilter,
+              onFilterChanged: (value) => setState(() => _selectedFilter = value),
+            );
           }
           return const SizedBox.shrink();
         },
@@ -92,38 +114,210 @@ class _TickeadorOperationsView extends StatelessWidget {
 
 class _OperationsList extends StatelessWidget {
   final List<TickeadorOperation> operations;
+  final _HistoryFilter filter;
+  final ValueChanged<_HistoryFilter> onFilterChanged;
 
-  const _OperationsList({required this.operations});
+  const _OperationsList({
+    required this.operations,
+    required this.filter,
+    required this.onFilterChanged,
+  });
 
-  bool _isToday(DateTime date) {
+  List<TickeadorOperation> _filteredOperations() {
+    if (operations.isEmpty) return const [];
+
     final now = DateTime.now();
-    return date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
+    switch (filter) {
+      case _HistoryFilter.today:
+        return operations
+            .where((operation) => _isSameDay(operation.timestamp, now))
+            .toList();
+      case _HistoryFilter.yesterday:
+        final yesterday = now.subtract(const Duration(days: 1));
+        return operations
+            .where((operation) => _isSameDay(operation.timestamp, yesterday))
+            .toList();
+      case _HistoryFilter.week:
+        final weekAgo = now.subtract(const Duration(days: 7));
+        return operations
+            .where((operation) =>
+                !operation.timestamp.isBefore(weekAgo) &&
+                !operation.timestamp.isAfter(now))
+            .toList();
+      case _HistoryFilter.all:
+        return operations;
+    }
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  String _filterLabel(_HistoryFilter value) {
+    switch (value) {
+      case _HistoryFilter.today:
+        return 'Hoy';
+      case _HistoryFilter.yesterday:
+        return 'Ayer';
+      case _HistoryFilter.week:
+        return '7 días';
+      case _HistoryFilter.all:
+        return 'Todo';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final today = operations
-        .where((operation) => _isToday(operation.timestamp))
-        .toList();
-    final previous = operations
-        .where((operation) => !_isToday(operation.timestamp))
-        .toList();
+    final visible = _filteredOperations();
+    final grouped = <String, List<TickeadorOperation>>{};
+
+    for (final operation in visible) {
+      final key = _isSameDay(operation.timestamp, DateTime.now())
+          ? 'Hoy'
+          : _formatDayHeader(operation.timestamp);
+      grouped.putIfAbsent(key, () => []).add(operation);
+    }
+
+    final sortedGroups = grouped.entries.toList()
+      ..sort((a, b) => b.value.first.timestamp.compareTo(a.value.first.timestamp));
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
-        if (today.isNotEmpty) ...[
-          const _SectionTitle('REGISTROS DE HOY'),
-          ...today.map((operation) => _OperationCard(operation: operation)),
-        ],
-        if (previous.isNotEmpty) ...[
-          const SizedBox(height: 18),
-          const _SectionTitle('REGISTROS ANTERIORES'),
-          ...previous.map((operation) => _OperationCard(operation: operation)),
+        _HeaderCard(total: visible.length),
+        const SizedBox(height: 12),
+        _FilterRow(
+          selected: filter,
+          onChanged: onFilterChanged,
+          labels: _HistoryFilter.values
+              .map(_filterLabel)
+              .toList(),
+        ),
+        const SizedBox(height: 18),
+        if (visible.isEmpty)
+          const _EmptyState()
+        else ...[
+          for (final entry in sortedGroups)
+            ...[
+              const SizedBox(height: 8),
+              _SectionTitle(entry.key),
+              const SizedBox(height: 8),
+              ...entry.value.map((operation) => _OperationCard(operation: operation)),
+            ],
         ],
       ],
+    );
+  }
+
+  String _formatDayHeader(DateTime date) {
+    final local = date.toLocal();
+    final now = DateTime.now();
+    final yesterday = now.subtract(const Duration(days: 1));
+    if (_isSameDay(local, now)) return 'Hoy';
+    if (_isSameDay(local, yesterday)) return 'Ayer';
+    return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year}';
+  }
+}
+
+class _HeaderCard extends StatelessWidget {
+  final int total;
+
+  const _HeaderCard({required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFC12F).withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.history, color: Color(0xFFFFC12F)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Operaciones registradas',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$total en total',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterRow extends StatelessWidget {
+  final _HistoryFilter selected;
+  final ValueChanged<_HistoryFilter> onChanged;
+  final List<String> labels;
+
+  const _FilterRow({
+    required this.selected,
+    required this.onChanged,
+    required this.labels,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _HistoryFilter.values.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final value = _HistoryFilter.values[index];
+          final isSelected = value == selected;
+          return ChoiceChip(
+            label: Text(labels[index]),
+            selected: isSelected,
+            selectedColor: const Color(0xFFFFC12F),
+            backgroundColor: Colors.white,
+            labelStyle: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: isSelected ? Colors.black : Colors.black54,
+            ),
+            onSelected: (_) => onChanged(value),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -136,9 +330,9 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      padding: const EdgeInsets.only(left: 4, bottom: 6),
       child: Text(
-        title,
+        title.toUpperCase(),
         style: const TextStyle(
           color: Color(0xFFFFC12F),
           fontSize: 11,
@@ -165,62 +359,101 @@ class _OperationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = operation.isDeparture
-        ? const Color(0xFFFFC12F)
-        : Colors.green;
+    final isDeparture = operation.isDeparture;
+    final accent = isDeparture ? const Color(0xFFFFC12F) : Colors.green;
+    final surface = isDeparture
+        ? const Color(0xFFFFF4D9)
+        : const Color(0xFFEAF8EE);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFC12F),
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: Colors.black87, width: 0.8),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            operation.isDeparture ? Icons.login : Icons.flag_outlined,
-            color: Colors.black87,
-            size: 16,
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              isDeparture ? Icons.login : Icons.logout,
+              color: accent,
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        operation.stationName,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: accent,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        _typeLabel(),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
                 Text(
-                  '${_typeLabel()} - ${operation.stationName}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                  'Línea ${operation.lineId} · ${operation.vehiclePlate}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade700,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Línea ${operation.lineId}',
-                  style: TextStyle(
-                    color: Colors.black.withValues(alpha: 0.65),
-                    fontSize: 9,
-                  ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.access_time, size: 14, color: Colors.black54),
+                    const SizedBox(width: 4),
+                    Text(
+                      _time(operation.timestamp),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Text(
-            _time(operation.timestamp),
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Icon(Icons.circle, size: 5, color: accent),
         ],
       ),
     );
@@ -239,8 +472,8 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history, size: 64, color: color.withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
+            Icon(Icons.history, size: 64, color: color.withValues(alpha: 0.25)),
+            const SizedBox(height: 18),
             const Text(
               'Sin operaciones registradas',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

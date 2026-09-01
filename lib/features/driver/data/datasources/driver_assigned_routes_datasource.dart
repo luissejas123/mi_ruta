@@ -13,25 +13,44 @@ class DriverAssignedRoutesDatasource {
        _routeDatasource = routeDatasource;
 
   Future<List<RouteEntity>> getAssignedRoutes(String driverId) async {
-    if (driverId.isEmpty) return [];
+    final allRoutes = await _routeDatasource.getAllActiveRoutes();
+    if (allRoutes.isEmpty) return const [];
 
-    final userDocument = await _firestore
-        .collection('users')
-        .doc(driverId)
-        .get();
-    final userData = userDocument.data();
-    final driverProfile = userData?['driver_profile'];
-    if (driverProfile is! Map<String, dynamic>) return [];
+    final assignedIdOrRef = await _getAssignedRouteIdOrRef(driverId);
+    if (assignedIdOrRef == null || assignedIdOrRef.isEmpty) {
+      return allRoutes;
+    }
 
-    final assignedRouteId = driverProfile['assigned_route_id'] as String?;
-    if (assignedRouteId == null || assignedRouteId.isEmpty) return [];
+    final prioritized = [...allRoutes];
+    prioritized.sort((a, b) {
+      final aIsAssigned = a.id == assignedIdOrRef || a.ref == assignedIdOrRef;
+      final bIsAssigned = b.id == assignedIdOrRef || b.ref == assignedIdOrRef;
+      if (aIsAssigned && !bIsAssigned) return -1;
+      if (!aIsAssigned && bIsAssigned) return 1;
+      return 0;
+    });
+    return prioritized;
+  }
 
-    final routeById = await _routeDatasource.getRouteById(assignedRouteId);
-    if (routeById != null) return [routeById];
+  Future<RouteEntity?> getCurrentAssignedRoute(
+    String driverId, {
+    String? fallbackLineNumber,
+  }) async {
+    if (driverId.isEmpty) return null;
 
-    final routeReference = _routeReferenceFromAssignment(assignedRouteId);
-    final routeByRef = await _routeDatasource.getRouteByRef(routeReference);
-    return routeByRef == null ? [] : [routeByRef];
+    final assignedRefOrId = await _getAssignedRouteIdOrRef(driverId);
+    if (assignedRefOrId != null && assignedRefOrId.isNotEmpty) {
+      final routeById = await _routeDatasource.getRouteById(assignedRefOrId);
+      if (routeById != null) return routeById;
+      final routeByRef = await _routeDatasource.getRouteByRef(
+        _routeReferenceFromAssignment(assignedRefOrId),
+      );
+      if (routeByRef != null) return routeByRef;
+    }
+
+    final lineNumber = fallbackLineNumber ?? await _getDriverLineNumber(driverId);
+    if (lineNumber == null || lineNumber.isEmpty) return null;
+    return _routeDatasource.getRouteByRef(lineNumber);
   }
 
   Future<void> saveAssignedRoute({
@@ -41,6 +60,30 @@ class DriverAssignedRoutesDatasource {
     await _firestore.collection('users').doc(driverId).update({
       'driver_profile.assigned_route_id': routeId,
     });
+  }
+
+  Future<String?> _getAssignedRouteIdOrRef(String driverId) async {
+    final userDoc = await _firestore.collection('users').doc(driverId).get();
+    final userData = userDoc.data();
+    final driverProfile = userData?['driver_profile'];
+    if (driverProfile is! Map<String, dynamic>) return null;
+
+    final assignedRoute = driverProfile['assigned_route_id'];
+    if (assignedRoute is! String || assignedRoute.isEmpty) return null;
+    return assignedRoute;
+  }
+
+  Future<String?> _getDriverLineNumber(String driverId) async {
+    final vehicleSnapshot = await _firestore
+        .collection('vehicles')
+        .where('owner_uid', isEqualTo: driverId)
+        .limit(1)
+        .get();
+
+    if (vehicleSnapshot.docs.isEmpty) return null;
+    final data = vehicleSnapshot.docs.first.data();
+    final lineNumber = data['line_number'] as String?;
+    return lineNumber == null || lineNumber.isEmpty ? null : lineNumber;
   }
 
   String _routeReferenceFromAssignment(String assignment) {

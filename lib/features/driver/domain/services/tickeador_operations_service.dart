@@ -8,8 +8,22 @@ class TickeadorOperationsService {
     required TickeadorOperationsDatasource datasource,
   }) : _datasource = datasource;
 
-  Future<List<TickeadorOperation>> getOperations(String tickeadorId) =>
-      _datasource.getOperations(tickeadorId);
+  Future<List<TickeadorOperation>> getOperations(String tickeadorId) async {
+    final operations = await _datasource.getOperations(tickeadorId);
+    return sortChronologically(operations, newestFirst: true);
+  }
+
+  List<TickeadorOperation> sortChronologically(
+    List<TickeadorOperation> operations, {
+    bool newestFirst = true,
+  }) {
+    final copy = List<TickeadorOperation>.from(operations);
+    copy.sort((a, b) {
+      final comparison = a.timestamp.compareTo(b.timestamp);
+      return newestFirst ? -comparison : comparison;
+    });
+    return copy;
+  }
 
   Future<void> createOperation({
     required String tickeadorId,
@@ -27,7 +41,7 @@ class TickeadorOperationsService {
     logType: logType,
     vehiclePlate: vehiclePlate,
     driverId: driverId,
-    passengerCount: passengerCount,
     maxCapacity: maxCapacity,
+    passengerCount: passengerCount,
   );
 }

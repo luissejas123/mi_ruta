@@ -78,10 +78,19 @@ class TickeadorDatasource {
     }
   }
 
+  static bool isMissingCompositeIndexError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('failed-precondition') ||
+        message.contains('failed precondition') ||
+        message.contains('failed_precondition') ||
+        message.contains('FAILED_PRECONDITION') ||
+        message.contains('index') && message.contains('query');
+  }
+
   /// Lee la actividad reciente del tickeador en `station_logs`.
   ///
-  /// Filtra por tickeador_id y ordena por timestamp descendente.
-  /// Si Firestore requiere un índice compuesto, se propaga el error.
+  /// Firestore exige un índice compuesto para `.where('tickeador_id') + orderBy('timestamp')`.
+  /// Si aún no existe, hacemos un fallback seguro sin orderBy y ordenamos en memoria.
   Future<List<StationLogEntity>> getActividadReciente(
     String tickeadorId, {
     int limit = 20,
@@ -93,14 +102,25 @@ class TickeadorDatasource {
           .orderBy('timestamp', descending: true)
           .limit(limit)
           .get();
-      return snapshot.docs
+      final logs = snapshot.docs
           .map((doc) => StationLogEntity.fromJson(doc.data()))
           .toList();
-    } catch (e) {
-      throw Exception(
-        'Error obteniendo actividad reciente. '
-        'Si el error es por índice compuesto, créalo en Firestore. $e',
-      );
+      logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return logs;
+    } catch (error) {
+      if (isMissingCompositeIndexError(error)) {
+        final fallback = await _firestore
+            .collection('station_logs')
+            .where('tickeador_id', isEqualTo: tickeadorId)
+            .limit(limit)
+            .get();
+        final logs = fallback.docs
+            .map((doc) => StationLogEntity.fromJson(doc.data()))
+            .toList();
+        logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        return logs;
+      }
+      throw Exception('No se pudo cargar la actividad reciente del Tickeador.');
     }
   }
 }

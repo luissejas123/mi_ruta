@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/features/admin/domain/entities/admin_permissions.dart';
 import 'package:mi_ruta/features/admin/domain/services/admin_access_service.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_bloc.dart';
@@ -118,7 +119,7 @@ class AdminHomePage extends StatelessWidget {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 12),
-                  if (user.canManageUsers)
+                  if (AdminAccessService.canAccessOperation(user, AdminOperation.manageUsers))
                     _MenuCard(
                       icon: Icons.people_outline,
                       title: 'Gestión de usuarios',
@@ -135,7 +136,10 @@ class AdminHomePage extends StatelessWidget {
                         );
                       },
                     ),
-                  if (user.canManagePermissions)
+                  if (AdminAccessService.canAccessOperation(
+                    user,
+                    AdminOperation.managePermissions,
+                  ))
                     _MenuCard(
                       icon: Icons.admin_panel_settings_outlined,
                       title: 'Gestión de privilegios',
@@ -152,7 +156,10 @@ class AdminHomePage extends StatelessWidget {
                         );
                       },
                     ),
-                  if (user.canManageRoutes)
+                  if (AdminAccessService.canAccessOperation(
+                    user,
+                    AdminOperation.manageRoutes,
+                  ))
                     _MenuCard(
                       icon: Icons.route_outlined,
                       title: 'Gestión de rutas',
@@ -169,9 +176,7 @@ class AdminHomePage extends StatelessWidget {
                         );
                       },
                     ),
-                  if (!user.canManageUsers &&                  
-                      !user.canManagePermissions &&
-                      !user.canManageRoutes)
+                  if (AdminAccessService.getAvailableOperations(user).isEmpty)
                     const _NoPermissionsCard(),
                   const SizedBox(height: 8),
                   const Text(

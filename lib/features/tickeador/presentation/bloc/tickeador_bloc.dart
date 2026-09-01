@@ -1,10 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/tickeador/domain/services/tickeador_service.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_event.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_state.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 
 /// BLoC de la feature Tickeador.
 ///

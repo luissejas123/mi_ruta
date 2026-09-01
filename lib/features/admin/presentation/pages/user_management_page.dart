@@ -396,7 +396,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                                             color: getUserCategoryColor(
                                               user.role,
                                             ),
-                                            width: 3,
+                                            width: 5,  //aqui es el borde del avatar, se puede cambiar el color segun el role del usuario
                                           ),
                                         ),
                                         child: CircleAvatar(

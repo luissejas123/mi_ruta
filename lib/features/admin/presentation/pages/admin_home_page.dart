@@ -94,7 +94,7 @@ class AdminHomePage extends StatelessWidget {
                                     ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFFFC12F),
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(84),
                                     ),
                                     child: const Text(
                                       'SUPERADMIN',

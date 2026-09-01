@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/core/utils/user_category.dart';
 import 'package:mi_ruta/features/admin/domain/entities/admin_user_entity.dart';
 import 'package:mi_ruta/features/admin/domain/services/admin_access_service.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.dart';
@@ -388,18 +389,29 @@ class _UserManagementPageState extends State<UserManagementPage> {
                                   padding: const EdgeInsets.all(14),
                                   child: Row(
                                     children: [
-                                      CircleAvatar(
-                                        radius: 28,
-                                        backgroundColor:
-                                            const Color(0xFFFFC12F),
-                                        child: Text(
-                                          user.fullName.isNotEmpty
-                                              ? user.fullName[0].toUpperCase()
-                                              : '?',
-                                          style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black,
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: getUserCategoryColor(
+                                              user.role,
+                                            ),
+                                            width: 3,
+                                          ),
+                                        ),
+                                        child: CircleAvatar(
+                                          radius: 26,
+                                          backgroundColor:
+                                              const Color(0xFFFFC12F),
+                                          child: Text(
+                                            user.fullName.isNotEmpty
+                                                ? user.fullName[0].toUpperCase()
+                                                : '?',
+                                            style: const TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -422,6 +434,17 @@ class _UserManagementPageState extends State<UserManagementPage> {
                                               style: const TextStyle(
                                                 fontSize: 13,
                                                 color: Colors.black54,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              getUserCategoryDescription(
+                                                user.role,
+                                              ),
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.black54,
+                                                fontStyle: FontStyle.italic,
                                               ),
                                             ),
                                             if (user.phoneNumber.isNotEmpty) ...[
@@ -574,23 +597,6 @@ class _RoleBadge extends StatelessWidget {
 
   const _RoleBadge({required this.role});
 
-  String get _label {
-    switch (role) {
-      case 'user':
-        return 'Pasajero';
-      case 'driver':
-        return 'Chofer';
-      case 'tickeador':
-        return 'Tickeador';
-      case 'admin':
-        return 'Administrador';
-      case 'presidente':
-        return 'Dirigente';
-      default:
-        return role;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final isAdmin = role == 'admin';
@@ -601,7 +607,7 @@ class _RoleBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
-        _label,
+        getUserCategoryLabel(role),
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.bold,

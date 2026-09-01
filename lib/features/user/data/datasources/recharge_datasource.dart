@@ -87,7 +87,7 @@ class RecargeDatasource {
         throw Exception('Recarga no encontrada');
       }
 
-      final amount = rechargeDoc['amount'] as double;
+      final amount = (rechargeDoc['amount'] as num).toDouble();
 
       // IMPORTANTE: Obtener el documento del usuario ANTES de la transacción
       // Firestore requiere todas las lecturas antes de las escrituras
@@ -98,8 +98,24 @@ class RecargeDatasource {
         throw Exception('Usuario/Billetera no encontrada');
       }
 
+      // La colección users tiene docs snake_case (wallet.current_balance) y
+      // camelCase (wallet.balance) coexistiendo. Leer ambas claves y mantener
+      // sincronizada la que el documento ya use.
+      final walletData =
+          (userSnapshot['wallet'] as Map<String, dynamic>?) ?? {};
       final currentBalance =
-          (userSnapshot['wallet']['current_balance'] ?? 0.0) as double;
+          ((walletData['current_balance'] ?? walletData['balance'] ?? 0.0)
+                  as num)
+              .toDouble();
+      final newBalance = currentBalance + amount;
+
+      final walletUpdates = <String, dynamic>{
+        'wallet.current_balance': newBalance,
+        'wallet.updated_at': FieldValue.serverTimestamp(),
+      };
+      if (walletData.containsKey('balance')) {
+        walletUpdates['wallet.balance'] = newBalance;
+      }
 
       // Obtener transacciones asociadas ANTES de la transacción
       final transactionQuery = await _firestore
@@ -117,10 +133,7 @@ class RecargeDatasource {
         });
 
         // ACTUALIZAR: Saldo del usuario
-        transaction.update(userDocRef, {
-          'wallet.current_balance': currentBalance + amount,
-          'wallet.updated_at': FieldValue.serverTimestamp(),
-        });
+        transaction.update(userDocRef, walletUpdates);
 
         // ACTUALIZAR: Transacción asociada
         if (transactionQuery.docs.isNotEmpty) {

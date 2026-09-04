@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/features/admin/domain/entities/admin_permissions.dart';
 import 'package:mi_ruta/features/admin/domain/entities/admin_user_entity.dart';
 import 'package:mi_ruta/features/admin/domain/services/admin_access_service.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.dart';
@@ -172,43 +173,133 @@ class _AdminTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final permissions = [
+      (_label(AdminPermissions.manageUsers), admin.hasPermission(AdminPermissions.manageUsers)),
+      (_label(AdminPermissions.manageAdmins), admin.hasPermission(AdminPermissions.manageAdmins)),
+      (_label(AdminPermissions.manageRoutes), admin.hasPermission(AdminPermissions.manageRoutes)),
+      (_label(AdminPermissions.managePermissions), admin.hasPermission(AdminPermissions.managePermissions)),
+    ];
+
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: const Color(0xFFFFC12F),
-          child: Text(
-            admin.fullName.isNotEmpty ? admin.fullName[0].toUpperCase() : '?',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: const Color(0xFFFFC12F),
+                  child: Text(
+                    admin.fullName.isNotEmpty ? admin.fullName[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        admin.fullName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        admin.email,
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Colors.black54),
+              ],
             ),
-          ),
-        ),
-        title: Text(
-          admin.fullName,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(admin.email),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => BlocProvider.value(
-                value: getIt<AdminPrivilegesBloc>(),
-                child: AdminPermissionsEditPage(user: admin),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: permissions.map((entry) {
+                final label = entry.$1;
+                final enabled = entry.$2;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: enabled ? const Color(0xFFFFF2CC) : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: enabled ? const Color(0xFFFFC12F) : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: enabled ? Colors.black87 : Colors.black54,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.black,
+                  backgroundColor: const Color(0xFFFFC12F),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BlocProvider.value(
+                        value: getIt<AdminPrivilegesBloc>(),
+                        child: AdminPermissionsEditPage(user: admin),
+                      ),
+                    ),
+                  );
+                  if (context.mounted) {
+                    context.read<AdminPrivilegesBloc>().add(const LoadAdminsEvent());
+                  }
+                },
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('Editar permisos'),
               ),
             ),
-          );
-          // Mismo motivo que en el botón de agregar admin: refresca la lista
-          // porque el bloc compartido quedó en AdminPermissionsLoaded.
-          if (context.mounted) {
-            context.read<AdminPrivilegesBloc>().add(const LoadAdminsEvent());
-          }
-        },
+          ],
+        ),
       ),
     );
+  }
+
+  static String _label(String permission) {
+    switch (permission) {
+      case 'manage_users':
+        return 'Usuarios';
+      case 'manage_admins':
+        return 'Admins';
+      case 'manage_routes':
+        return 'Rutas';
+      case 'manage_permissions':
+        return 'Privilegios';
+      default:
+        return permission;
+    }
   }
 }

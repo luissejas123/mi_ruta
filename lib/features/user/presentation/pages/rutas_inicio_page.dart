@@ -372,6 +372,9 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
               child: MapPinConfirmPanel(
                 isCameraMoving: _isCameraMoving,
                 address: _pinAddress,
+                confirmButtonText: _pinFor == _PinFor.origin
+                    ? 'Confirmar origen'
+                    : 'Confirmar destino',
                 onCancel: () => setState(() {
                   _isPinMode = false;
                   _pinAddress = null;

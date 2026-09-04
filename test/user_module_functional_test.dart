@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dartz/dartz.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mi_ruta/core/error/failures.dart';
@@ -10,6 +11,7 @@ import 'package:mi_ruta/features/user/domain/usecases/user_usecases.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_state.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/map_pin_confirm_panel.dart';
 
 class MockUserRepository extends Mock implements UserRepository {}
 
@@ -127,5 +129,41 @@ void main() {
 
     expect(states.any((state) => state is UserStreamLoaded), isTrue);
     await sub.cancel();
+  });
+
+  testWidgets('MapPinConfirmPanel muestra texto correcto según el contexto', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MapPinConfirmPanel(
+            isCameraMoving: false,
+            address: 'Av. Principal 123',
+            onCancel: () {},
+            onConfirm: () {},
+            confirmButtonText: 'Confirmar origen',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Confirmar origen'), findsOneWidget);
+    expect(find.text('Confirmar destino'), findsNothing);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MapPinConfirmPanel(
+            isCameraMoving: false,
+            address: 'Av. Principal 123',
+            onCancel: () {},
+            onConfirm: () {},
+            confirmButtonText: 'Confirmar destino',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Confirmar destino'), findsOneWidget);
+    expect(find.text('Confirmar origen'), findsNothing);
   });
 }

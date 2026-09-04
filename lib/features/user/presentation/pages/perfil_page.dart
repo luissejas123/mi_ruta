@@ -471,6 +471,18 @@ class _PerfilPageState extends State<PerfilPage> {
                     ),
                   ),
                 ],
+                if (user.userType == 'driver' || user.userType == 'passenger')
+                  _buildMenuItem(
+                    icon: Icons.route_outlined,
+                    title: 'Ruta asignada',
+                    subtitle: 'Ver recorrido y línea del chofer',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DriverAssignedRoutesPage(),
+                      ),
+                    ),
+                  ),
                 if (user.userType == 'tickeador')
                   _buildMenuItem(
                     icon: Icons.history,

@@ -29,6 +29,22 @@ class AdminAccessService {
     return false;
   }
 
+  static bool canAccessOperation(AuthEntity user, AdminOperation operation) =>
+      hasPermission(user, operation.permissionKey);
+
+  static List<AdminOperation> getAvailableOperations(AuthEntity user) {
+    if (isSuperAdmin(user)) {
+      return AdminOperation.values;
+    }
+    if (user.role != 'admin') {
+      return const [];
+    }
+
+    return AdminOperation.values
+        .where((operation) => hasPermission(user, operation.permissionKey))
+        .toList();
+  }
+
   /// Responsabilidades fijas del rol `presidente`. No se mezclan con el esquema
   /// configurable de `admin_permissions`, que aplica solo al rol `admin`.
   static bool canApproveChoferRequests(AuthEntity user) =>

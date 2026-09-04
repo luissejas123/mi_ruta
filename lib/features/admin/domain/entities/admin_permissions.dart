@@ -25,3 +25,25 @@ class AdminPermissions {
     manageRoutes,
   ];
 }
+
+enum AdminOperation {
+  manageUsers,
+  manageAdmins,
+  managePermissions,
+  manageRoutes,
+}
+
+extension AdminOperationX on AdminOperation {
+  String get permissionKey {
+    switch (this) {
+      case AdminOperation.manageUsers:
+        return AdminPermissions.manageUsers;
+      case AdminOperation.manageAdmins:
+        return AdminPermissions.manageAdmins;
+      case AdminOperation.managePermissions:
+        return AdminPermissions.managePermissions;
+      case AdminOperation.manageRoutes:
+        return AdminPermissions.manageRoutes;
+    }
+  }
+}

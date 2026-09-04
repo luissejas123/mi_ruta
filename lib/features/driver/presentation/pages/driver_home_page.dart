@@ -20,6 +20,7 @@ import 'package:mi_ruta/features/driver/presentation/pages/driver_rutas_page.dar
 import 'package:mi_ruta/features/driver/presentation/pages/driver_wallet_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/solicitud_chofer_page.dart';
 import 'package:mi_ruta/features/driver/presentation/widgets/charge_section.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_assigned_routes_page.dart';
 import 'package:mi_ruta/features/driver/presentation/widgets/driver_service_map.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
@@ -649,15 +650,68 @@ class _DriverOperationsSections extends StatelessWidget {
             _SectionCard(
               title: 'Ruta asignada',
               icon: Icons.alt_route,
-              child: state.assignedRoute != null
-                  ? Text(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (state.assignedRoute != null) ...[
+                    Text(
                       '${state.assignedRoute!.name} · Línea ${state.assignedRoute!.ref}',
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                    )
-                  : Text(
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Recorrido activo: ${state.assignedRoute!.stops?.length ?? 0} paradas · ${state.assignedRoute!.polyline?.length ?? 0} puntos del trayecto',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          final authState = context.read<AuthBloc>().state;
+                          final uid = authState is AuthLoaded ? authState.user.uid : '';
+                          if (uid.isEmpty) return;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DriverAssignedRoutesPage(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.map_outlined, size: 18),
+                        label: const Text('Ver recorrido completo'),
+                      ),
+                    ),
+                  ] else ...[
+                    Text(
                       'No se encontró una ruta activa con línea "${activeVehicle.lineNumber}".',
                       style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
                     ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          final authState = context.read<AuthBloc>().state;
+                          final uid = authState is AuthLoaded ? authState.user.uid : '';
+                          if (uid.isEmpty) return;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DriverAssignedRoutesPage(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.route_outlined, size: 18),
+                        label: const Text('Asignar o revisar ruta'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
             _VehicleInfoEditSection(vehicle: activeVehicle, isBusy: state.isBusy),
             _SectionCard(

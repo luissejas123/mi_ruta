@@ -5,6 +5,7 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
+import 'package:mi_ruta/features/user/presentation/pages/beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/mis_solicitudes_beneficio_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/movimientos_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/pago_qr_page.dart';
@@ -87,10 +88,10 @@ class _WalletPageState extends State<WalletPage> {
     _loadWalletData();
   }
 
-  void _navigateToSolicitudBeneficio() {
+  void _navigateToMisSolicitudesBeneficio() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const SolicitudBeneficioPage()),
+      MaterialPageRoute(builder: (_) => const MisSolicitudesBeneficioPage()),
     );
   }
 

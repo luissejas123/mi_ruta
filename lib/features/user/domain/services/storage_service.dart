@@ -1,5 +1,10 @@
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:mi_ruta/features/user/domain/entities/benefit_request.dart';
 
 class StorageService {
   final FirebaseStorage _storage;
@@ -105,5 +110,91 @@ class StorageService {
     } catch (e) {
       throw Exception('Error al subir documento de la unidad: $e');
     }
+  }
+
+  /// Genera un comprobante PDF real a partir del documento asociado a un beneficio.
+  /// Si el documento original es imagen, se convierte a PDF; si ya es PDF, se descarga tal cual.
+  Future<File> generateBenefitPdf(BenefitRequest request) async {
+    final docUrl = (request.documentUrls.isNotEmpty)
+        ? request.documentUrls.first
+        : throw Exception('La solicitud no tiene documento asociado');
+
+    final response = await http.get(Uri.parse(docUrl));
+    if (response.statusCode != 200) {
+      throw Exception('No se pudo descargar el comprobante del beneficio');
+    }
+
+    final lowerUrl = docUrl.toLowerCase();
+    final isPdf =
+        lowerUrl.endsWith('.pdf') ||
+        response.headers['content-type']?.toLowerCase().contains('pdf') == true;
+
+    final downloadsDir =
+        await getDownloadsDirectory() ?? await getTemporaryDirectory();
+    final filePath =
+        '${downloadsDir.path}/beneficio_${request.id}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final pdfFile = File(filePath);
+
+    if (isPdf) {
+      await pdfFile.writeAsBytes(response.bodyBytes);
+      return pdfFile;
+    }
+
+    final pdf = pw.Document();
+    final imageBytes = response.bodyBytes;
+    try {
+      final image = pw.MemoryImage(imageBytes);
+      pdf.addPage(
+        pw.Page(
+          build: (pw.Context context) => pw.Center(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(
+                  'Comprobante de beneficio',
+                  style: pw.TextStyle(
+                    fontSize: 22,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+                pw.Text('Tipo: ${request.benefitType}'),
+                pw.Text('Estado: ${request.status}'),
+                pw.Text('Fecha: ${request.createdAt.toIso8601String()}'),
+                pw.SizedBox(height: 20),
+                pw.Image(image, fit: pw.BoxFit.contain),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (_) {
+      pdf.addPage(
+        pw.Page(
+          build: (pw.Context context) => pw.Column(
+            children: [
+              pw.Text(
+                'Comprobante de beneficio',
+                style: pw.TextStyle(
+                  fontSize: 22,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 12),
+              pw.Text('Tipo: ${request.benefitType}'),
+              pw.Text('Estado: ${request.status}'),
+              pw.Text('Fecha: ${request.createdAt.toIso8601String()}'),
+              pw.SizedBox(height: 20),
+              pw.Text(
+                'El documento original no era compatible con PDF; se generó un comprobante a partir de los datos reales de la solicitud.',
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    await pdfFile.writeAsBytes(await pdf.save());
+    return pdfFile;
   }
 }

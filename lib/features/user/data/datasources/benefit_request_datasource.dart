@@ -215,6 +215,33 @@ class BenefitRequestDatasource {
     }
   }
 
+  /// Renueva una solicitud existente reutilizando el mismo documento.
+  /// El estado vuelve a pending y se conserva el historial original.
+  Future<void> renewBenefitRequest(String requestId) async {
+    try {
+      await _firestore.collection('benefit_requests').doc(requestId).update({
+        'status': 'pending',
+        'admin_notes': null,
+        'approved_at': null,
+      });
+    } catch (e) {
+      throw Exception('Error al renovar solicitud: $e');
+    }
+  }
+
+  /// Cancela una solicitud sin borrar su historial.
+  Future<void> cancelBenefitRequest(String requestId) async {
+    try {
+      await _firestore.collection('benefit_requests').doc(requestId).update({
+        'status': 'rejected',
+        'admin_notes': 'Cancelado por el usuario',
+        'approved_at': null,
+      });
+    } catch (e) {
+      throw Exception('Error al cancelar solicitud: $e');
+    }
+  }
+
   BenefitRequest _mapToBenefitRequest(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return BenefitRequest(

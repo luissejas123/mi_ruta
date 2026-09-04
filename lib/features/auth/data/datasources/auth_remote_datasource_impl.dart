@@ -11,8 +11,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   AuthRemoteDataSourceImpl({
     required FirebaseAuth firebaseAuth,
     required FirebaseFirestore firestore,
-  })  : _firebaseAuth = firebaseAuth,
-        _firestore = firestore;
+  }) : _firebaseAuth = firebaseAuth,
+       _firestore = firestore;
 
   @override
   Future<AuthModel> register({
@@ -24,8 +24,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String role,
   }) async {
     try {
-      final userCredential =
-          await _firebaseAuth.createUserWithEmailAndPassword(
+      final userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -48,9 +47,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'rating': 0.0,
         'reviewsCount': 0,
         'isActive': true,
-        'wallet': {
-          'balance': 0.0,
-          'currency': 'Bs.',
+        'wallet': {'balance': 0.0, 'currency': 'Bs.'},
+        'settings': {
+          'notifications_enabled': true,
+          'trip_notifications_enabled': true,
+          'recharge_notifications_enabled': true,
+          'gift_notifications_enabled': true,
+          'dark_mode_enabled': false,
+          'is_driver_mode': false,
         },
         'createdAt': now,
         'updatedAt': now,
@@ -85,15 +89,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String password,
   }) async {
     try {
-      final userCredential =
-          await _firebaseAuth.signInWithEmailAndPassword(
+      final userCredential = await _firebaseAuth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
       final uid = userCredential.user!.uid;
-      final userDoc =
-          await _firestore.collection('users').doc(uid).get();
+      final userDoc = await _firestore.collection('users').doc(uid).get();
 
       if (!userDoc.exists) {
         throw Exception('No se encontró el perfil del usuario.');

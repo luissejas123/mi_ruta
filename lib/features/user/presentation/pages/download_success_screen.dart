@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
+import 'package:open_file/open_file.dart';
 
 class DownloadSuccessScreen extends StatelessWidget {
   final String fileName;
+  final String filePath;
 
   const DownloadSuccessScreen({
     super.key,
-    this.fileName = 'historial_viajes.csv',
+    this.fileName = 'historial_viajes.pdf',
+    this.filePath = '',
   });
 
   @override
@@ -43,6 +46,31 @@ class DownloadSuccessScreen extends StatelessWidget {
                   style: TextStyle(fontSize: 13, color: Colors.black54),
                 ),
                 const SizedBox(height: 34),
+                if (filePath.isNotEmpty)
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final result = await OpenFile.open(filePath);
+                        if (result.type != ResultType.done && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('No se pudo abrir el PDF.'),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.open_in_new),
+                      label: const Text(
+                        '[ Abrir PDF ]',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(

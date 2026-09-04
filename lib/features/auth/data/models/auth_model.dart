@@ -56,6 +56,15 @@ class AuthModel extends AuthEntity {
   }
 
   Map<String, dynamic> toJson() {
+    final defaultSettings = {
+      'notifications_enabled': true,
+      'trip_notifications_enabled': true,
+      'recharge_notifications_enabled': true,
+      'gift_notifications_enabled': true,
+      'dark_mode_enabled': false,
+      'is_driver_mode': false,
+    };
+
     return {
       'uid': uid,
       'full_name': fullName,
@@ -66,16 +75,7 @@ class AuthModel extends AuthEntity {
       'role': role,
       'created_at': createdAt.toIso8601String(),
       'wallet': wallet ?? {'current_balance': 0.0, 'currency': 'Bs'},
-      'settings':
-          settings ?? {'dark_mode_enabled': false, 'is_driver_mode': false},
-      'qa_access': qaAccess,
-      // `is_super_admin` se omite a proposito: es un campo privilegiado que el
-      // cliente nunca escribe (lo bloquean las reglas de Firestore). Se siembra
-      // desde la consola de Firebase / Admin SDK, ver SECURITY.md.
-      // `roles` tambien se omite: tambien es privilegiado (lo bloquean las
-      // reglas), solo lo escriben los metodos dedicados de
-      // UserManagementDatasource/AdminRemoteDataSourceImpl, nunca un guardado
-      // generico de perfil.
+      'settings': {...defaultSettings, ...(settings ?? {})},
     };
   }
 }

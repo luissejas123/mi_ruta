@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
@@ -40,12 +41,20 @@ class _HistorialView extends StatelessWidget {
       return;
     }
 
-    final filePayload = await getIt<TripHistoryService>()
+    final savedFilePath = await getIt<TripHistoryService>()
         .downloadDriverTripHistory(authState.user.uid);
 
-    if (filePayload.isEmpty) {
+    if (savedFilePath.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No hay historial para descargar')),
+      );
+      return;
+    }
+
+    final savedFile = File(savedFilePath);
+    if (!savedFile.existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo crear el PDF del historial')),
       );
       return;
     }
@@ -56,7 +65,8 @@ class _HistorialView extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (_) => DownloadSuccessScreen(
-          fileName: 'historial_${authState.user.uid}.csv',
+          fileName: savedFile.uri.pathSegments.last,
+          filePath: savedFile.path,
         ),
       ),
     );

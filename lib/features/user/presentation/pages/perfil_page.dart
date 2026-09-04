@@ -6,6 +6,8 @@ import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/role_switcher_page.dart';
 import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart'
+    as auth_events;
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/widgets/change_password_dialog.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
@@ -133,6 +135,39 @@ class _PerfilPageState extends State<PerfilPage> {
     ).then((_) => _loadUser());
   }
 
+  void _cerrarSesion() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cerrar sesión'),
+        content: const Text('¿Estás seguro que deseas cerrar sesión?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<AuthBloc>().add(const auth_events.LogoutEvent());
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const IniciarSesionPage()),
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
+            child: const Text(
+              'Cerrar sesión',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMenuItem({
     required IconData icon,
     required String title,
@@ -185,9 +220,61 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
+  Widget _buildNotificationToggle({
+    required IconData icon,
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return ListTile(
+      leading: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: _amarillo.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: _amarillo, size: 22),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      trailing: Switch(
+        value: value,
+        onChanged: onChanged,
+        activeThumbColor: _amarillo,
+      ),
+    );
+  }
+
+  void _updateNotificationPreference(String uid, String key, bool value) {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthLoaded) return;
+
+    final currentSettings = Map<String, dynamic>.from(
+      authState.user.settings ?? <String, dynamic>{},
+    );
+    currentSettings['notifications_enabled'] = true;
+    currentSettings[key] = value;
+
+    context.read<UserBloc>().add(
+      UpdateUserEvent(uid: uid, data: {'settings': currentSettings}),
+    );
+
+    context.read<AuthBloc>().add(const auth_events.GetCurrentUserEvent());
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode = context.watch<ThemeCubit>().state;
+    final authState = context.watch<AuthBloc>().state;
+    final notificationSettings = authState is AuthLoaded
+        ? Map<String, dynamic>.from(authState.user.settings ?? const {})
+        : const <String, dynamic>{};
+    final tripNotificationsEnabled =
+        notificationSettings['trip_notifications_enabled'] as bool? ?? true;
+    final rechargeNotificationsEnabled =
+        notificationSettings['recharge_notifications_enabled'] as bool? ?? true;
+    final giftNotificationsEnabled =
+        notificationSettings['gift_notifications_enabled'] as bool? ?? true;
 
     return Scaffold(
       appBar: AppBar(
@@ -574,9 +661,37 @@ class _PerfilPageState extends State<PerfilPage> {
                   ),
                 ),
 
-                  // ==================================================
-                  // APLICACIÓN
-                  // ==================================================
+                _buildSectionTitle('NOTIFICACIONES'),
+                _buildNotificationToggle(
+                  icon: Icons.route_outlined,
+                  title: 'Viajes',
+                  value: tripNotificationsEnabled,
+                  onChanged: (value) => _updateNotificationPreference(
+                    user.uid,
+                    'trip_notifications_enabled',
+                    value,
+                  ),
+                ),
+                _buildNotificationToggle(
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: 'Recargas',
+                  value: rechargeNotificationsEnabled,
+                  onChanged: (value) => _updateNotificationPreference(
+                    user.uid,
+                    'recharge_notifications_enabled',
+                    value,
+                  ),
+                ),
+                _buildNotificationToggle(
+                  icon: Icons.card_giftcard_outlined,
+                  title: 'Regalos',
+                  value: giftNotificationsEnabled,
+                  onChanged: (value) => _updateNotificationPreference(
+                    user.uid,
+                    'gift_notifications_enabled',
+                    value,
+                  ),
+                ),
 
                   _buildSectionTitle('APLICACIÓN'),
 

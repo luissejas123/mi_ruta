@@ -8,7 +8,9 @@ import 'package:mi_ruta/features/presidente/presentation/bloc/presidente_panel_e
 import 'package:mi_ruta/features/presidente/presentation/bloc/presidente_panel_state.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_approval_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/vehicle_review_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_wallet_page.dart';
 import 'package:mi_ruta/features/presidente/presentation/pages/asignar_ruta_chofer_page.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/asignar_tickeador_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
@@ -95,6 +97,18 @@ class _PresidentePanelView extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   _ActionTile(
+                    icon: Icons.directions_bus_outlined,
+                    title: 'Revisar unidades',
+                    subtitle: 'Unidades nuevas o editadas, con sus documentos',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const VehicleReviewPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
                     icon: Icons.alt_route_outlined,
                     title: 'Asignar ruta a chofer',
                     subtitle: 'El chofer elige la unidad; acá se asigna la línea',
@@ -134,6 +148,11 @@ class _PresidentePanelView extends StatelessWidget {
           context,
           index,
           homeBuilder: (_) => const DriverHomePage(roleOverride: 'presidente'),
+          walletBuilder: (_) => const DriverWalletPage(role: 'presidente'),
+          // El control de rutas en vivo ya vive en este mismo panel
+          // ("Control de rutas en vivo" más abajo) — antes la pestaña
+          // "Rutas" no tenía routesBuilder y caía al mapa del pasajero.
+          routesBuilder: (_) => const PresidentePanelPage(),
         ),
       ),
     );

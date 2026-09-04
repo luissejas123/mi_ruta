@@ -135,6 +135,15 @@ class DriverService {
     );
   }
 
+  /// Unidades pendientes de revisión (nuevas o recién editadas por su
+  /// dueño), para la pantalla de revisión del presidente/admin.
+  Future<List<VehicleEntity>> getVehiclesPendingReview() =>
+      _datasource.getVehiclesPendingReview();
+
+  /// Aprueba o rechaza una unidad en revisión.
+  Future<void> resolveVehicleReview(String vehicleId, {required bool approved}) =>
+      _datasource.resolveVehicleReview(vehicleId, approved: approved);
+
   /// Ruta/línea asignada al chofer (RQ-63), resuelta contra el catálogo real
   /// de rutas GTFS-sincronizado.
   ///

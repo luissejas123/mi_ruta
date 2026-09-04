@@ -146,6 +146,13 @@ class DriverDatasource {
 
   /// Actualiza datos editables de la unidad (RQ-64): datos generales y
   /// URLs de documentación legal (ya subidas a Storage por el caller).
+  ///
+  /// Vuelve a poner la unidad en `pending_review` en **toda** edición — el
+  /// presidente ya la había revisado con los datos/documentos anteriores, y
+  /// tiene que volver a verificarla con los nuevos antes de que siga
+  /// operando como aprobada. Es la misma cuenta la que puede pedir esta
+  /// revuelta a revisión (ver `firestore.rules`: el dueño solo puede mover
+  /// `status` a `pending_review`, nunca a `approved`).
   Future<void> updateVehicleInfo(
     String vehicleId, {
     String? brand,
@@ -158,7 +165,10 @@ class DriverDatasource {
     String? municipalOperationCardUrl,
     String? ruatUrl,
   }) async {
-    final data = <String, dynamic>{'updated_at': FieldValue.serverTimestamp()};
+    final data = <String, dynamic>{
+      'updated_at': FieldValue.serverTimestamp(),
+      'status': 'pending_review',
+    };
     if (brand != null) data['brand'] = brand;
     if (model != null) data['model'] = model;
     if (color != null) data['color'] = color;
@@ -180,6 +190,27 @@ class DriverDatasource {
         .collection('vehicles')
         .doc(vehicleId)
         .set(data, SetOptions(merge: true));
+  }
+
+  /// Unidades esperando revisión del presidente/admin — ya sea de alta o
+  /// porque el dueño la editó (`updateVehicleInfo` la vuelve a poner acá).
+  /// Filtro de un solo campo: no necesita índice compuesto.
+  Future<List<VehicleEntity>> getVehiclesPendingReview() async {
+    final snap = await _firestore
+        .collection('vehicles')
+        .where('status', isEqualTo: 'pending_review')
+        .get();
+    return snap.docs.map(_vehicleFromDoc).toList();
+  }
+
+  /// Resuelve la revisión de una unidad. Solo staff (`isStaffManager` en
+  /// firestore.rules) puede aprobar o rechazar — el dueño no puede tocar
+  /// `status` hacia ninguno de estos dos valores.
+  Future<void> resolveVehicleReview(String vehicleId, {required bool approved}) async {
+    await _firestore.collection('vehicles').doc(vehicleId).set({
+      'status': approved ? 'approved' : 'rejected',
+      'updated_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   /// Crea un viaje pendiente de cobro (RQ-65). El QR que el chofer muestra

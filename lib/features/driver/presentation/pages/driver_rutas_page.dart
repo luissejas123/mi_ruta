@@ -11,6 +11,7 @@ import 'package:mi_ruta/features/driver/presentation/bloc/driver_service_bloc.da
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_service_event.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_service_state.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_wallet_page.dart';
 import 'package:mi_ruta/features/driver/presentation/widgets/driver_service_map.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
@@ -174,6 +175,7 @@ class _DriverRutasView extends StatelessWidget {
             context,
             index,
             homeBuilder: (_) => DriverHomePage(roleOverride: role),
+            walletBuilder: (_) => DriverWalletPage(role: role),
             routesBuilder: (_) => DriverRutasPage(role: role),
           ),
         ),

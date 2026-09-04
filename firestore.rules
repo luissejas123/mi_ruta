@@ -147,7 +147,33 @@ service cloud.firestore {
       match /trips/{tripId} { allow read, write: if isSignedIn(); }
     }
 
-    match /vehicles/{docId}        { allow read, write: if isSignedIn(); }
+    // Unidades de transporte: cualquiera con sesión puede verlas (el
+    // presidente/admin las revisa, el pasajero ve la unidad de su viaje),
+    // pero solo el dueño edita sus propios datos/documentos y solo staff
+    // aprueba/rechaza — antes esto era `allow read, write: if isSignedIn()`
+    // a secas, así que cualquier cliente podía escribirse `status:
+    // 'approved'` sin que nadie lo revisara.
+    match /vehicles/{vehicleId} {
+      allow read: if isSignedIn();
+
+      // Alta: solo el propio chofer, y no puede nacer ya aprobada.
+      allow create: if isSignedIn()
+        && request.resource.data.owner_uid == request.auth.uid
+        && request.resource.data.get('status', 'pending_review') == 'pending_review';
+
+      // El dueño edita sus datos/documentos. Puede volver a poner `status`
+      // en 'pending_review' (pedir revisión tras editar), pero nunca
+      // otorgarse 'approved' — y nunca cambiar de dueño.
+      allow update: if isSignedIn()
+        && resource.data.owner_uid == request.auth.uid
+        && !affected().hasAny(['owner_uid'])
+        && (!affected().hasAny(['status'])
+            || request.resource.data.status == 'pending_review');
+
+      // Staff aprueba o rechaza — únicamente puede tocar `status`.
+      allow update: if isStaffManager() && affected().hasOnly(['status', 'updated_at']);
+    }
+
     match /station_logs/{docId}    { allow read, write: if isSignedIn(); }
     match /ratings/{docId}         { allow read, write: if isSignedIn(); }
     match /claims/{docId}          { allow read, write: if isSignedIn(); }

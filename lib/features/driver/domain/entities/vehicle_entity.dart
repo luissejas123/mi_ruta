@@ -35,6 +35,8 @@ class VehicleEntity extends Equatable {
   });
 
   bool get isApproved => status == 'approved';
+  bool get isPendingReview => status == 'pending_review';
+  bool get isRejected => status == 'rejected';
 
   VehicleEntity copyWith({
     String? vehicleId,

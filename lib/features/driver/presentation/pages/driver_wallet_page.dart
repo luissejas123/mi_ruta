@@ -129,25 +129,36 @@ class _DriverWalletView extends StatelessWidget {
               BlocBuilder<DriverIncomeBloc, DriverIncomeState>(
                 builder: (context, state) {
                   final total = state is DriverIncomeLoaded ? state.totalIncome : 0.0;
-                  return Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: _amarillo,
+                  return Material(
+                    color: _amarillo,
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
                       borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'INGRESOS',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87),
+                      // Antes esta tarjeta solo mostraba el total y no
+                      // llevaba a ningún lado — el historial con filtros
+                      // (HistorialIngresosPage) ya existía, solo faltaba
+                      // este acceso directo desde el total.
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HistorialIngresosPage()),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'INGRESOS',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Bs. ${total.toStringAsFixed(2)}',
+                              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Bs. ${total.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black),
-                        ),
-                      ],
+                      ),
                     ),
                   );
                 },

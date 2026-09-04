@@ -48,7 +48,20 @@ class PerfilPage extends StatefulWidget {
   /// Nulo = MiRutaScreen (pasajero); los demás perfiles pasan su propio home.
   final WidgetBuilder? homeBuilder;
 
-  const PerfilPage({super.key, this.homeBuilder});
+  /// A qué pantalla van las pestañas Billetera/Rutas del pie de navegación
+  /// **desde este Perfil**. Nulos = las del pasajero (WalletPage/
+  /// RutasInicioPage). Sin esto, un chofer/presidente/etc. que entra a
+  /// Perfil y luego toca Billetera o Rutas caía a las pantallas del
+  /// pasajero — el bug real reportado en QA.
+  final WidgetBuilder? walletBuilder;
+  final WidgetBuilder? routesBuilder;
+
+  const PerfilPage({
+    super.key,
+    this.homeBuilder,
+    this.walletBuilder,
+    this.routesBuilder,
+  });
 
   @override
   State<PerfilPage> createState() => _PerfilPageState();
@@ -109,7 +122,13 @@ class _PerfilPageState extends State<PerfilPage> {
   }
 
   void _onNavTap(int index) {
-    navigateBottomNav(context, index, homeBuilder: widget.homeBuilder);
+    navigateBottomNav(
+      context,
+      index,
+      homeBuilder: widget.homeBuilder,
+      walletBuilder: widget.walletBuilder,
+      routesBuilder: widget.routesBuilder,
+    );
   }
 
   void _navigateToEditarPerfil(
@@ -612,7 +631,13 @@ class _PerfilPageState extends State<PerfilPage> {
                       icon: Icons.account_balance_wallet_outlined,
                       title: 'Saldo disponible',
                       subtitle: saldo,
-                      onTap: () => navigateBottomNav(context, 1),
+                      onTap: () => navigateBottomNav(
+                        context,
+                        1,
+                        homeBuilder: widget.homeBuilder,
+                        walletBuilder: widget.walletBuilder,
+                        routesBuilder: widget.routesBuilder,
+                      ),
                     );
                   },
                 ),
@@ -620,7 +645,13 @@ class _PerfilPageState extends State<PerfilPage> {
                   icon: Icons.star_outline,
                   title: 'Acceder a beneficios',
                   subtitle: 'Estudiante, Universitario, Adulto mayor',
-                  onTap: () => navigateBottomNav(context, 1),
+                  onTap: () => navigateBottomNav(
+                        context,
+                        1,
+                        homeBuilder: widget.homeBuilder,
+                        walletBuilder: widget.walletBuilder,
+                        routesBuilder: widget.routesBuilder,
+                      ),
                 ),
 
                 if ({

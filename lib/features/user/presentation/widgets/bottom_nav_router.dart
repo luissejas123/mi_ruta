@@ -36,8 +36,15 @@ void navigateBottomNav(
           : RutasInicioPage(homeBuilder: homeBuilder);
       break;
     case 3:
-      // ✅ Ahora va al perfil real
-      destination = PerfilPage(homeBuilder: homeBuilder);
+      // homeBuilder/walletBuilder/routesBuilder se reenvían para que, desde
+      // Perfil, las pestañas Billetera/Rutas sigan yendo a las pantallas del
+      // rol correcto en vez de caer a las del pasajero (bug real: antes se
+      // perdían acá aunque el llamador las pasara bien).
+      destination = PerfilPage(
+        homeBuilder: homeBuilder,
+        walletBuilder: walletBuilder,
+        routesBuilder: routesBuilder,
+      );
       break;
     default:
       return;

@@ -1,0 +1,54 @@
+rules_version = '2';
+
+// Reglas de Firebase Storage de Mi Ruta.
+//
+// No existía este archivo en el repo — Storage nunca se configuró vía
+// Firebase CLI, así que las reglas vivían (o no) solo en la consola,
+// invisibles para el equipo. Eso es lo que causaba
+// `[firebase_storage/unauthorized] user is not authorized to perform the
+// desired action` al subir documentos de vehículo: sin reglas explícitas
+// desplegadas, Storage cae al comportamiento por defecto de un proyecto
+// nuevo, que deniega todo.
+//
+// Mismo criterio que firestore.rules: cerrar lo obviamente inseguro
+// (que cualquiera escriba en la carpeta de otro), sin bloquear la
+// colaboración real (presidente/admin necesitan poder VER los documentos
+// que suben los choferes para aprobarlos).
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Perfil: foto de cada usuario, en su propia carpeta.
+    match /profiles/{userId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Comprobantes de recarga QR: el propio usuario sube su comprobante;
+    // staff (admin) los revisa desde el panel — lectura abierta a
+    // cualquier sesión autenticada, igual que `recharges` en Firestore.
+    match /recharges/{userId}/{rechargeId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Documentos de solicitud de beneficio (estudiante, adulto mayor...).
+    match /benefits/{userId}/{requestId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Documentos legales de la unidad (licencia, SOAT, RUAT...) que sube
+    // el chofer al solicitar registrarse — el presidente/admin necesita
+    // poder verlos para aprobar o rechazar, por eso la lectura queda
+    // abierta a cualquier sesión autenticada, no solo al dueño.
+    match /vehicles/{ownerUid}/{plate}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == ownerUid;
+    }
+  }
+}

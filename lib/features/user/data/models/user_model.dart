@@ -16,8 +16,7 @@ class UserModel extends UserEntity {
     required super.isActive,
     required super.createdAt,
     required super.updatedAt,
-    super.qaAccess,
-    super.driverRequest,
+    super.activeBenefits,
   });
 
   /// Convertir JSON de Firestore a UserModel
@@ -26,25 +25,33 @@ class UserModel extends UserEntity {
       uid: json['uid'] as String? ?? '',
       fullName: (json['full_name'] ?? json['fullName']) as String? ?? '',
       email: json['email'] as String? ?? '',
-      phoneNumber: (json['phone_number'] ?? json['phoneNumber']) as String? ?? '',
+      phoneNumber:
+          (json['phone_number'] ?? json['phoneNumber']) as String? ?? '',
       userType: (json['role'] ?? json['userType']) as String? ?? 'passenger',
-      profileImageUrl: (json['profile_picture_url'] ?? json['profileImageUrl']) as String? ?? '',
+      profileImageUrl:
+          (json['profile_picture_url'] ?? json['profileImageUrl']) as String? ??
+          '',
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
       reviewsCount: json['reviewsCount'] as int? ?? 0,
-      walletBalance: (json['wallet']?['current_balance'] ?? json['wallet']?['balance'] as num?)?.toDouble() ?? 0.0,
+      walletBalance:
+          (json['wallet']?['current_balance'] ??
+                  json['wallet']?['balance'] as num?)
+              ?.toDouble() ??
+          0.0,
       isActive: json['isActive'] as bool? ?? true,
       qaAccess: json['qa_access'] as bool? ?? false,
       driverRequest: DriverRequestEntity.fromJson(json['driver_request']),
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : json['createdAt'] != null
-              ? DateTime.parse(json['createdAt'] as String)
-              : DateTime.now(),
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
           : json['updatedAt'] != null
-              ? DateTime.parse(json['updatedAt'] as String)
-              : DateTime.now(),
+          ? DateTime.parse(json['updatedAt'] as String)
+          : DateTime.now(),
+      activeBenefits: List<String>.from(json['active_benefits'] ?? const []),
     );
   }
 
@@ -59,16 +66,11 @@ class UserModel extends UserEntity {
       'profile_picture_url': profileImageUrl,
       'rating': rating,
       'reviewsCount': reviewsCount,
-      'wallet': {
-        'current_balance': walletBalance,
-      },
+      'wallet': {'current_balance': walletBalance},
       'isActive': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
-      'qa_access': qaAccess,
-      // `driver_request` se omite a proposito: solo lo escriben los metodos
-      // dedicados de UserManagementDatasource, con merge, para no pisar la
-      // solicitud con un guardado de perfil.
+      'active_benefits': activeBenefits,
     };
   }
 }

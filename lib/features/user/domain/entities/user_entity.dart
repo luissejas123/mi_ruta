@@ -15,12 +15,7 @@ class UserEntity extends Equatable {
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
-  // Acceso libre a los 5 perfiles para pruebas de QA (campo `qa_access` en
-  // users/{uid}) — activado/desactivado desde el panel de Admin.
-  final bool qaAccess;
-  // Solicitud para ser chofer (`driver_request` en users/{uid}). `null` cuando
-  // la cuenta nunca solicitó. El `role` no cambia hasta la aprobación.
-  final DriverRequestEntity? driverRequest;
+  final List<String> activeBenefits;
 
   const UserEntity({
     required this.uid,
@@ -35,28 +30,26 @@ class UserEntity extends Equatable {
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
-    this.qaAccess = false,
-    this.driverRequest,
+    this.activeBenefits = const [],
   });
 
   /// True cuando hay una solicitud de chofer esperando resolución.
   bool get hasPendingDriverRequest => driverRequest?.isPending ?? false;
 
   @override
-  List<Object?> get props => [
-        uid,
-        fullName,
-        email,
-        phoneNumber,
-        userType,
-        profileImageUrl,
-        rating,
-        reviewsCount,
-        walletBalance,
-        isActive,
-        createdAt,
-        updatedAt,
-        qaAccess,
-        driverRequest,
-      ];
+  List<Object> get props => [
+    uid,
+    fullName,
+    email,
+    phoneNumber,
+    userType,
+    profileImageUrl,
+    rating,
+    reviewsCount,
+    walletBalance,
+    isActive,
+    createdAt,
+    updatedAt,
+    activeBenefits,
+  ];
 }

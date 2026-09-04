@@ -30,8 +30,24 @@ class DriverOperationalStatus extends Equatable {
 
 class OperationalReport extends Equatable {
   final List<DriverOperationalStatus> drivers;
+  final int unitsInService;
+  final int approvedUnits;
+  final int unitsUnderReview;
+  final int rejectedUnits;
+  final int registeredPassengers;
+  final int registeredTicketers;
+  final int blockedAccounts;
 
-  const OperationalReport({required this.drivers});
+  const OperationalReport({
+    required this.drivers,
+    required this.unitsInService,
+    required this.approvedUnits,
+    required this.unitsUnderReview,
+    required this.rejectedUnits,
+    required this.registeredPassengers,
+    required this.registeredTicketers,
+    required this.blockedAccounts,
+  });
 
   @override
   List<Object?> get props => [drivers];

@@ -84,16 +84,25 @@ class BenefitRequestService {
     return _datasource.getBenefitRequestsByUserId(userId);
   }
 
+  Future<List<BenefitRequest>> getAllBenefitRequests() {
+    return _datasource.getAllBenefitRequests();
+  }
+
   /// Aprueba una solicitud de beneficio
   Future<void> approveBenefitRequest(
     String requestId,
     String adminNotes,
+    String adminId,
   ) async {
-    return _datasource.approveBenefitRequest(requestId, adminNotes);
+    return _datasource.approveBenefitRequest(requestId, adminNotes, adminId);
   }
 
   /// Rechaza una solicitud de beneficio
-  Future<void> rejectBenefitRequest(String requestId, String adminNotes) async {
-    return _datasource.rejectBenefitRequest(requestId, adminNotes);
+  Future<void> rejectBenefitRequest(
+    String requestId,
+    String adminNotes,
+    String adminId,
+  ) async {
+    return _datasource.rejectBenefitRequest(requestId, adminNotes, adminId);
   }
 }

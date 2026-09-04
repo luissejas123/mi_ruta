@@ -34,6 +34,7 @@ import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' s
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/administracion_beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/legal_bottom_sheet.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_trip_history_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/acerca_de_page.dart';
@@ -515,35 +516,44 @@ class _PerfilPageState extends State<PerfilPage> {
                     );
                   },
                 ),
-                // "Acceder a beneficios" (estudiante/universitario/adulto
-                // mayor) es un trámite exclusivo del pasajero — un chofer,
-                // tickeador, presidente o admin no aplica a ese descuento.
-                if (_isPassenger(user.userType))
-                  _buildMenuItem(
-                    icon: Icons.star_outline,
-                    title: 'Acceder a beneficios',
-                    subtitle: 'Estudiante, Universitario, Adulto mayor',
-                    // Antes abría la Billetera (había que tocar "Acceder a
-                    // beneficios" otra vez ahí); ahora va directo al
-                    // formulario de solicitud.
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const SolicitudBeneficioPage(),
-                      ),
-                    ),
-                  ),
+                _buildMenuItem(
+                  icon: Icons.star_outline,
+                  title: 'Acceder a beneficios',
+                  subtitle: 'Estudiante, Universitario, Adulto mayor',
+                  onTap: () => navigateBottomNav(context, 1),
+                ),
 
-                if (_isPresidente) ...[
+                if ({
+                  'admin',
+                  'administrador',
+                  'dirigente',
+                  'presidente',
+                }.contains(user.userType.trim().toLowerCase())) ...[
                   _buildSectionTitle('SUPERVISIÓN'),
                   _buildMenuItem(
                     icon: Icons.assessment_outlined,
                     title: 'Reportes operativos',
-                    subtitle: 'Estado y desempeño de choferes',
+                    subtitle: 'Estado de la línea y sus unidades',
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => const ReportesOperativosPage(),
+                      ),
+                    ),
+                  ),
+                ],
+                if ({
+                  'admin',
+                  'administrador',
+                }.contains(user.userType.trim().toLowerCase())) ...[
+                  _buildMenuItem(
+                    icon: Icons.school_outlined,
+                    title: 'Administración de beneficios',
+                    subtitle: 'Revisar y aprobar solicitudes',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdministracionBeneficiosPage(),
                       ),
                     ),
                   ),

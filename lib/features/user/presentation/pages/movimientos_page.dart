@@ -190,83 +190,33 @@ class _MovimientosPageState extends State<MovimientosPage> {
 
     final isTopUp = transactionType.contains('top_up') ||
         transactionType.contains('recharge');
-    final isTripIncome = transactionType == 'trip_payment_received';
-    final rawAmount = (transaction['amount'] ?? 0.0).toDouble();
-    final isPositive = rawAmount >= 0;
+    final isIncome = transactionType.contains('trip_payment_received') ||
+        transactionType.contains('income');
+    final date = _parseTransactionDate(timestamp);
 
-    IconData iconData;
-    String subtitle;
-    
-    if (isTopUp) {
-      iconData = Icons.add_circle;
-      subtitle = 'Recarga de saldo';
-    } else if (isTripIncome) {
-      iconData = Icons.local_taxi; // Icono representativo para choferes
-      subtitle = 'Cobro de pasaje';
-    } else {
-      iconData = Icons.remove_circle;
-      subtitle = 'Pago de viaje';
-    }
-
-    return GestureDetector(
-      onTap: () => _showReceiptSheet(transaction, isPositive, amount, date),
-      child: TransactionCard(
-        icon: iconData,
+    if (isIncome) {
+      return TransactionCard(
+        icon: Icons.attach_money,
         title: title,
-        subtitle: subtitle,
-        amount: '${isPositive ? '+' : '-'} Bs. ${amount.toStringAsFixed(2)}',
+        subtitle: 'Pago de viaje recibido',
+        amount: '+ Bs. ${amount.toStringAsFixed(2)}',
         date: date,
-        iconBackgroundColor: isTripIncome ? Colors.green.shade50 : const Color(0xFFFFF9C4),
-        iconColor: isTripIncome ? Colors.green.shade700 : _amarillo,
-        amountColor: isPositive ? Colors.green : _amarillo,
-      ),
-    );
-  }
-
-  void _showReceiptSheet(
-    Map<String, dynamic> transaction,
-    bool isPositive,
-    double amount,
-    DateTime date,
-  ) {
-    final isTripIncome = transaction['transaction_type'] == 'trip_payment_received';
-    final subtitle = isTripIncome 
-        ? 'Cobro de pasaje' 
-        : (isPositive ? 'Recarga de saldo' : 'Pago de viaje');
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) => _ReceiptSheet(
-        title: transaction['description'] ?? 'Transacción',
-        subtitle: subtitle,
-        amount: amount,
-        isTopUp: isPositive, // isPositive usa el estilo verde en el comprobante
-        date: date,
-        onDownload: () => _downloadReceipt(sheetContext, transaction),
-      ),
-    );
-  }
-
-  Future<void> _downloadReceipt(
-    BuildContext sheetContext,
-    Map<String, dynamic> transaction,
-  ) async {
-    try {
-      final file = await _receiptService.buildTransactionReceipt(transaction);
-      if (!sheetContext.mounted) return;
-      await _receiptService.share(file, subject: 'Comprobante Mi Ruta');
-    } catch (e) {
-      if (!sheetContext.mounted) return;
-      ScaffoldMessenger.of(sheetContext).showSnackBar(
-        SnackBar(
-          content: Text('No se pudo generar el comprobante: $e'),
-          backgroundColor: Colors.red.shade700,
-        ),
+        iconBackgroundColor: const Color(0xFFE8F5E9),
+        iconColor: Colors.green.shade700,
+        amountColor: Colors.green.shade700,
       );
     }
+
+    return TransactionCard(
+      icon: isTopUp ? Icons.add_circle : Icons.remove_circle,
+      title: title,
+      subtitle: isTopUp ? 'Recarga de saldo' : 'Pago de viaje',
+      amount: '${isTopUp ? '+' : '-'} Bs. ${amount.toStringAsFixed(2)}',
+      date: date,
+      iconBackgroundColor: const Color(0xFFFFF9C4),
+      iconColor: _amarillo,
+      amountColor: isTopUp ? Colors.green : _amarillo,
+    );
   }
 
   Widget _buildTransactionsList(List<Map<String, dynamic>> transactions) {

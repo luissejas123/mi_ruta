@@ -5,6 +5,7 @@ import 'package:mi_ruta/features/admin/domain/services/admin_access_service.dart
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/user_management_bloc.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/admin_bottom_navigation_bar.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_privileges_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_route_management_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/user_management_page.dart';
@@ -100,7 +101,7 @@ class AdminHomePage extends StatelessWidget {
                                     ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFFFC12F),
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(84),
                                     ),
                                     child: const Text(
                                       'SUPERADMIN',
@@ -191,6 +192,11 @@ class AdminHomePage extends StatelessWidget {
                     title: 'Cambiar contraseña',
                     subtitle: 'Actualiza tu contraseña de acceso',
                     onTap: () => showChangePasswordDialog(context),
+                  ),
+                  const SizedBox(height: 8),
+                  LogoutButton(
+                    onPressed: () =>
+                        context.read<AuthBloc>().add(const LogoutEvent()),
                   ),
                 ],
               ),

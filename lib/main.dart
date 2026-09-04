@@ -26,6 +26,7 @@ import 'package:mi_ruta/core/widgets/route_update_banner.dart';
 import 'package:mi_ruta/core/navigation/home_router.dart';
 import 'package:mi_ruta/core/connectivity/connectivity_service.dart';
 import 'package:mi_ruta/core/dev/dev_admin_bootstrap.dart';
+import 'package:mi_ruta/core/dev/dev_driver_bootstrap.dart';
 import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
 
 /// Handler de nivel superior para mensajes FCM recibidos en segundo plano
@@ -167,6 +168,8 @@ void main() async {
   );
     // SOLO DESARROLLO: asegura la cuenta admin@miruta.com (no ejecuta en release).
     unawaited(DevAdminBootstrap.ensureDevAdmin());
+    // SOLO DESARROLLO: asegura la cuenta chofer@miruta.com (no ejecuta en release).
+    unawaited(DevDriverBootstrap.ensureDevDriver());
   } catch (error) {
     startupError = error;
   }

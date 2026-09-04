@@ -5,6 +5,7 @@ import 'package:mi_ruta/features/admin/domain/entities/admin_user_entity.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_event.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_state.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/admin_bottom_navigation_bar.dart';
 
 class AdminPermissionsEditPage extends StatefulWidget {
   final AdminUserEntity user;
@@ -280,6 +281,9 @@ class _AdminPermissionsEditPageState extends State<AdminPermissionsEditPage> {
             ),
           );
         },
+      ),
+      bottomNavigationBar: const AdminBottomNavigationBar(
+        currentIndex: 0,
       ),
     );
   }

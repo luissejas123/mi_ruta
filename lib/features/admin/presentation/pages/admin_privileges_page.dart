@@ -8,6 +8,7 @@ import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_event.
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_state.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_create_admin_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_permissions_edit_page.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/admin_bottom_navigation_bar.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 
@@ -52,6 +53,9 @@ class _AdminPrivilegesPageState extends State<AdminPrivilegesPage> {
               ],
             ),
           ),
+        ),
+        bottomNavigationBar: const AdminBottomNavigationBar(
+          currentIndex: 0,
         ),
       );
     }
@@ -137,7 +141,7 @@ class _AdminPrivilegesPageState extends State<AdminPrivilegesPage> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               onPressed: () async {
-                await Navigator.push(
+                final created = await Navigator.push<bool>(
                   context,
                   MaterialPageRoute(
                     builder: (_) => BlocProvider.value(
@@ -146,16 +150,17 @@ class _AdminPrivilegesPageState extends State<AdminPrivilegesPage> {
                     ),
                   ),
                 );
-                // El bloc es un singleton compartido con AdminCreateAdminPage:
-                // al volver, su estado ya no es AdminsLoaded (quedó en
-                // AdminPrivilegesSuccess/Loading) — sin este refresh, la lista
-                // se queda mostrando el spinner de "carga" para siempre.
-                if (context.mounted) {
-                  context.read<AdminPrivilegesBloc>().add(const LoadAdminsEvent());
+                if (created == true && context.mounted) {
+                  context
+                      .read<AdminPrivilegesBloc>()
+                      .add(const LoadAdminsEvent());
                 }
               },
             )
           : null,
+      bottomNavigationBar: const AdminBottomNavigationBar(
+        currentIndex: 0,
+      ),
     );
   }
 }

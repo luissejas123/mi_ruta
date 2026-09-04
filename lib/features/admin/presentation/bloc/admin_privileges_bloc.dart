@@ -103,16 +103,16 @@ class AdminPrivilegesBloc
       governmentId: event.governmentId,
       phoneNumber: event.phoneNumber,
     );
+    var hasError = false;
     result.fold(
-      (failure) => emit(AdminPrivilegesError(failure.message)),
-      (_) async {
-        emit(const AdminPrivilegesSuccess('Administrador creado correctamente'));
-        final reload = await getUsersUseCase.call();
-        reload.fold(
-          (failure) => emit(AdminPrivilegesError(failure.message)),
-          (users) => emit(AdminsLoaded(users.where((u) => u.isAdmin).toList())),
-        );
+      (failure) {
+        hasError = true;
+        emit(AdminPrivilegesError(failure.message));
       },
+      (_) {},
     );
+    if (hasError) return;
+
+    emit(const AdminPrivilegesSuccess('Administrador creado correctamente'));
   }
 }

@@ -5,6 +5,7 @@ import 'package:mi_ruta/features/admin/presentation/bloc/route_management_bloc.d
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_event.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_state.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_route_form_page.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/admin_bottom_navigation_bar.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
@@ -87,6 +88,9 @@ class _AdminRouteManagementPageState extends State<AdminRouteManagementPage> {
               ],
             ),
           ),
+        ),
+        bottomNavigationBar: const AdminBottomNavigationBar(
+          currentIndex: 0,
         ),
       );
     }
@@ -257,7 +261,7 @@ class _AdminRouteManagementPageState extends State<AdminRouteManagementPage> {
             ),
           );
           bloc.add(const LoadAdminRoutesEvent());
-        },
+        }, 
       ),
       // Antes esta pantalla no tenía barra propia: al llegar desde el tab
       // "Rutas" del admin, la navegación entera desaparecía hasta volver
@@ -283,6 +287,12 @@ class _AdminRouteManagementPageState extends State<AdminRouteManagementPage> {
               break;
           }
         },
+      ),
+      bottomNavigationBar: const AdminBottomNavigationBar(
+        currentIndex: 0,
+      ),
+      bottomNavigationBar: const AdminBottomNavigationBar(
+        currentIndex: 0,
       ),
     );
   }

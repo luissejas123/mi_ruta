@@ -1,8 +1,8 @@
 // ignore_for_file: use_build_context_synchronously
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -37,6 +37,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
   final _amountController = TextEditingController();
   bool _isProcessing = false;
   bool _comprobanteEnviado = false;
+  double? _lastRechargeAmount;
   bool _isDownloading = false;
   String? _qrUrl;
   bool _loadingQR = true;
@@ -132,19 +133,33 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
 
   Future<void> _pickImage() async {
     try {
-      final pickedFile = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 90,
-      );
+      final pickedFile = await _pickImageWithRetry();
       if (pickedFile == null) return;
 
       final file = File(pickedFile.path);
       final fileName = pickedFile.name.toLowerCase();
-      final extension = fileName.split('.').last;
+      final extension = fileName.contains('.') ? fileName.split('.').last : '';
 
-      if (!['jpg', 'jpeg', 'png'].contains(extension)) {
-        _showSnackBar('Solo se permiten archivos JPG o PNG', isError: true);
-        return;
+      final isJpgName = ['jpg', 'jpeg'].contains(extension);
+      final isPngName = extension == 'png';
+
+      if (!isJpgName && !isPngName) {
+        // El nombre puede llegar sin extensión según el dispositivo/plataforma.
+        // Validar el contenido real del archivo (magic bytes) antes de rechazar.
+        final bytes = await file.readAsBytes();
+        final isJpegMagic = bytes.length > 3 &&
+            bytes[0] == 0xFF &&
+            bytes[1] == 0xD8 &&
+            bytes[2] == 0xFF;
+        final isPngMagic = bytes.length > 8 &&
+            bytes[0] == 0x89 &&
+            bytes[1] == 0x50 &&
+            bytes[2] == 0x4E &&
+            bytes[3] == 0x47;
+        if (!isJpegMagic && !isPngMagic) {
+          _showSnackBar('Solo se permiten archivos JPG o PNG', isError: true);
+          return;
+        }
       }
 
       final fileSize = await file.length();
@@ -162,6 +177,40 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
       });
     } catch (e) {
       _showSnackBar('Error al seleccionar imagen: $e', isError: true);
+    }
+  }
+
+  /// Abre el selector de galería. En Android algunos dispositivos/álbumes
+  /// fallan al leer los metadatos completos de la imagen
+  /// (PlatformException metadata_fetch_failed, _Namespace) aunque sea un JPG normal:
+  /// se reintenta sin solicitar metadatos.
+  Future<XFile?> _pickImageWithRetry() async {
+    final picker = ImagePicker();
+    try {
+      return await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 90,
+      );
+    } on PlatformException catch (e) {
+      if (e.code == 'metadata_fetch_failed' || e.code == 'no_activity') {
+        return await picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 90,
+          requestFullMetadata: false,
+        );
+      }
+      rethrow;
+    } catch (e) {
+      // Captura el error "_Namespace" que ocurre en algunos dispositivos Android
+      // cuando hay problemas al parsear metadatos XML de imágenes
+      if (e.toString().contains('_Namespace') || e.toString().contains('metadata')) {
+        return await picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 90,
+          requestFullMetadata: false,
+        );
+      }
+      rethrow;
     }
   }
 
@@ -347,7 +396,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
       _buildStep('1', 'Descarga o escanea el QR con tu app bancaria'),
       _buildStep('2', 'Realiza la transferencia del monto deseado'),
       _buildStep('3', 'Ingresa el monto y sube el comprobante'),
-      _buildStep('4', 'Tu solicitud pasará a revisión en 24 horas hábiles'),
+      _buildStep('4', 'Tu saldo se cargará de inmediato a tu billetera'),
     ],
   );
 
@@ -486,23 +535,23 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Colors.blue.shade50,
+      color: Colors.green.shade50,
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: Colors.blue.shade300, width: 1.5),
+      border: Border.all(color: Colors.green.shade300, width: 1.5),
     ),
     child: Column(
       children: [
         Row(
           children: [
-            Icon(Icons.info_outline, color: Colors.blue.shade700, size: 24),
+            Icon(Icons.check_circle, color: Colors.green.shade700, size: 24),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Comprobante enviado',
+                'Saldo cargado',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: Colors.blue.shade700,
+                  color: Colors.green.shade800,
                 ),
               ),
             ),
@@ -510,12 +559,16 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Tu comprobante ha sido recibido y pasará a revisión. '
-          'Verificaremos tus datos y actualizaremos tu saldo '
-          'en un plazo de 24 horas hábiles.',
+          _lastRechargeAmount != null
+              ? 'Tu comprobante fue recibido y se cargó '
+                    'Bs. ${_lastRechargeAmount!.toStringAsFixed(2)} '
+                    'a tu billetera. '
+                    'Revisa tu saldo en Mi Billetera.'
+              : 'Tu comprobante fue recibido y el saldo se cargó '
+                    'a tu billetera de inmediato.',
           style: TextStyle(
             fontSize: 13,
-            color: Colors.blue.shade700,
+            color: Colors.green.shade800,
             height: 1.4,
           ),
         ),
@@ -578,6 +631,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
               .saveRechargeNotification(_userId, state.amount);
           setState(() {
             _comprobanteEnviado = true;
+            _lastRechargeAmount = state.amount;
             _amountController.clear();
             _selectedImage = null;
           });

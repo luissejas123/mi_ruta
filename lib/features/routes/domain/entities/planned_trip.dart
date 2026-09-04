@@ -79,6 +79,8 @@ class PlannedTrip extends Equatable {
   final DateTime createdAt;
   final DateTime? scheduledAt;
   final bool isCompleted;
+  final bool isCancelled;
+  final DateTime? cancelledAt;
 
   const PlannedTrip({
     required this.id,
@@ -91,7 +93,21 @@ class PlannedTrip extends Equatable {
     required this.createdAt,
     this.scheduledAt,
     this.isCompleted = false,
+    this.isCancelled = false,
+    this.cancelledAt, 
   });
+
+  PlannedTrip copyWith({String? id}) => PlannedTrip(
+        id: id ?? this.id,
+        userId: userId,
+        originName: originName,
+        originLatLng: originLatLng,
+        destinationName: destinationName,
+        destinationLatLng: destinationLatLng,
+        legs: legs,
+        createdAt: createdAt,
+        isCompleted: isCompleted,
+      );
 
   PlannedTrip copyWith({String? id}) => PlannedTrip(
         id: id ?? this.id,
@@ -118,5 +134,6 @@ class PlannedTrip extends Equatable {
   String get routesSummary => busLegs.map((l) => l.routeName).join(' + ');
 
   @override
-  List<Object?> get props => [id, userId, legs, scheduledAt, isCompleted];
+  List<Object?> get props =>
+      [id, userId, legs, scheduledAt, isCompleted, isCancelled, cancelledAt];
 }

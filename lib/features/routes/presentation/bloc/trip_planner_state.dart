@@ -27,6 +27,13 @@ class MyPlansLoaded extends TripPlannerState {
   List<Object?> get props => [plans];
 }
 
+class CancelledTripsLoaded extends TripPlannerState {
+  final List<PlannedTrip> trips;
+  const CancelledTripsLoaded(this.trips);
+  @override
+  List<Object?> get props => [trips];
+}
+
 class TripPlanSaved extends TripPlannerState {
   final PlannedTrip trip;
   const TripPlanSaved(this.trip);

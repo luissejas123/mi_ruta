@@ -35,6 +35,7 @@ import 'package:mi_ruta/features/user/data/datasources/benefit_request_datasourc
 import 'package:mi_ruta/features/user/data/repositories/user_repository_impl.dart';
 import 'package:mi_ruta/features/user/domain/repositories/user_repository.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_history_service.dart';
+import 'package:mi_ruta/features/user/domain/services/cancelled_trips_pdf_service.dart';
 import 'package:mi_ruta/features/user/domain/services/wallet_service.dart';
 import 'package:mi_ruta/features/user/domain/services/recharge_service.dart';
 import 'package:mi_ruta/features/user/domain/services/storage_service.dart';
@@ -547,6 +548,10 @@ void setupDependencies() {
       datasource: getIt<PlannedTripDatasource>(),
       syncService: getIt<RouteDataSyncService>(),
     ),
+  );
+
+  getIt.registerSingleton<CancelledTripsPdfService>(
+    CancelledTripsPdfService(),
   );
 
   // ============================================

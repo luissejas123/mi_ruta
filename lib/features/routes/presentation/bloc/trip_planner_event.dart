@@ -66,6 +66,13 @@ class MarkTripCompleted extends TripPlannerEvent {
   List<Object?> get props => [userId, tripId];
 }
 
+class LoadCancelledTrips extends TripPlannerEvent {
+  final String userId;
+  const LoadCancelledTrips(this.userId);
+  @override
+  List<Object?> get props => [userId];
+}
+
 class ClearSearch extends TripPlannerEvent {
   const ClearSearch();
 }

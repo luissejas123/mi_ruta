@@ -10,6 +10,7 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart'
     as auth_events;
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/widgets/change_password_dialog.dart';
+import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_bloc.dart';
@@ -73,8 +74,8 @@ class _PerfilPageState extends State<PerfilPage> {
 
   /// "Cambiar de perfil" solo tiene sentido si la cuenta tiene más de un rol
   /// real (todas tienen 'user' como base). No confundir con
-  /// [SwitchProfileButton], que es el acceso de prueba QA/superadmin a los 5
-  /// perfiles sin importar los roles reales de la cuenta.
+  /// [SwitchProfileButton], que es el acceso de superadmin a los 5 perfiles
+  /// sin importar los roles reales de la cuenta.
   List<String> get _ownedRoles {
     final authState = context.read<AuthBloc>().state;
     return authState is AuthLoaded ? authState.user.roles : const ['user'];

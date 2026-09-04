@@ -20,9 +20,6 @@ class UserManagementService {
   Future<void> setUserActive(String uid, bool isActive) =>
       _datasource.setUserActiveState(uid, isActive);
 
-  Future<void> setQaAccess(String uid, bool qaAccess) =>
-      _datasource.setQaAccess(uid, qaAccess);
-
   /// Cola de solicitudes de chofer sin resolver (RQ4: "registrarme como chofer").
   Future<List<UserEntity>> getPendingDriverRequests() =>
       _datasource.getPendingDriverRequests();

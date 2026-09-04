@@ -12,7 +12,6 @@ class AuthModel extends AuthEntity {
     required super.createdAt,
     super.wallet,
     super.settings,
-    super.qaAccess,
     super.isSuperAdmin,
     super.roles,
   });
@@ -49,7 +48,6 @@ class AuthModel extends AuthEntity {
       createdAt: parseCreatedAt(json['created_at'] ?? json['createdAt']),
       wallet: json['wallet'] as Map<String, dynamic>?,
       settings: json['settings'] as Map<String, dynamic>?,
-      qaAccess: json['qa_access'] as bool? ?? false,
       isSuperAdmin: json['is_super_admin'] as bool? ?? false,
       roles: roles,
     );

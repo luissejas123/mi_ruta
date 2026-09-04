@@ -17,10 +17,20 @@ class UserModel extends UserEntity {
     required super.createdAt,
     required super.updatedAt,
     super.activeBenefits,
+    super.driverRequest,
+    super.role,
+    super.roles,
   });
 
   /// Convertir JSON de Firestore a UserModel
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    final legacyRole = (json['role'] ?? json['userType']) as String? ?? 'user';
+    // `roles` es nuevo (Sprint 4): un doc que todavia no lo tiene solo
+    // conoce su rol legado. No hace falta migrar los docs existentes.
+    final rawRoles = json['roles'];
+    final roles = rawRoles is List
+        ? rawRoles.map((r) => r.toString()).toList()
+        : <String>[legacyRole];
     return UserModel(
       uid: json['uid'] as String? ?? '',
       fullName: (json['full_name'] ?? json['fullName']) as String? ?? '',
@@ -39,8 +49,9 @@ class UserModel extends UserEntity {
               ?.toDouble() ??
           0.0,
       isActive: json['isActive'] as bool? ?? true,
-      qaAccess: json['qa_access'] as bool? ?? false,
       driverRequest: DriverRequestEntity.fromJson(json['driver_request']),
+      role: legacyRole,
+      roles: roles,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : json['createdAt'] != null

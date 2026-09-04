@@ -288,12 +288,6 @@ class _AdminRouteManagementPageState extends State<AdminRouteManagementPage> {
           }
         },
       ),
-      bottomNavigationBar: const AdminBottomNavigationBar(
-        currentIndex: 0,
-      ),
-      bottomNavigationBar: const AdminBottomNavigationBar(
-        currentIndex: 0,
-      ),
     );
   }
 }

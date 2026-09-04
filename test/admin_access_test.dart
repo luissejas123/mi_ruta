@@ -22,6 +22,7 @@ AuthEntity _buildUser({
     createdAt: DateTime(2026),
     settings: settings,
     isSuperAdmin: isSuperAdmin,
+    roles: [role],
   );
 }
 

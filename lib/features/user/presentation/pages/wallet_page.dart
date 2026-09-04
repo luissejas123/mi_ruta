@@ -96,10 +96,10 @@ class _WalletPageState extends State<WalletPage> {
     _loadWalletData();
   }
 
-  void _navigateToMisSolicitudesBeneficio() {
+  void _navigateToSolicitudBeneficio() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const MisSolicitudesBeneficioPage()),
+      MaterialPageRoute(builder: (_) => const SolicitudBeneficioPage()),
     );
   }
 

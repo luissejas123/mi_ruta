@@ -20,6 +20,7 @@ void main() {
         AdminPermissions.manageRoutes: true,
       },
     },
+    roles: const ['admin'],
   );
 
   test('un admin sin permisos no ve operaciones no habilitadas', () {

@@ -36,15 +36,6 @@ class UserManagementDatasource {
     }, SetOptions(merge: true));
   }
 
-  /// Activa/desactiva el acceso libre a los 5 perfiles para una cuenta de
-  /// prueba — mecanismo QA, independiente de `is_super_admin`.
-  Future<void> setQaAccess(String uid, bool qaAccess) async {
-    await _firestore.collection('users').doc(uid).set({
-      'qa_access': qaAccess,
-      'updated_at': DateTime.now().toIso8601String(),
-    }, SetOptions(merge: true));
-  }
-
   /// Cuentas con una solicitud de chofer sin resolver. Se filtra en cliente por
   /// la misma razón que [getUsers]: los docs de `users` no son homogéneos.
   Future<List<UserModel>> getPendingDriverRequests() async {

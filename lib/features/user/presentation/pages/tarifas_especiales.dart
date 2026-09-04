@@ -78,7 +78,7 @@ class SolicitudBeneficioPage extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const PagoQrPage(),
+                        builder: (context) => const PagoQRPage(),
                       ),
                     );
                   },
@@ -93,7 +93,7 @@ class SolicitudBeneficioPage extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const PagoQrPage(),
+                        builder: (context) => const PagoQRPage(),
                       ),
                     );
                   },
@@ -108,7 +108,7 @@ class SolicitudBeneficioPage extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const PagoQrPage(),
+                        builder: (context) => const PagoQRPage(),
                       ),
                     );
                   },

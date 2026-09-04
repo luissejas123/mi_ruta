@@ -30,11 +30,11 @@ Estos dos bugs bloquean cualquier trabajo en los archivos que toca este plan —
 |---|---|---|---|
 | 1 | `SuperAdminConfig.superAdminEmails` | `lib/core/config/super_admin_config.dart:17-19` | allowlist de emails hardcodeada, usada por `AdminAccessService.isSuperAdmin()` para saltarse `admin_permissions` |
 | 2 | `kSuperAdminEmail` / `isSuperAdminEmail()` | `lib/core/config/super_admin_config.dart:4-7` | un único email hardcodeado, distinto al de arriba, usado solo por `SwitchProfileButton` para mostrar/ocultar el switcher de perfil |
-| 3 | `qa_access` (campo Firestore) | escrito por `UserManagementDatasource.setQaAccess` (`lib/features/admin/data/datasources/user_management_datasource.dart:30-35`) | toggle por cuenta, también gatilla `SwitchProfileButton` |
+| 3 | ~~`qa_access` (campo Firestore)~~ | ~~escrito por `UserManagementDatasource.setQaAccess`~~ | **Retirado el 2026-09-04** — ya no existe en el código |
 
 Los mecanismos 1 y 2 usan **listas de emails diferentes** — un superadmin de permisos puede no ver el switcher de perfil y viceversa. Bug real, no solo duplicación.
 
-**Reemplazo único (según §0.1):** campo booleano en Firestore `users/{uid}.is_super_admin` (nuevo, snake_case consistente con el resto del esquema). `AdminAccessService.isSuperAdmin(AuthEntity)` pasa a leer `user.isSuperAdmin` (nuevo getter en `AuthEntity`, poblado desde ese campo por `AuthModel.fromJson`), no un email. Se eliminan por completo `SuperAdminConfig.superAdminEmails` y `kSuperAdminEmail`/`isSuperAdminEmail()`. `qa_access` se mantiene como mecanismo secundario intencional (ya vive en la base de datos, cumple la regla de §0.1) — decisión pendiente de confirmar si también se retira o se documenta como QA-only.
+**Reemplazo único (según §0.1):** campo booleano en Firestore `users/{uid}.is_super_admin` (nuevo, snake_case consistente con el resto del esquema). `AdminAccessService.isSuperAdmin(AuthEntity)` pasa a leer `user.isSuperAdmin` (nuevo getter en `AuthEntity`, poblado desde ese campo por `AuthModel.fromJson`), no un email. Se eliminan por completo `SuperAdminConfig.superAdminEmails` y `kSuperAdminEmail`/`isSuperAdminEmail()`. `qa_access` se mantuvo un tiempo como mecanismo secundario intencional y se retiró del código el 2026-09-04 por decisión del usuario — `SwitchProfileButton` ahora depende solo de `is_super_admin`.
 
 ---
 
@@ -55,7 +55,7 @@ Como las reglas de Firestore (§5) van a impedir que un cliente se escriba `role
 
    La consola escribe con credenciales de administrador, así que pasa por encima de las reglas de §5 que bloquean estos campos desde el cliente. Es el único camino para el primero.
 6. **Recargar la sesión** en la app: cerrar sesión y volver a entrar (o reiniciar la app). El perfil se lee de Firestore al iniciar sesión; hasta entonces sigue con los valores viejos.
-7. **Verificar.** La cuenta debe aterrizar en `AdminHomePage` ("Perfil Administrativo"), mostrar el distintivo de superadmin en la cabecera (`admin_home_page.dart`, `if (user.isSuperAdmin)`) y mostrar el botón "Cambiar de perfil" (`SwitchProfileButton`, visible con `is_super_admin` o `qa_access`).
+7. **Verificar.** La cuenta debe aterrizar en `AdminHomePage` ("Perfil Administrativo"), mostrar el distintivo de superadmin en la cabecera (`admin_home_page.dart`, `if (user.isSuperAdmin)`) y mostrar el botón "Cambiar de perfil" (`SwitchProfileButton`, visible con `is_super_admin`).
 8. Desde ahí esa cuenta ya promueve a otros admins/presidentes desde la propia app (Fase 4/5). El paso manual solo se repite para sembrar un entorno nuevo.
 
 ---
@@ -197,7 +197,7 @@ El repo **no compilaba ni arrancaba** antes de este trabajo. Además de los dos 
 - **Nada se compiló en esta sesión.** No hay SDK de Flutter en la máquina donde se implementó; la compilación y el `flutter analyze`/`flutter test` quedan a cargo del equipo. Cubre también el fix del §9.
 - **`DevAdminBootstrap` queda inoperante en entornos nuevos:** escribe `role: 'admin'` desde el cliente y las reglas nuevas lo deniegan (falla en silencio). Ya está documentado en su propio doc-comment. Decidir si se borra o se reemplaza por el runbook manual de SECURITY.md.
 - **Segundo mecanismo de hardcodeo no previsto en §0.2:** `lib/core/demo/demo_constants.dart` + `LoginAsDemoUseCase` + vehículos demo en `driver_vehicle_bloc.dart` y `admin_active_vehicles_bloc.dart`. **No se tocó** — parece un "modo demo" deliberado y con UI propia, no residuo de presentación. Decidir si entra en la regla de §0.2.
-- **`qa_access` se mantuvo** como mecanismo secundario (vive en la base de datos, cumple §0.1). Sigue pendiente la decisión de §2 sobre retirarlo o documentarlo como QA-only.
+- **`qa_access` retirado del código** (2026-09-04, ver §2) — decisión de §2 ya cerrada.
 - **Reglas de Firestore:** solo se endureció `users` (el hueco real). El resto de colecciones sigue permisivo para sesión autenticada. Ojo al editar: **no** agregar un `match /{document=**}` permisivo al final — el comodín recursivo también cubre `users/` y anularía toda la protección.
 
 ---

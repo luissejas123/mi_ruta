@@ -199,9 +199,11 @@ class AdminHomePage extends StatelessWidget {
                     onTap: () => showChangePasswordDialog(context),
                   ),
                   const SizedBox(height: 8),
-                  LogoutButton(
-                    onPressed: () =>
-                        context.read<AuthBloc>().add(const LogoutEvent()),
+                  _MenuCard(
+                    icon: Icons.logout,
+                    title: 'Cerrar sesión',
+                    subtitle: 'Salir de tu cuenta administrativa',
+                    onTap: () => confirmLogout(context),
                   ),
                 ],
               ),

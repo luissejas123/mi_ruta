@@ -97,7 +97,8 @@ class PlannedTrip extends Equatable {
     this.cancelledAt, 
   });
 
-  PlannedTrip copyWith({String? id}) => PlannedTrip(
+  PlannedTrip copyWith({String? id, bool? isCompleted, bool? isCancelled, DateTime? cancelledAt}) =>
+      PlannedTrip(
         id: id ?? this.id,
         userId: userId,
         originName: originName,
@@ -106,19 +107,9 @@ class PlannedTrip extends Equatable {
         destinationLatLng: destinationLatLng,
         legs: legs,
         createdAt: createdAt,
-        isCompleted: isCompleted,
-      );
-
-  PlannedTrip copyWith({String? id}) => PlannedTrip(
-        id: id ?? this.id,
-        userId: userId,
-        originName: originName,
-        originLatLng: originLatLng,
-        destinationName: destinationName,
-        destinationLatLng: destinationLatLng,
-        legs: legs,
-        createdAt: createdAt,
-        isCompleted: isCompleted,
+        isCompleted: isCompleted ?? this.isCompleted,
+        isCancelled: isCancelled ?? this.isCancelled,
+        cancelledAt: cancelledAt ?? this.cancelledAt,
       );
 
   List<PlannedTripLeg> get busLegs => legs.where((l) => l.isBus).toList();

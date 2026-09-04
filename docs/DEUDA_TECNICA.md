@@ -56,9 +56,9 @@ Ambas están registradas en `dependency_injection.dart` y **ambas escriben/leen 
 
 ---
 
-## 5. `lib/services/firebase_service.dart` — carpeta no declarada por ninguna arquitectura
+## 5. `lib/services/firebase_service.dart` — **eliminado el 2026-09-04**
 
-Vive en `lib/services/`, un tercer nivel fuera de `core/` y `features/` que ningún documento de arquitectura menciona. Verificado: ningún archivo en `lib/` lo importa — parece código muerto, pero no se confirmó con un grep final ni se borró.
+Confirmado código muerto: un solo commit (`1d15f62`, "añadido de firebase y colecciones de users buses y wallets ejm"), nunca importado desde ningún archivo de `lib/`, nunca invocado desde `main.dart`. Escribía datos de ejemplo genéricos (español ibérico, EUR, "Madrid - Barcelona") en las colecciones `buses` y `wallets` — **ninguna de las dos existe en el Firestore real del proyecto** (verificado contra la consola, ver `FIRESTORE_COLLECTIONS_GUIDE.md`) — y además reescribía la colección real `users` con un esquema completamente ajeno al de `UserModel`/`AuthModel` (`name`/`photo`/`registrationDate` en vez de `full_name`/`profile_picture_url`/`created_at`), lo que la habría corrompido si alguna vez se hubiera llamado. Borrado junto con el directorio `lib/services/` (quedó vacío).
 
 ---
 
@@ -76,4 +76,4 @@ Sesión anterior (2026-08-27, commit `428ce53`) encontró un archivo `env` (sin 
 
 ## Resuelto — ya no es deuda (registrado para no repetir la pregunta)
 
-- **`qa_access` vs `is_super_admin`**: no es un duplicado accidental. `is_super_admin` es el mecanismo vigente (se siembra a mano en Firestore para la primera cuenta, ver `SECURITY.md`); `qa_access` se mantiene deliberadamente como compatibilidad legacy para versiones ya compiladas, y se retira al cerrar el proyecto. Confirmado por el usuario el 2026-08-31.
+- **`qa_access` vs `is_super_admin`**: no era un duplicado accidental — `is_super_admin` es el mecanismo vigente (se siembra a mano en Firestore para la primera cuenta, ver `SECURITY.md`); `qa_access` se mantuvo un tiempo como compatibilidad legacy para versiones ya compiladas. **Retirado del código el 2026-09-04** (campo, getters, `setQaAccess` y el chequeo en `SwitchProfileButton`, que ahora depende solo de `is_super_admin`) por decisión del usuario. Cualquier doc `users/{uid}.qa_access` que quede en Firestore ya no tiene efecto — no hace falta borrarlo.

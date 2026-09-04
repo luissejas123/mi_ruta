@@ -176,6 +176,7 @@ class _MovimientosPageState extends State<MovimientosPage> {
         'rejected' => 'Rechazada',
         _ => 'En revisión',
       };
+      // Sin comprobante descargable: no es un movimiento de dinero.
       return TransactionCard(
         icon: Icons.card_membership,
         title: 'Solicitud de beneficio · $statusLabel',
@@ -192,31 +193,95 @@ class _MovimientosPageState extends State<MovimientosPage> {
         transactionType.contains('recharge');
     final isIncome = transactionType.contains('trip_payment_received') ||
         transactionType.contains('income');
-    final date = _parseTransactionDate(timestamp);
+
+    final IconData icon;
+    final String subtitle;
+    final Color iconBackgroundColor;
+    final Color iconColor;
+    final Color amountColor;
+    final bool isPositive = isTopUp || isIncome;
 
     if (isIncome) {
-      return TransactionCard(
-        icon: Icons.attach_money,
-        title: title,
-        subtitle: 'Pago de viaje recibido',
-        amount: '+ Bs. ${amount.toStringAsFixed(2)}',
-        date: date,
-        iconBackgroundColor: const Color(0xFFE8F5E9),
-        iconColor: Colors.green.shade700,
-        amountColor: Colors.green.shade700,
-      );
+      icon = Icons.local_taxi;
+      subtitle = 'Cobro de pasaje';
+      iconBackgroundColor = Colors.green.shade50;
+      iconColor = Colors.green.shade700;
+      amountColor = Colors.green.shade700;
+    } else if (isTopUp) {
+      icon = Icons.add_circle;
+      subtitle = 'Recarga de saldo';
+      iconBackgroundColor = const Color(0xFFFFF9C4);
+      iconColor = _amarillo;
+      amountColor = Colors.green;
+    } else {
+      icon = Icons.remove_circle;
+      subtitle = 'Pago de viaje';
+      iconBackgroundColor = const Color(0xFFFFF9C4);
+      iconColor = _amarillo;
+      amountColor = _amarillo;
     }
 
-    return TransactionCard(
-      icon: isTopUp ? Icons.add_circle : Icons.remove_circle,
-      title: title,
-      subtitle: isTopUp ? 'Recarga de saldo' : 'Pago de viaje',
-      amount: '${isTopUp ? '+' : '-'} Bs. ${amount.toStringAsFixed(2)}',
-      date: date,
-      iconBackgroundColor: const Color(0xFFFFF9C4),
-      iconColor: _amarillo,
-      amountColor: isTopUp ? Colors.green : _amarillo,
+    return GestureDetector(
+      onTap: () => _showReceiptSheet(transaction, isPositive, amount, date),
+      child: TransactionCard(
+        icon: icon,
+        title: title,
+        subtitle: subtitle,
+        amount: '${isPositive ? '+' : '-'} Bs. ${amount.toStringAsFixed(2)}',
+        date: date,
+        iconBackgroundColor: iconBackgroundColor,
+        iconColor: iconColor,
+        amountColor: amountColor,
+      ),
     );
+  }
+
+  void _showReceiptSheet(
+    Map<String, dynamic> transaction,
+    bool isPositive,
+    double amount,
+    DateTime date,
+  ) {
+    final transactionType = transaction['transaction_type'] ?? '';
+    final isIncome = transactionType.contains('trip_payment_received') ||
+        transactionType.contains('income');
+    final subtitle = isIncome
+        ? 'Cobro de pasaje'
+        : (isPositive ? 'Recarga de saldo' : 'Pago de viaje');
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => _ReceiptSheet(
+        title: transaction['description'] ?? 'Transacción',
+        subtitle: subtitle,
+        amount: amount,
+        isTopUp: isPositive,
+        date: date,
+        onDownload: () => _downloadReceipt(sheetContext, transaction),
+      ),
+    );
+  }
+
+  Future<void> _downloadReceipt(
+    BuildContext sheetContext,
+    Map<String, dynamic> transaction,
+  ) async {
+    try {
+      final file = await _receiptService.buildTransactionReceipt(transaction);
+      if (!sheetContext.mounted) return;
+      await _receiptService.share(file, subject: 'Comprobante Mi Ruta');
+    } catch (e) {
+      if (!sheetContext.mounted) return;
+      ScaffoldMessenger.of(sheetContext).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo generar el comprobante: $e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
   }
 
   Widget _buildTransactionsList(List<Map<String, dynamic>> transactions) {

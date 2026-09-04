@@ -32,7 +32,6 @@ void main() {
     isActive: true,
     createdAt: DateTime(2024, 1, 1),
     updatedAt: DateTime(2024, 2, 1),
-    qaAccess: true,
   );
 
   setUp(() {

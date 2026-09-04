@@ -16,6 +16,15 @@ class UserEntity extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<String> activeBenefits;
+  // Solicitud para ser chofer (`driver_request` en users/{uid}). `null` cuando
+  // la cuenta nunca solicitó. El `role` no cambia hasta la aprobación.
+  final DriverRequestEntity? driverRequest;
+  // Rol "activo" por defecto (mismo campo que `AuthEntity.role`). Ver `roles`
+  // para el conjunto completo — una cuenta puede tener varios a la vez.
+  final String role;
+  // Todos los roles simultáneos de la cuenta (siempre incluye 'user'). Ver
+  // RoleHierarchy para las combinaciones válidas.
+  final List<String> roles;
 
   const UserEntity({
     required this.uid,
@@ -31,13 +40,18 @@ class UserEntity extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.activeBenefits = const [],
+    this.driverRequest,
+    this.role = 'user',
+    this.roles = const ['user'],
   });
 
   /// True cuando hay una solicitud de chofer esperando resolución.
   bool get hasPendingDriverRequest => driverRequest?.isPending ?? false;
 
+  bool get isAdmin => roles.contains('admin');
+
   @override
-  List<Object> get props => [
+  List<Object?> get props => [
     uid,
     fullName,
     email,
@@ -51,5 +65,8 @@ class UserEntity extends Equatable {
     createdAt,
     updatedAt,
     activeBenefits,
+    driverRequest,
+    role,
+    roles,
   ];
 }

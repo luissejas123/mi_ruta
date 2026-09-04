@@ -13,6 +13,18 @@ import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' s
 
 const _amarillo = Color(0xFFFFC12F);
 
+Color _profileColorForLabel(String label) {
+  final normalized = label.toLowerCase();
+  if (normalized.contains('pasajero')) return const Color(0xFFFFC12F);
+  if (normalized.contains('chofer')) return const Color(0xFF8D5E3B);
+  if (normalized.contains('dirigente') || normalized.contains('presidente')) {
+    return const Color(0xFFEF6C00);
+  }
+  if (normalized.contains('administrador')) return const Color(0xFF7C4DFF);
+  if (normalized.contains('tickeador')) return const Color(0xFF7C4DFF);
+  return _amarillo;
+}
+
 /// Selector de perfiles para la cuenta super-admin: navega a cada home ya
 /// existente, sin lógica de negocio nueva — solo decide a qué pantalla ir.
 class SuperAdminSwitcherPage extends StatelessWidget {
@@ -125,6 +137,7 @@ class _ProfileTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final accentColor = _profileColorForLabel(label);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -136,10 +149,11 @@ class _ProfileTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: accentColor.withValues(alpha: 0.45), width: 1.2),
           ),
           child: Row(
             children: [
-              Icon(icon, color: colorScheme.onSurface, size: 26),
+              Icon(icon, color: accentColor, size: 26),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
@@ -151,7 +165,7 @@ class _ProfileTile extends StatelessWidget {
                   ),
                 ),
               ),
-              Icon(Icons.arrow_forward_ios, color: colorScheme.onSurface.withValues(alpha: 0.5), size: 16),
+              Icon(Icons.arrow_forward_ios, color: accentColor.withValues(alpha: 0.7), size: 16),
             ],
           ),
         ),

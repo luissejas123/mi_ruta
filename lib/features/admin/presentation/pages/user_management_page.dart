@@ -8,11 +8,43 @@ import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.d
 import 'package:mi_ruta/features/admin/presentation/bloc/user_management_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/user_management_event.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/user_management_state.dart';
-import 'package:mi_ruta/features/admin/presentation/pages/admin_permissions_edit_page.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
+import 'package:mi_ruta/features/user/domain/entities/user_entity.dart';
 
-class UserManagementPage extends StatefulWidget {
+const _amarillo = Color(0xFFFFC12F);
+
+const _roleFilters = <String?, String>{
+  null: 'Todos',
+  'passenger': 'Pasajeros',
+  'driver': 'Choferes',
+  //'tickeador': 'Tickeadores',
+  'admin': 'Administradores',
+  'presidente': 'Dirigentes',
+};
+
+const Map<String, Color> _roleColors = {
+  'passenger': Color(0xFFFFC12F),
+  'usuario': Color(0xFFFFC12F),
+  'driver': Color(0xFF8D5E3B),
+  'chofer': Color(0xFF8D5E3B),
+  //'tickeador': Color(0xFF7C4DFF),
+  'admin': Color(0xFF7C4DFF),
+  'presidente': Color(0xFFEF6C00),
+  'dirigente': Color(0xFFEF6C00),
+};
+
+Color roleColorForUserType(String? userType) {
+  final normalized = (userType ?? '').trim().toLowerCase();
+  if (normalized.isEmpty) {
+    return _roleColors['passenger']!;
+  }
+  return _roleColors[normalized] ?? _roleColors['passenger']!;
+}
+
+String _roleLabel(String userType) => _roleFilters[userType] ?? userType;
+
+/// Gestión de cuentas de cualquier rol (RQ-71 gestión de usuarios,
+/// RQ-72 aprobación/bloqueo) — accesible para admin y presidente.
+class UserManagementPage extends StatelessWidget {
   const UserManagementPage({super.key});
 
   @override
@@ -65,91 +97,111 @@ class _UserManagementPageState extends State<UserManagementPage> {
         ],
       ),
     );
-    if (confirmed == true && mounted) {
-      context
-          .read<UserManagementBloc>()
-          .add(PromoteUserToAdminEvent(user.uid));
-    }
   }
+}
 
-  /// Promueve a `presidente` (dirigente de linea). Solo lo ofrece la vista de
-  /// admin: un Presidente no otorga Presidente.
-  Future<void> _confirmPromoteToPresidente(AdminUserEntity user) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Promover a presidente'),
-        content: Text(
-          '¿Seguro que quieres convertir a "${user.fullName}" en presidente?\n'
-          'Se actualizará su role a "presidente" en Firestore.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Promover',
-              style: TextStyle(color: Color(0xFFFFC12F)),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && mounted) {
-      context
-          .read<UserManagementBloc>()
-          .add(PromoteUserToPresidenteEvent(user.uid));
-    }
-  }
+class _RoleFilterBar extends StatelessWidget {
+  const _RoleFilterBar();
 
-  void _showUserDetails(AdminUserEntity user) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: const Color(0xFFFFC12F),
-                  child: Text(
-                    user.fullName.isNotEmpty
-                        ? user.fullName[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: BlocBuilder<UserManagementBloc, UserManagementState>(
+        builder: (context, state) {
+          final activeFilter = state is UserManagementLoaded ? state.activeFilter : null;
+          return ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            children: _roleFilters.entries.map((entry) {
+              final selected = entry.key == activeFilter;
+              final chipColor = roleColorForUserType(entry.key);
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(
+                    entry.value,
+                    style: TextStyle(
+                      color: selected ? Colors.white : chipColor,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.fullName,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(user.email,
-                          style: const TextStyle(color: Colors.black54)),
-                    ],
+                  selected: selected,
+                  selectedColor: chipColor,
+                  backgroundColor: chipColor.withValues(alpha: 0.12),
+                  showCheckmark: false,
+                  side: BorderSide(
+                    color: chipColor.withValues(alpha: selected ? 0 : 0.5),
+                    width: 1,
                   ),
+                  onSelected: (_) => context
+                      .read<UserManagementBloc>()
+                      .add(LoadManagedUsers(userTypeFilter: entry.key)),
+                ),
+              );
+            }).toList(),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _UserTile extends StatelessWidget {
+  final UserEntity user;
+  final bool isUpdating;
+
+  const _UserTile({required this.user, required this.isUpdating});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+        border: user.isActive ? null : Border.all(color: Colors.red.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: roleColorForUserType(user.userType),
+            backgroundImage:
+                user.profileImageUrl.isNotEmpty ? NetworkImage(user.profileImageUrl) : null,
+            child: user.profileImageUrl.isEmpty
+                ? const Icon(Icons.person, color: Colors.white)
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.fullName.isNotEmpty ? user.fullName : user.email,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  user.email,
+                  style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6)),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    _Badge(
+                      label: _roleLabel(user.userType),
+                      color: roleColorForUserType(user.userType),
+                    ),
+                    _Badge(
+                      label: user.isActive ? 'Aprobado' : 'Bloqueado',
+                      color: user.isActive ? Colors.green : Colors.red,
+                    ),
+                    if (user.qaAccess) const _Badge(label: 'Acceso QA', color: Colors.purple),
+                  ],
                 ),
               ],
             ),
@@ -530,29 +582,25 @@ class _UserManagementPageState extends State<UserManagementPage> {
 
 class _DetailRow extends StatelessWidget {
   final String label;
-  final String value;
+  final Color color;
 
   const _DetailRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.black54,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Expanded(child: Text(value)),
-        ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: color.withValues(alpha: 0.9),
+        ),
       ),
     );
   }

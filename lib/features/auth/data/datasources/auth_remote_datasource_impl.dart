@@ -144,10 +144,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<AuthModel> loginAsDemo({required String role}) async {
     // 100% estático — sin Firebase Auth, sin Firestore. Uid fijo por rol.
+    // Solo 'driver'/'admin': el pasajero se prueba con login real.
     final uid = switch (role) {
       'driver' => kStaticDemoDriverUid,
       'admin' => kStaticDemoAdminUid,
-      _ => kStaticDemoPassengerUid,
+      _ => throw ArgumentError('Modo prueba no soporta el rol "$role"'),
     };
     return AuthModel(
       uid: uid,

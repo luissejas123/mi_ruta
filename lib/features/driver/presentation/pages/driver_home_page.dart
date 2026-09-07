@@ -123,198 +123,143 @@ class _DriverHomeView extends StatelessWidget {
               );
             },
           ),
-        // Pago de viaje recibido: aviso + flujo de calificación al pasajero
-        // ("5.4 Calificación del pasajero", Figma).
-        if (!isSupervisor)
-          BlocListener<DriverOperationsBloc, DriverOperationsState>(
-            listenWhen: (previous, current) {
-              if (previous is DriverOperationsLoaded && current is DriverOperationsLoaded) {
-                return current.lastPaymentReceivedAmount != previous.lastPaymentReceivedAmount &&
-                    current.lastPaymentReceivedAmount != null;
-              }
-              return false;
-            },
-            listener: (context, state) {
-              final loaded = state as DriverOperationsLoaded;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Row(
-                    children: [
-                      const Icon(Icons.check_circle, color: Colors.white),
-                      const SizedBox(width: 8),
-                      Text('¡Pago de Bs. ${loaded.lastPaymentReceivedAmount!.toStringAsFixed(2)} recibido!'),
-                    ],
+        ],
+      ),
+      body: BlocConsumer<DriverVehicleBloc, DriverVehicleState>(
+        listener: (context, state) {
+          if (state is DriverVehicleLoaded && state.toggleError != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                  content: Text(
+                      'No se pudo actualizar el estado de la unidad: ${state.toggleError}')),
+            );
+          }
+        },
+        builder: (context, state) {
+          if (state is DriverVehicleLoading ||
+              state is DriverVehicleInitial) {
+            return const Center(
+                child: CircularProgressIndicator(color: _amarillo));
+          }
+          if (state is DriverVehicleError) {
+            return Center(child: Text(state.message));
+          }
+          if (state is DriverVehicleLoaded) {
+            final vehicle = state.vehicle;
+            if (vehicle == null) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(
+                    'Aún no tienes una unidad asignada.\n'
+                    'Contacta al administrador para que te asigne una.',
+                    textAlign: TextAlign.center,
                   ),
-                  backgroundColor: Colors.green.shade700,
                 ),
               );
-              final passengerId = loaded.lastPaymentReceivedPassengerId;
-              if (passengerId != null && passengerId.isNotEmpty && driverUid.isNotEmpty) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => RatePassengerPage(
-                      tripId: loaded.lastPaymentReceivedTripId ?? '',
-                      driverUid: driverUid,
-                      passengerId: passengerId,
+            }
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                          color: colorScheme.onSurface.withValues(alpha: 0.08)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 46,
+                              height: 46,
+                              decoration: BoxDecoration(
+                                color: _amarillo.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.directions_bus,
+                                  color: _amarillo),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(vehicle.vehicleId,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16)),
+                                  Text(
+                                    '${vehicle.brand} ${vehicle.model} · ${vehicle.color}',
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        color: colorScheme.onSurface
+                                            .withValues(alpha: 0.6)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _InfoRow(label: 'Línea', value: vehicle.lineNumber),
+                        _InfoRow(
+                            label: 'N.º interno',
+                            value: vehicle.internalNumber),
+                        _InfoRow(
+                            label: 'Tipo', value: vehicle.vehicleType),
+                        _InfoRow(
+                            label: 'Capacidad',
+                            value: '${vehicle.passengerCapacity} pasajeros'),
+                        _InfoRow(
+                          label: 'Documentación',
+                          value: _statusLabel(vehicle.status),
+                          valueColor: vehicle.isApproved
+                              ? Colors.green
+                              : Colors.orange,
+                        ),
+                      ],
                     ),
                   ),
-                );
-              }
-            },
-          ),
-      ],
-      child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          automaticallyImplyLeading: false,
-          title: Text(
-            isSupervisor ? 'Panel del Dirigente' : 'Modo Chofer',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-          ),
-          actions: [
-            const SwitchProfileButton(),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              tooltip: 'Cerrar sesión',
-              onPressed: () => confirmLogout(context),
-            ),
-          ],
-        ),
-        // "3.1/3.2 Inicio del chofer" (Figma): solo mapa + botón de
-        // iniciar/detener servicio. Todo lo demás que antes vivía suelto
-        // aquí (datos de unidad, cobro por QR, notificar parada,
-        // rendimiento, historiales, descarga de PDF) ya tiene su propia
-        // pantalla — Gestionar Unidades, Billetera y Rutas — así que no se
-        // duplica en Inicio.
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Hola, ${fullName.isNotEmpty ? fullName : 'chofer'} 👋',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  const SizedBox(height: 16),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                          color: colorScheme.onSurface.withValues(alpha: 0.08)),
+                    ),
+                    child: SwitchListTile(
+                      activeThumbColor: _amarillo,
+                      title: const Text('Unidad activa',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(vehicle.isOnDuty
+                          ? 'Visible para los pasajeros como en servicio'
+                          : 'Fuera de servicio'),
+                      value: vehicle.isOnDuty,
+                      onChanged: (value) {
+                        context.read<DriverVehicleBloc>().add(
+                              ToggleOnDuty(
+                                vehicleId: vehicle.vehicleId,
+                                value: value,
+                              ),
+                            );
+                      },
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                isSupervisor ? 'Dirigente' : 'Chofer',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-              ),
-              // "Registrar unidad"/estado de servicio es exclusivo del perfil
-              // de chofer — el dirigente entra aquí solo para las tarjetas de
-              // supervisión de abajo, nunca para gestionar una unidad propia.
-              if (!isSupervisor) ...[
-                const SizedBox(height: 24),
-                const _VehicleServiceSection(),
-              ],
-              if (isSupervisor) ...[
-                const SizedBox(height: 24),
-                _SupervisorSection(),
-                const SizedBox(height: 12),
-                _PresidentePanelSection(),
-              ],
-            ],
-          ),
-        ),
-        // El dirigente (isSupervisor) no tiene Billetera y su "Rutas" es
-        // "Control de rutas en vivo" (PresidenteRutasPage), no la pantalla
-        // de ruta asignada del chofer — son perfiles distintos aunque
-        // entren por la misma pantalla de Inicio.
-        bottomNavigationBar: CustomBottomNav(
-          currentIndex: 0,
-          tabs: isSupervisor ? const [0, 2, 3] : const [0, 1, 2, 3],
-          onTap: (index) => navigateBottomNav(
-            context,
-            index,
-            homeBuilder: (_) => DriverHomePage(roleOverride: role),
-            walletBuilder: isSupervisor ? null : (_) => DriverWalletPage(role: role),
-            routesBuilder: isSupervisor
-                ? (_) => const PresidenteRutasPage()
-                : (_) => DriverRutasPage(role: role),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SupervisorSection extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const DriverApprovalPage()),
-      ),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: DriverHomePage._amarillo,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Row(
-          children: [
-            Icon(Icons.how_to_reg_outlined, color: Colors.black, size: 28),
-            SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                'Aprobar o bloquear choferes',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios, color: Colors.black54, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PresidentePanelSection extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const PresidentePanelPage()),
-      ),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: DriverHomePage._amarillo, width: 1.5),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.analytics_outlined, color: colorScheme.onSurface, size: 28),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                'Panel de dirigencia (rutas y reportes)',
-                style: TextStyle(
-                  color: colorScheme.onSurface,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios, color: colorScheme.onSurface.withValues(alpha: 0.5), size: 16),
-          ],
-        ),
+            );
+          }
+          return const SizedBox.shrink();
+        },
       ),
     );
   }

@@ -167,28 +167,43 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
   Future<void> _showSummarySheet(Duration elapsed) async {
     if (!mounted) return;
     if (!_tripSaved) {
-      _tripSaved = true;
       final authState = context.read<AuthBloc>().state;
       if (authState is AuthLoaded) {
         final userId = authState.user.uid;
-        final notifService = getIt<NotificationService>();
-        await getIt<TripHistoryService>().saveTrip(
-          userId: userId,
-          routeName: widget.route.name,
-          originName: widget.originName,
-          destinationName: widget.destination.name,
-          elapsed: elapsed,
-          farePaid: 2.5,
+        try {
+          final notifService = getIt<NotificationService>();
+          await getIt<TripHistoryService>().saveTrip(
+            userId: userId,
+            routeName: widget.route.name,
+            originName: widget.originName,
+            destinationName: widget.destination.name,
+            elapsed: elapsed,
+            farePaid: 2.5,
         );
-        await notifService.saveTripNotification(userId, widget.route.name);
-        if (notifService.shouldGiveGift()) {
-          final discount = await notifService.saveGiftNotification(userId);
+          await notifService.saveTripNotification(userId, widget.route.name);
+          if (notifService.shouldGiveGift()) {
+            final discount = await notifService.saveGiftNotification(userId);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('🎁 ¡Recibiste un $discount% de descuento!'),
+                  backgroundColor: const Color(0xFFFFC12F),
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            }
+          }
+          _tripSaved = true;
+        } catch (_) {
+          // Sin conexión u otro error: no bloqueamos al usuario por esto —
+          // su viaje sí cuenta como completado, solo no se guardó el
+          // historial/notificación. _tripSaved queda false para reintentar
+          // si el listener vuelve a disparar con phase == arrived.
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('🎁 ¡Recibiste un $discount% de descuento!'),
-                backgroundColor: const Color(0xFFFFC12F),
-                duration: const Duration(seconds: 4),
+              const SnackBar(
+                content: Text(
+                    'No se pudo guardar el historial del viaje (sin conexión).'),
               ),
             );
           }

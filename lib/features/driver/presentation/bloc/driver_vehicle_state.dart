@@ -17,13 +17,17 @@ class DriverVehicleLoading extends DriverVehicleState {
 }
 
 /// [vehicle] es null cuando el chofer aún no tiene ninguna unidad asignada.
+/// [toggleError] es un mensaje transitorio (no persiste en Firestore): se
+/// llena si falló el último intento de cambiar "en servicio" (p. ej. sin
+/// conexión), para avisar sin perder la tarjeta de la unidad ya cargada.
 class DriverVehicleLoaded extends DriverVehicleState {
   final VehicleEntity? vehicle;
+  final String? toggleError;
 
-  const DriverVehicleLoaded({required this.vehicle});
+  const DriverVehicleLoaded({required this.vehicle, this.toggleError});
 
   @override
-  List<Object?> get props => [vehicle];
+  List<Object?> get props => [vehicle, toggleError];
 }
 
 class DriverVehicleError extends DriverVehicleState {

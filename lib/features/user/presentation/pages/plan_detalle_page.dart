@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/map_styles.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
@@ -37,6 +40,8 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
 
   // Real polyline points per leg loaded from GTFS (null = not loaded yet)
   final List<List<LatLng>?> _legPolylines = [];
+
+  String get _progressPrefsKey => 'plan_progress_${widget.trip.id}';
 
   // Upcoming departures (RQ-36)
   List<Map<String, dynamic>> _departures = [];
@@ -262,6 +267,7 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
           _completedLegs[i] = true;
         }
       });
+      await _saveProgress();
 
       if (_allLegsCompleted) await _finishTrip();
     } catch (e) {
@@ -287,27 +293,47 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       farePaid: widget.trip.totalCostBs,
     );
 
-    final notifService = getIt<NotificationService>();
-    await notifService.saveTripNotification(userId, widget.trip.routesSummary);
-    if (notifService.shouldGiveGift()) {
-      final discount = await notifService.saveGiftNotification(userId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('🎁 ¡Recibiste un $discount% de descuento!'),
-            backgroundColor: const Color(0xFFFFC12F),
-            duration: const Duration(seconds: 4),
-          ),
-        );
+      final notifService = getIt<NotificationService>();
+      await notifService.saveTripNotification(userId, widget.trip.routesSummary);
+      if (notifService.shouldGiveGift()) {
+        final discount = await notifService.saveGiftNotification(userId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('🎁 ¡Recibiste un $discount% de descuento!'),
+              backgroundColor: const Color(0xFFFFC12F),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
       }
+    } catch (_) {
+      // No bloqueante — ver comentario arriba.
     }
 
-    // Same as cancellation: a trip reached via "Elegir" (never "Guardar"d)
+    try {
+      // Same as cancellation: a trip reached via "Elegir" (never "Guardar"d)
     // has no Firestore doc yet — save first so markCompleted has one to
     // update instead of throwing NOT_FOUND.
     final plannedTripService = getIt<PlannedTripService>();
     await plannedTripService.save(widget.trip);
     await plannedTripService.markCompleted(userId, widget.trip.id);
+      await _clearProgress();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+                'No se pudo marcar el plan como completado (sin conexión).'),
+            action: SnackBarAction(
+              label: 'Reintentar',
+              onPressed: _finishTrip,
+            ),
+          ),
+        );
+      }
+      return;
+    }
 
     if (mounted) {
       showDialog(

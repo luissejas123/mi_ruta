@@ -23,292 +23,236 @@ class AdminHomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, authState) {
-        if (authState is! AuthLoaded) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final user = authState.user;
+    final authState = context.read<AuthBloc>().state;
+    final uid = authState is AuthLoaded ? authState.user.uid : '';
+    final isStaticDemo = uid == kStaticDemoAdminUid;
 
-        return Scaffold(
-          // Sin `leading` forzado: esta es la pantalla raíz del admin
-          // (home_router la usa directo tras login), así que no hay nada
-          // que retroceder — Flutter no muestra flecha si no hay nada que
-          // popear, igual que el resto de las pantallas raíz de la app.
-          appBar: AppBar(
-            title: const Text('Perfil Administrativo'),
-            centerTitle: true,
-            actions: [
-              IconButton(
-                tooltip: 'Cerrar sesión',
-                icon: const Icon(Icons.logout),
-                onPressed: () => confirmLogout(context),
-              ),
-            ],
-          ),
-          body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor: const Color(0xFFFFC12F),
-                        child: Text(
-                          user.fullName.isNotEmpty
-                              ? user.fullName[0].toUpperCase()
-                              : 'A',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              user.fullName.isNotEmpty
-                                  ? user.fullName
-                                  : 'Administrador',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Text(
-                                  'Administrador',
-                                  style: TextStyle(
-                                    color: Colors.black54,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                if (user.isSuperAdmin) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFFC12F),
-                                      borderRadius: BorderRadius.circular(84),
-                                    ),
-                                    child: const Text(
-                                      'SUPERADMIN',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Menú',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 12),
-                  if (AdminAccessService.canAccessOperation(user, AdminOperation.manageUsers))
-                    _MenuCard(
-                      icon: Icons.people_outline,
-                      title: 'Gestión de usuarios',
-                      subtitle: 'Listar, buscar y promover usuarios',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => BlocProvider.value(
-                              value: getIt<UserManagementBloc>(),
-                              child: const UserManagementPage(),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  if (AdminAccessService.canAccessOperation(user, AdminOperation.manageUsers))
-                    _MenuCard(
-                      icon: Icons.groups_outlined,
-                      title: 'Asignar línea a presidente',
-                      subtitle: 'Qué línea(s) gestiona cada dirigente',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const AsignarLineasPresidentePage(),
-                          ),
-                        );
-                      },
-                    ),
-                  if (AdminAccessService.canAccessOperation(
-                    user,
-                    AdminOperation.managePermissions,
-                  ))
-                    _MenuCard(
-                      icon: Icons.admin_panel_settings_outlined,
-                      title: 'Gestión de privilegios',
-                      subtitle: 'Activar o desactivar permisos de admins',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => BlocProvider.value(
-                              value: getIt<AdminPrivilegesBloc>(),
-                              child: const AdminPrivilegesPage(),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  if (AdminAccessService.canAccessOperation(
-                    user,
-                    AdminOperation.manageRoutes,
-                  ))
-                    _MenuCard(
-                      icon: Icons.route_outlined,
-                      title: 'Gestión de rutas',
-                      subtitle: 'Cargar, editar y eliminar rutas',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => BlocProvider.value(
-                              value: getIt<RouteManagementBloc>(),
-                              child: const AdminRouteManagementPage(),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  if (AdminAccessService.getAvailableOperations(user).isEmpty)
-                    const _NoPermissionsCard(),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Seguridad',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 12),
-                  _MenuCard(
-                    icon: Icons.lock_outline,
-                    title: 'Cambiar contraseña',
-                    subtitle: 'Actualiza tu contraseña de acceso',
-                    onTap: () => showChangePasswordDialog(context),
-                  ),
-                  const SizedBox(height: 8),
-                  _MenuCard(
-                    icon: Icons.logout,
-                    title: 'Cerrar sesión',
-                    subtitle: 'Salir de tu cuenta administrativa',
-                    onTap: () => confirmLogout(context),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Sin Billetera (el admin no tiene): tabs 0/2/3 en vez de las 4.
-          // "Rutas" (índice 2) no es la del pasajero — es Gestión de rutas,
-          // permiso-gateada — por eso no se delega a `navigateBottomNav`.
-          bottomNavigationBar: CustomBottomNav(
-            currentIndex: 0,
-            tabs: const [0, 2, 3],
-            onTap: (index) {
-              switch (index) {
-                case 0:
-                  break; // ya estamos en Inicio
-                case 2:
-                  if (!user.canManageRoutes) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('No tienes permiso para gestionar rutas'),
-                      ),
-                    );
-                    return;
-                  }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => BlocProvider.value(
-                        value: getIt<RouteManagementBloc>(),
-                        child: const AdminRouteManagementPage(),
-                      ),
-                    ),
-                  );
-                  break;
-                case 3:
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          PerfilPage(homeBuilder: (_) => const AdminHomePage()),
-                    ),
-                  );
-                  break;
-              }
-            },
-          ),
-        );
-      },
+    return BlocProvider(
+      create: (_) => getIt<AdminActiveVehiclesBloc>()
+        ..add(isStaticDemo
+            ? const WatchStaticDemoVehicles()
+            : const WatchActiveVehicles()),
+      child: _AdminHomeView(isStaticDemo: isStaticDemo),
     );
   }
 }
 
-class _MenuCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
+class _AdminHomeView extends StatelessWidget {
+  static const _amarillo = Color(0xFFFFC12F);
+  final bool isStaticDemo;
 
-  const _MenuCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
+  const _AdminHomeView({required this.isStaticDemo});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          width: 44,
-          height: 44,
-          decoration: const BoxDecoration(
-            color: Color(0xFFFFC12F),
-            shape: BoxShape.circle,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Unidades activas',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              context.read<AuthBloc>().add(const LogoutEvent());
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const IniciarSesionPage()),
+              );
+            },
           ),
-          child: Icon(icon, color: Colors.black),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
+        ],
       ),
+      body: Column(
+        children: [
+          Expanded(
+            child: BlocBuilder<AdminActiveVehiclesBloc, AdminActiveVehiclesState>(
+              builder: (context, state) {
+                if (state is AdminVehiclesLoading ||
+                    state is AdminVehiclesInitial) {
+                  return const Center(
+                      child: CircularProgressIndicator(color: _amarillo));
+                }
+                if (state is AdminVehiclesError) {
+                  return Center(child: Text(state.message));
+                }
+                if (state is AdminVehiclesLoaded) {
+                  if (state.vehicles.isEmpty) {
+                    return const Center(
+                      child:
+                          Text('Ninguna unidad está en servicio ahora mismo.'),
+                    );
+                  }
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: state.vehicles.length,
+                    separatorBuilder: (_, i) => const SizedBox(height: 10),
+                    itemBuilder: (context, i) {
+                      final vehicle = state.vehicles[i];
+                      final driver = state.driversByUid[vehicle.ownerUid];
+                      return _VehicleTile(
+                          vehicle: vehicle, driverName: driver?.fullName);
+                    },
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+          if (isStaticDemo)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: _BenefitAuthDemoSection(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// TEMPORAL — muestra cómo funcionaría la autorización de beneficios (RQ-47)
+/// una vez que exista el rol real: aprobar/rechazar acá refleja el cambio en
+/// el "movimiento" que ve el pasajero, tal como ya lo hace el código real
+/// (`BenefitRequestDatasource._syncMirroredTransactionStatus`). Es puramente
+/// visual — no toca Firebase ni Firestore. Quitar cuando el rol exista.
+class _BenefitAuthDemoSection extends StatefulWidget {
+  const _BenefitAuthDemoSection();
+
+  @override
+  State<_BenefitAuthDemoSection> createState() =>
+      _BenefitAuthDemoSectionState();
+}
+
+class _BenefitAuthDemoSectionState extends State<_BenefitAuthDemoSection> {
+  String _status = 'pending';
+
+  String get _statusLabel => switch (_status) {
+        'approved' => 'Aprobada',
+        'rejected' => 'Rechazada',
+        _ => 'En revisión',
+      };
+
+  Color get _statusColor => switch (_status) {
+        'approved' => Colors.green,
+        'rejected' => Colors.red,
+        _ => Colors.orange,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'AUTORIZACIÓN DE BENEFICIOS (demo — sin rol real aún)',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+            color: colorScheme.onSurface.withValues(alpha: 0.5),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+                color: colorScheme.onSurface.withValues(alpha: 0.08)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.card_membership,
+                      color: Color(0xFFFFC12F)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Solicitud de beneficio — Universitario',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text('Demo (Chofer)',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: colorScheme.onSurface
+                                    .withValues(alpha: 0.6))),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _statusColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(_statusLabel,
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: _statusColor)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (_status == 'pending')
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => setState(() => _status = 'rejected'),
+                        style:
+                            OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                        child: const Text('Rechazar'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => setState(() => _status = 'approved'),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white),
+                        child: const Text('Aprobar'),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => setState(() => _status = 'pending'),
+                    child: const Text('Reiniciar demo'),
+                  ),
+                ),
+              const Divider(height: 24),
+              Text(
+                'Así se vería en "Movimientos" del pasajero:',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: colorScheme.onSurface.withValues(alpha: 0.5)),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Solicitud de beneficio · $_statusLabel',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

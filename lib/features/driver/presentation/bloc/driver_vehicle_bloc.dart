@@ -88,10 +88,19 @@ class DriverVehicleBloc extends Bloc<DriverVehicleEvent, DriverVehicleState> {
       return;
     }
 
+    final currentVehicle =
+        state is DriverVehicleLoaded ? (state as DriverVehicleLoaded).vehicle : null;
+
     final result =
         await setVehicleOnDutyUseCase(event.vehicleId, event.value);
     result.fold(
-      (failure) => emit(DriverVehicleError(message: failure.message)),
+      // Mantiene la tarjeta de la unidad visible — solo avisa el error,
+      // no reemplaza toda la pantalla (el switch vuelve solo a su valor
+      // real porque sigue leyendo `vehicle.isOnDuty`, que no cambió).
+      (failure) => emit(DriverVehicleLoaded(
+        vehicle: currentVehicle,
+        toggleError: failure.message,
+      )),
       (_) {}, // el stream activo re-emitirá el estado actualizado
     );
   }

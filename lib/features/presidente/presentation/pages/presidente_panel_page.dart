@@ -10,8 +10,10 @@ import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_approval_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/vehicle_review_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
-import 'package:mi_ruta/features/driver/presentation/pages/driver_wallet_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
 import 'package:mi_ruta/features/presidente/presentation/pages/asignar_ruta_chofer_page.dart';
+import 'package:mi_ruta/features/presidente/presentation/pages/presidente_reclamos_page.dart';
+import 'package:mi_ruta/features/presidente/presentation/pages/presidente_rutas_page.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/asignar_tickeador_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
@@ -131,10 +133,33 @@ class _PresidentePanelView extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  const Text('Control de rutas en vivo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  const SizedBox(height: 12),
-                  _RouteControlSection(state: state),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.report_gmailerrorred_outlined,
+                    title: 'Reclamos',
+                    subtitle: 'Ver y resolver reclamos de pasajeros',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PresidenteReclamosPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.star_outline,
+                    title: 'Calificación de choferes',
+                    // Filtra por users.presidente_info.managed_lines si
+                    // admin ya le asignó línea a este presidente; si no,
+                    // ReportesOperativosPage cae a mostrar todo el sistema.
+                    subtitle: 'Desempeño y rating de tus choferes',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ReportesOperativosPage(),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             );
@@ -142,17 +167,17 @@ class _PresidentePanelView extends StatelessWidget {
           return const SizedBox.shrink();
         },
       ),
+      // Sin Billetera — el dirigente no tiene (pidió explícitamente quitarla).
+      // "Rutas" va a su propia pantalla (PresidenteRutasPage, "Control de
+      // rutas en vivo") en vez de redibujar este mismo panel.
       bottomNavigationBar: CustomBottomNav(
         currentIndex: 0,
+        tabs: const [0, 2, 3],
         onTap: (index) => navigateBottomNav(
           context,
           index,
           homeBuilder: (_) => const DriverHomePage(roleOverride: 'presidente'),
-          walletBuilder: (_) => const DriverWalletPage(role: 'presidente'),
-          // El control de rutas en vivo ya vive en este mismo panel
-          // ("Control de rutas en vivo" más abajo) — antes la pestaña
-          // "Rutas" no tenía routesBuilder y caía al mapa del pasajero.
-          routesBuilder: (_) => const PresidentePanelPage(),
+          routesBuilder: (_) => const PresidenteRutasPage(),
         ),
       ),
     );
@@ -273,16 +298,18 @@ class _StatsGrid extends StatelessWidget {
   }
 }
 
-class _RouteControlSection extends StatefulWidget {
+/// Movida a su propia pestaña ("Rutas" → PresidenteRutasPage) — se deja
+/// pública porque ya no vive en el mismo archivo que la usa.
+class RouteControlSection extends StatefulWidget {
   final PresidentePanelLoaded state;
 
-  const _RouteControlSection({required this.state});
+  const RouteControlSection({super.key, required this.state});
 
   @override
-  State<_RouteControlSection> createState() => _RouteControlSectionState();
+  State<RouteControlSection> createState() => RouteControlSectionState();
 }
 
-class _RouteControlSectionState extends State<_RouteControlSection> {
+class RouteControlSectionState extends State<RouteControlSection> {
   final _searchCtrl = TextEditingController();
   String _query = '';
 

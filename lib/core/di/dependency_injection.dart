@@ -32,6 +32,8 @@ import 'package:mi_ruta/features/routes/domain/services/planned_trip_service.dar
 import 'package:mi_ruta/features/user/data/datasources/wallet_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/recharge_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/benefit_request_datasource.dart';
+import 'package:mi_ruta/features/user/data/datasources/claim_datasource.dart';
+import 'package:mi_ruta/features/user/data/datasources/rating_datasource.dart';
 import 'package:mi_ruta/features/user/data/repositories/user_repository_impl.dart';
 import 'package:mi_ruta/features/user/domain/repositories/user_repository.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_history_service.dart';
@@ -41,12 +43,15 @@ import 'package:mi_ruta/features/user/domain/services/recharge_service.dart';
 import 'package:mi_ruta/features/user/domain/services/storage_service.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_payment_service.dart';
 import 'package:mi_ruta/features/user/domain/services/benefit_request_service.dart';
+import 'package:mi_ruta/features/user/domain/services/claim_service.dart';
+import 'package:mi_ruta/features/user/domain/services/rating_service.dart';
 import 'package:mi_ruta/features/user/domain/usecases/user_usecases.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_bloc.dart';
+import 'package:mi_ruta/features/presidente/presentation/bloc/claims_bloc.dart';
 import 'package:mi_ruta/features/routes/data/datasources/route_datasource.dart';
 import 'package:mi_ruta/features/routes/data/datasources/gtfs_datasource.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
@@ -68,8 +73,6 @@ import 'package:mi_ruta/features/driver/domain/repositories/vehicle_repository.d
 import 'package:mi_ruta/features/driver/domain/usecases/vehicle_usecases.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_vehicle_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_active_vehicles_bloc.dart';
-import 'package:mi_ruta/features/driver/data/datasources/driver_income_datasource.dart';
-import 'package:mi_ruta/features/driver/domain/services/driver_income_service.dart';
 import 'package:mi_ruta/features/driver/data/datasources/driver_assigned_routes_datasource.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_assigned_routes_service.dart';
 import 'package:mi_ruta/features/driver/data/datasources/tickeador_operations_datasource.dart';
@@ -447,6 +450,32 @@ void setupDependencies() {
   );
 
   // ============================================
+  // CLAIMS (RECLAMOS) FEATURE
+  // ============================================
+  getIt.registerSingleton<ClaimDatasource>(
+    ClaimDatasource(
+      firestore: getIt<FirebaseFirestore>(),
+      auth: getIt<FirebaseAuth>(),
+    ),
+  );
+  getIt.registerSingleton<ClaimService>(
+    ClaimService(datasource: getIt<ClaimDatasource>()),
+  );
+  getIt.registerFactory<ClaimsBloc>(
+    () => ClaimsBloc(service: getIt<ClaimService>()),
+  );
+
+  // ============================================
+  // RATINGS FEATURE (calificación pasajero↔chofer)
+  // ============================================
+  getIt.registerSingleton<RatingDatasource>(
+    RatingDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+  getIt.registerSingleton<RatingService>(
+    RatingService(datasource: getIt<RatingDatasource>()),
+  );
+
+  // ============================================
   // ROUTES FEATURE - DATA LAYER
   // ============================================
   getIt.registerSingleton<RouteDatasource>(
@@ -625,13 +654,6 @@ void setupDependencies() {
     DriverAssignedRoutesService(
       datasource: getIt<DriverAssignedRoutesDatasource>(),
     ),
-  );
-
-  getIt.registerSingleton<DriverIncomeDatasource>(
-    DriverIncomeDatasource(firestore: getIt<FirebaseFirestore>()),
-  );
-  getIt.registerSingleton<DriverIncomeService>(
-    DriverIncomeService(datasource: getIt<DriverIncomeDatasource>()),
   );
 
   getIt.registerSingleton<TickeadorOperationsDatasource>(

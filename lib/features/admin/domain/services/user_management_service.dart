@@ -43,4 +43,8 @@ class UserManagementService {
         assignedStation: assignedStation,
         assignedLines: assignedLines,
       );
+
+  /// Líneas que gestiona un presidente (RQ4 dirigente↔línea, cierre Sprint 4).
+  Future<void> assignPresidenteLines(String uid, {required List<String> managedLines}) =>
+      _datasource.assignPresidenteLines(uid, managedLines: managedLines);
 }

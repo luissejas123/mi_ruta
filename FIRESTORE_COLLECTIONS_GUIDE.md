@@ -1,6 +1,6 @@
 # 📚 Firestore Collections Guide - Mi Ruta
 
-> Verificado directamente contra el proyecto Firebase (`mi-ruta-4004d`) el 2026-06-29 y contra el código en `lib/`. Las colecciones marcadas como **"sin referencias en código"** existen como datos semilla/demo pero ningún datasource las lee o escribe todavía. `driver/` **no** es un placeholder — está implementado (ver `CLAUDE.md`); esta nota quedó de una versión anterior del proyecto y se corrigió el 2026-08-31 tras verificarse contra el código real (`station_logs` y `ratings` sí tienen lector/escritor; solo `claims` sigue sin referencias — ver `docs/DEUDA_TECNICA.md`).
+> Verificado directamente contra el proyecto Firebase (`mi-ruta-4004d`) el 2026-06-29 y contra el código en `lib/`. Las colecciones marcadas como **"sin referencias en código"** existen como datos semilla/demo pero ningún datasource las lee o escribe todavía. `driver/` **no** es un placeholder — está implementado (ver `CLAUDE.md`); esta nota quedó de una versión anterior del proyecto y se corrigió el 2026-08-31 tras verificarse contra el código real. Actualizado el 2026-09-07: `claims` ya tiene datasource/UI real (feature Reclamos) y `ratings` ya tiene un primer escritor (chofer→pasajero, `RatingService`) — ninguna de las dos sigue "sin referencias".
 
 ## Estructura General
 
@@ -18,8 +18,8 @@
 | `config` | Documentos de configuración global de la app | clave fija (`qr_recarga`, `routes_meta`) | ✅ |
 | `trips` | Registro de viajes de conductor (ingresos, pasajeros) | `trip_id` | ✅ (leído por `TripPaymentService`) |
 | `vehicles` | Datos técnicos/documentación legal de vehículos | `vehicle_id` (placa) | ✅ (leído/escrito por `VehicleRemoteDataSourceImpl`, features `driver`/`admin`) |
-| `ratings` | Calificaciones de pasajero → conductor | `rating_id` | ⚠️ Se lee (reporte admin), falta UI para escribir |
-| `claims` | Reclamos/denuncias | `claim_id` | ⚠️ Sin referencias en código |
+| `ratings` | Calificaciones pasajero↔conductor (`reviewer_uid`/`target_uid` genéricos) | `rating_id` | ✅ Se lee (reporte admin) y se escribe (`RatingService`, hoy solo chofer→pasajero) |
+| `claims` | Reclamos/denuncias | `claim_id` | ✅ (`ClaimDatasource`, feature Reclamos) |
 | `station_logs` | Registro de salidas/llegadas en terminal | `log_id` | ✅ (duplicado, ver `docs/DEUDA_TECNICA.md`) |
 
 **Nota:** `transport_lines` y la subcolección `schedules` que aparecían en versiones previas de este documento **no existen** en el proyecto Firebase real — se han eliminado de esta guía.
@@ -88,6 +88,7 @@ Estos tres campos empezaron a escribirse con la jerarquía Administrador → Pre
 | `driver_request` | `map` | El dueño solo puede crear `status: 'pending'`; `admin`/`presidente` escriben `approved`/`rejected` | Solicitud de un pasajero para ser chofer. **El `role`/`roles` no cambia al solicitar** — solo al aprobar, si no el ruteo por rol lo mandaría a la pantalla de chofer antes de tiempo |
 | `tickeador_info` | `map` | `admin`/`presidente` | Estación y líneas asignadas al tickeador. Lo consume `TickeadorEntity.fromJson` |
 | `assigned_route_ref` | `string` | `presidente`/`admin` | Ruta (`ref`) asignada al **perfil** del chofer, no a la unidad — el chofer elige qué vehículo usar. `DriverService.getAssignedRoute()` prioriza este campo sobre `vehicles.line_number` (que se mantiene como fallback legado). Escrito por `UserManagementDatasource.assignRouteToDriver` |
+| `presidente_info` | `map` | **Solo `admin`** | Líneas que preside/gestiona esta cuenta (`managed_lines: array<string>`, mismos `ref` reales de `routes` que `tickeador_info.assigned_lines` — no texto libre). Nuevo campo (Sprint 4, cierre): antes no existía ningún vínculo presidente→línea, así que "sus choferes" no se podía acotar. Se escribe solo desde admin (nunca desde el propio presidente ni desde otro presidente) porque decidir qué línea gestiona un dirigente es una decisión organizativa, igual que ya es admin quien asigna estación/líneas a un tickeador |
 
 ```json
 {
@@ -389,7 +390,7 @@ Leído/escrito por: `lib/features/driver/data/datasources/vehicle_remote_datasou
 Corrección: esta sección decía que ninguna de las tres tenía código — falso para dos de tres, verificado contra `lib/` (ver `docs/DEUDA_TECNICA.md` para el detalle de la verificación).
 
 ### ratings
-ID = `rating_id`. Campos: `trip_id`, `reviewer_uid`, `target_uid`, `stars` (1-5), `selected_tags` (array de strings predefinidos), `created_at`. **Sí se lee** desde `lib/features/admin/data/datasources/operational_report_datasource.dart` (reporte operativo del admin). No hay UI todavía para *emitir* una calificación (escribir en la colección) — el hueco real es esa pantalla, no la colección.
+ID = `rating_id`. Campos: `trip_id`, `reviewer_uid`, `target_uid`, `stars` (1-5), `selected_tags` (array de strings predefinidos), `created_at`. Se lee desde `lib/features/admin/data/datasources/operational_report_datasource.dart` (reporte operativo del admin). Escritura vía `RatingDatasource`/`RatingService` (`lib/features/user/data/datasources/rating_datasource.dart`) — un único método sirve para ambos sentidos gracias a que `reviewer_uid`/`target_uid` son genéricos: hoy lo usa el chofer para calificar al pasajero justo después de recibir un pago de viaje (`RatePassengerPage`). Falta todavía la UI del pasajero calificando al chofer.
 
 ### claims
 ID = `claim_id`. Campos: `reporter_id`, `target_id` (nullable), `line_id`, `claim_type` (`driver`/`user`/`service`), `title`, `description`, `status` (`open`/`resolved`), `created_at`, `resolved_at`, `resolved_by`. **Sigue sin ningún archivo en `lib/` que la lea o escriba** — esta es la única de las tres genuinamente huérfana hoy.
@@ -413,7 +414,7 @@ ID = `log_id`. Campos: `tickeador_id`, `station_name`, `line_id`, `vehicle_plate
 | Beneficio → Transacción | `transactions.benefit_request_id = benefit_requests.{id}` |
 | Ruta → BBox | `routes_bbox.ref = routes.ref` |
 
-**Relaciones del módulo conductor:** `vehicles.owner_uid`, `trips.driver_uid`/`vehicle_id`, `ratings.target_uid`/`trip_id`, `claims.target_id`, `station_logs.driver_id`/`tickeador_id` — todas referencian `users.uid` o `trips.trip_id`. `vehicles`, `trips` y `station_logs` ya tienen datasources reales; `ratings` solo lectura; `claims` sigue sin implementar.
+**Relaciones del módulo conductor:** `vehicles.owner_uid`, `trips.driver_uid`/`vehicle_id`, `ratings.target_uid`/`trip_id`, `claims.target_id`, `station_logs.driver_id`/`tickeador_id` — todas referencian `users.uid` o `trips.trip_id`. `vehicles`, `trips`, `station_logs`, `claims` y `ratings` ya tienen datasources reales (lectura y escritura).
 
 ---
 

@@ -10,7 +10,6 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart'
     as auth_events;
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/widgets/change_password_dialog.dart';
-import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_bloc.dart';
@@ -23,7 +22,6 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/editar_perfil_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/historial_beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
-import 'package:mi_ruta/features/driver/presentation/pages/historial_ingresos_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_assigned_routes_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/gestionar_unidades_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/solicitud_chofer_page.dart';
@@ -41,6 +39,7 @@ import 'package:mi_ruta/features/admin/presentation/pages/administracion_benefic
 import 'package:mi_ruta/features/user/presentation/widgets/legal_bottom_sheet.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_trip_history_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/acerca_de_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/crear_reclamo_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_page.dart';
 
 class PerfilPage extends StatefulWidget {
@@ -76,13 +75,6 @@ class _PerfilPageState extends State<PerfilPage> {
   bool get _isAdmin {
     final authState = context.read<AuthBloc>().state;
     return authState is AuthLoaded && authState.user.roles.contains('admin');
-  }
-
-  /// La sección "SUPERVISIÓN" (reportes operativos) es exclusiva de
-  /// presidente — antes se mostraba a cualquier cuenta logueada.
-  bool get _isPresidente {
-    final authState = context.read<AuthBloc>().state;
-    return authState is AuthLoaded && authState.user.roles.contains('presidente');
   }
 
   /// "Cambiar de perfil" solo tiene sentido si la cuenta tiene más de un rol
@@ -153,39 +145,6 @@ class _PerfilPageState extends State<PerfilPage> {
         ),
       ),
     ).then((_) => _loadUser());
-  }
-
-  void _cerrarSesion() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text('¿Estás seguro que deseas cerrar sesión?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              context.read<AuthBloc>().add(const auth_events.LogoutEvent());
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const IniciarSesionPage()),
-                (route) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-            ),
-            child: const Text(
-              'Cerrar sesión',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildMenuItem({
@@ -641,18 +600,37 @@ class _PerfilPageState extends State<PerfilPage> {
                     );
                   },
                 ),
-                _buildMenuItem(
-                  icon: Icons.star_outline,
-                  title: 'Acceder a beneficios',
-                  subtitle: 'Estudiante, Universitario, Adulto mayor',
-                  onTap: () => navigateBottomNav(
-                        context,
-                        1,
-                        homeBuilder: widget.homeBuilder,
-                        walletBuilder: widget.walletBuilder,
-                        routesBuilder: widget.routesBuilder,
+                // "Acceder a beneficios" es un trámite exclusivo del
+                // pasajero — un chofer/tickeador/presidente/admin no aplica.
+                // Va directo al formulario, no a la Billetera (antes había
+                // que tocar "Acceder a beneficios" dos veces para llegar).
+                if (_isPassenger(user.userType))
+                  _buildMenuItem(
+                    icon: Icons.star_outline,
+                    title: 'Acceder a beneficios',
+                    subtitle: 'Estudiante, Universitario, Adulto mayor',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SolicitudBeneficioPage(),
                       ),
-                ),
+                    ),
+                  ),
+                // "Reportar un problema" (reclamo) — igual que beneficios,
+                // solo pasajero: es quien reporta, el presidente lo gestiona
+                // desde su propio panel (PresidenteReclamosPage).
+                if (_isPassenger(user.userType))
+                  _buildMenuItem(
+                    icon: Icons.report_gmailerrorred_outlined,
+                    title: 'Reportar un problema',
+                    subtitle: 'Reclamo sobre un chofer, pasajero o el servicio',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CrearReclamoPage(),
+                      ),
+                    ),
+                  ),
 
                 if ({
                   'admin',

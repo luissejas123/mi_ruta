@@ -192,6 +192,19 @@ class DriverDatasource {
         .set(data, SetOptions(merge: true));
   }
 
+  /// El logo que el chofer elige de galería para el centro de su QR fijo de
+  /// unidad ("7.2 Gestión de unidades"/billetera) se guarda en la misma
+  /// `legal_documentation` que ya usa `updateVehicleInfo` — mismo mapa
+  /// key→url, sin campo paralelo — pero por un método aparte: a diferencia
+  /// de SOAT/RUAT/licencia, un logo decorativo no es documentación legal y
+  /// no debe reenviar la unidad a `pending_review` cada vez que se cambia.
+  Future<void> updateVehicleQrLogo(String vehicleId, String qrLogoUrl) async {
+    await _firestore.collection('vehicles').doc(vehicleId).set({
+      'updated_at': FieldValue.serverTimestamp(),
+      'legal_documentation': {'qr_logo_url': qrLogoUrl},
+    }, SetOptions(merge: true));
+  }
+
   /// Unidades esperando revisión del presidente/admin — ya sea de alta o
   /// porque el dueño la editó (`updateVehicleInfo` la vuelve a poner acá).
   /// Filtro de un solo campo: no necesita índice compuesto.

@@ -28,6 +28,12 @@ class DriverOperationsLoaded extends DriverOperationsState {
   final String? activeChargeQr;
   final double? activeChargeAmount;
   final double? lastPaymentReceivedAmount;
+  // Trip/pasajero del cobro recibido — llegan directo del doc `trips` vía
+  // el stream de TripPaymentReceived, sin consulta aparte. Es lo que permite
+  // al Home abrir el flujo "chofer califica al pasajero" apuntando al
+  // viaje/usuario correctos (ratings.trip_id/target_uid).
+  final String? lastPaymentReceivedTripId;
+  final String? lastPaymentReceivedPassengerId;
   final int? lastStopNotifiedCount;
   final bool isBusy;
 
@@ -40,6 +46,8 @@ class DriverOperationsLoaded extends DriverOperationsState {
     this.activeChargeQr,
     this.activeChargeAmount,
     this.lastPaymentReceivedAmount,
+    this.lastPaymentReceivedTripId,
+    this.lastPaymentReceivedPassengerId,
     this.lastStopNotifiedCount,
     this.isBusy = false,
   });
@@ -54,6 +62,8 @@ class DriverOperationsLoaded extends DriverOperationsState {
     double? activeChargeAmount,
     bool clearActiveCharge = false,
     double? lastPaymentReceivedAmount,
+    String? lastPaymentReceivedTripId,
+    String? lastPaymentReceivedPassengerId,
     bool clearLastPayment = false,
     int? lastStopNotifiedCount,
     bool? isBusy,
@@ -67,8 +77,13 @@ class DriverOperationsLoaded extends DriverOperationsState {
       activeChargeQr: clearActiveCharge ? null : (activeChargeQr ?? this.activeChargeQr),
       activeChargeAmount:
           clearActiveCharge ? null : (activeChargeAmount ?? this.activeChargeAmount),
-      lastPaymentReceivedAmount: 
+      lastPaymentReceivedAmount:
           clearLastPayment ? null : (lastPaymentReceivedAmount ?? this.lastPaymentReceivedAmount),
+      lastPaymentReceivedTripId:
+          clearLastPayment ? null : (lastPaymentReceivedTripId ?? this.lastPaymentReceivedTripId),
+      lastPaymentReceivedPassengerId: clearLastPayment
+          ? null
+          : (lastPaymentReceivedPassengerId ?? this.lastPaymentReceivedPassengerId),
       lastStopNotifiedCount: lastStopNotifiedCount ?? this.lastStopNotifiedCount,
       isBusy: isBusy ?? this.isBusy,
     );
@@ -84,6 +99,8 @@ class DriverOperationsLoaded extends DriverOperationsState {
         activeChargeQr,
         activeChargeAmount,
         lastPaymentReceivedAmount,
+        lastPaymentReceivedTripId,
+        lastPaymentReceivedPassengerId,
         lastStopNotifiedCount,
         isBusy,
       ];

@@ -25,6 +25,10 @@ class UserEntity extends Equatable {
   // Todos los roles simultáneos de la cuenta (siempre incluye 'user'). Ver
   // RoleHierarchy para las combinaciones válidas.
   final List<String> roles;
+  // `presidente_info.managed_lines` — refs de línea que este presidente
+  // gestiona. Vacía para cualquier cuenta que no sea presidente, o para un
+  // presidente al que admin todavía no le asignó ninguna línea.
+  final List<String> managedLines;
 
   const UserEntity({
     required this.uid,
@@ -43,6 +47,7 @@ class UserEntity extends Equatable {
     this.driverRequest,
     this.role = 'user',
     this.roles = const ['user'],
+    this.managedLines = const [],
   });
 
   /// True cuando hay una solicitud de chofer esperando resolución.
@@ -68,5 +73,6 @@ class UserEntity extends Equatable {
     driverRequest,
     role,
     roles,
+    managedLines,
   ];
 }

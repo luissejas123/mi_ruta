@@ -12,6 +12,7 @@ import 'package:mi_ruta/features/driver/presentation/bloc/driver_service_event.d
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_service_state.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_wallet_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/solicitud_chofer_page.dart';
 import 'package:mi_ruta/features/driver/presentation/widgets/driver_service_map.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
@@ -162,6 +163,10 @@ class _DriverRutasView extends StatelessWidget {
                           style: TextStyle(fontSize: 12, color: Colors.red.shade400),
                         ),
                       ],
+                      if (opsState is DriverOperationsLoaded) ...[
+                        const SizedBox(height: 16),
+                        _NotifyStopSection(state: opsState),
+                      ],
                     ],
                   ),
                 );
@@ -184,12 +189,16 @@ class _DriverRutasView extends StatelessWidget {
   }
 }
 
+/// El CTA "Registrar unidad" vivía en Inicio; el pedido explícito del
+/// usuario fue moverlo aquí, al tab Rutas — Inicio ahora solo redirige.
 class _NoVehicleMessage extends StatelessWidget {
   const _NoVehicleMessage();
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final authState = context.read<AuthBloc>().state;
+    final uid = authState is AuthLoaded ? authState.user.uid : '';
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -206,12 +215,112 @@ class _NoVehicleMessage extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Registra tu unidad desde Inicio para ver tu ruta asignada aquí.',
+              'Registra tu unidad con sus documentos antes de iniciar servicio.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withValues(alpha: 0.6)),
             ),
+            const SizedBox(height: 14),
+            ElevatedButton.icon(
+              onPressed: uid.isEmpty
+                  ? null
+                  : () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SolicitudChoferPage(uid: uid, isAdditionalUnit: true),
+                        ),
+                      ),
+              icon: const Icon(Icons.add, color: Colors.black),
+              label: const Text(
+                'Registrar unidad',
+                style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(backgroundColor: _amarillo),
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// "Notificar parada" — vivía suelto en Inicio; se reubica aquí porque es
+/// una acción sobre la ruta en curso, igual que el switch de arriba.
+class _NotifyStopSection extends StatefulWidget {
+  final DriverOperationsLoaded state;
+
+  const _NotifyStopSection({required this.state});
+
+  @override
+  State<_NotifyStopSection> createState() => _NotifyStopSectionState();
+}
+
+class _NotifyStopSectionState extends State<_NotifyStopSection> {
+  final _stopCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _stopCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = widget.state;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.campaign_outlined, size: 18, color: _amarillo),
+              const SizedBox(width: 8),
+              const Text('Notificar parada', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _stopCtrl,
+            decoration: InputDecoration(
+              labelText: 'Nombre de la parada',
+              isDense: true,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: state.isBusy
+                  ? null
+                  : () {
+                      final stop = _stopCtrl.text.trim();
+                      if (stop.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Ingresa el nombre de la parada.')),
+                        );
+                        return;
+                      }
+                      context.read<DriverOperationsBloc>().add(NotifyStop(stop));
+                    },
+              icon: const Icon(Icons.notifications_active_outlined, size: 18),
+              label: const Text('Avisar a pasajeros a bordo'),
+            ),
+          ),
+          if (state.lastStopNotifiedCount != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              state.lastStopNotifiedCount! > 0
+                  ? 'Se avisó a ${state.lastStopNotifiedCount} pasajero(s).'
+                  : 'No hay pasajeros recientes a bordo de esta unidad para notificar.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ],
+        ],
       ),
     );
   }

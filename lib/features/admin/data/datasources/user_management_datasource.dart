@@ -131,4 +131,21 @@ class UserManagementDatasource {
       'updated_at': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
   }
+
+  /// Líneas que gestiona un presidente (`presidente_info.managed_lines`).
+  /// Solo admin la escribe (privilegiado en firestore.rules) — decidir qué
+  /// línea preside un dirigente es una decisión organizativa, no algo que
+  /// el propio presidente o otro presidente se auto-asigne. No toca `roles`:
+  /// a diferencia de `assignTickeador`, esto no otorga el rol `presidente`
+  /// (eso ya lo hace `AdminRemoteDataSource.updateUserRole`) — solo acota
+  /// qué líneas ve/gestiona una cuenta que YA es presidente.
+  Future<void> assignPresidenteLines(
+    String uid, {
+    required List<String> managedLines,
+  }) async {
+    await _firestore.collection('users').doc(uid).set({
+      'presidente_info': {'managed_lines': managedLines},
+      'updated_at': DateTime.now().toIso8601String(),
+    }, SetOptions(merge: true));
+  }
 }

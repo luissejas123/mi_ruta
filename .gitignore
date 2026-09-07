@@ -208,3 +208,6 @@ npm-debug.log
 
 # Claude Code MCP configuration (local dev tool, not part of project)
 .mcp.json
+
+# Reflexión personal, no es material de equipo/sprint
+Retrospective Personal.md

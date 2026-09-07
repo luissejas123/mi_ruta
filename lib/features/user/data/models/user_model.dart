@@ -20,6 +20,7 @@ class UserModel extends UserEntity {
     super.driverRequest,
     super.role,
     super.roles,
+    super.managedLines,
   });
 
   /// Convertir JSON de Firestore a UserModel
@@ -63,6 +64,9 @@ class UserModel extends UserEntity {
           ? DateTime.parse(json['updatedAt'] as String)
           : DateTime.now(),
       activeBenefits: List<String>.from(json['active_benefits'] ?? const []),
+      managedLines: List<String>.from(
+        (json['presidente_info'] as Map?)?['managed_lines'] ?? const [],
+      ),
     );
   }
 

@@ -3,11 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
-import 'package:mi_ruta/features/driver/domain/services/driver_income_service.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
-import 'package:mi_ruta/features/driver/presentation/bloc/driver_income_bloc.dart';
-import 'package:mi_ruta/features/driver/presentation/bloc/driver_income_event.dart';
-import 'package:mi_ruta/features/driver/presentation/bloc/driver_income_state.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_operations_bloc.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_operations_event.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_operations_state.dart';
@@ -16,9 +12,11 @@ import 'package:mi_ruta/features/driver/presentation/bloc/driver_service_event.d
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_service_state.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_rutas_page.dart';
-import 'package:mi_ruta/features/driver/presentation/pages/historial_ingresos_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/rendimiento_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/unit_qr_page.dart';
 import 'package:mi_ruta/features/driver/presentation/widgets/charge_section.dart';
+import 'package:mi_ruta/features/user/domain/services/wallet_service.dart';
+import 'package:mi_ruta/features/user/presentation/pages/ganancias_chofer_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
@@ -28,9 +26,10 @@ const _amarillo = Color(0xFFFFC12F);
 /// "Billetera" del chofer era literalmente `WalletPage`, la del pasajero
 /// (recargar/pagar viaje/beneficios, que no le aplican a un chofer). Esta
 /// es de ingresos: MOVIMIENTOS/RENDIMIENTO ya existían como pantallas
-/// propias, MOSTRAR QR/ACTUALIZAR QR reutilizan el flujo de cobro por
-/// transacción que ya funciona en Inicio (no es un QR fijo/personal nuevo:
-/// eso sería una función de pagos aparte, fuera de alcance aquí).
+/// propias. MOSTRAR QR reutiliza el flujo de cobro por transacción que ya
+/// funciona en Inicio; ACTUALIZAR QR abre "QR de mi unidad"
+/// (`UnitQrPage`) — un código FIJO por unidad para imprimir y colgar en el
+/// vehículo (Figma "5.4.1 Cobrar Viaje"), no el mismo QR temporal de cobro.
 class DriverWalletPage extends StatelessWidget {
   final String? role;
 
@@ -43,10 +42,6 @@ class DriverWalletPage extends StatelessWidget {
 
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-          create: (_) => DriverIncomeBloc(service: getIt<DriverIncomeService>())
-            ..add(LoadDriverIncome(uid)),
-        ),
         BlocProvider(
           create: (_) => DriverServiceBloc(service: getIt<DriverService>())
             ..add(LoadAssignedVehicle(uid)),
@@ -78,21 +73,37 @@ class _DriverWalletView extends StatelessWidget {
             top: 20,
             bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
           ),
-          child: BlocBuilder<DriverOperationsBloc, DriverOperationsState>(
-            builder: (context, state) {
-              if (state is! DriverOperationsLoaded) {
-                return const SizedBox(
-                  height: 120,
-                  child: Center(child: CircularProgressIndicator(color: _amarillo)),
+          child: BlocBuilder<DriverServiceBloc, DriverServiceState>(
+            builder: (context, serviceState) {
+              // Sin unidad (o sin aprobar todavía), DriverOperationsBloc
+              // nunca recibe LoadDriverOperations — antes esto se quedaba
+              // girando para siempre en vez de decir por qué.
+              if (serviceState is DriverServiceNoVehicle) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    'Registra y activa tu unidad primero para poder cobrar por QR.',
+                    textAlign: TextAlign.center,
+                  ),
                 );
               }
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Cobro de viaje', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 14),
-                  ChargeSection(state: state),
-                ],
+              return BlocBuilder<DriverOperationsBloc, DriverOperationsState>(
+                builder: (context, state) {
+                  if (state is! DriverOperationsLoaded) {
+                    return const SizedBox(
+                      height: 120,
+                      child: Center(child: CircularProgressIndicator(color: _amarillo)),
+                    );
+                  }
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Cobro de viaje', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 14),
+                      ChargeSection(state: state),
+                    ],
+                  );
+                },
               );
             },
           ),
@@ -126,21 +137,29 @@ class _DriverWalletView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              BlocBuilder<DriverIncomeBloc, DriverIncomeState>(
-                builder: (context, state) {
-                  final total = state is DriverIncomeLoaded ? state.totalIncome : 0.0;
+              // Total vía WalletService.getDriverEarnings — NO
+              // DriverIncomeService/HistorialIngresosPage: esa consulta usa
+              // `.orderBy()` y exige un índice compuesto que no está creado
+              // todavía en Firestore (por eso mostraba Bs. 0.00 en vez del
+              // total real). getDriverEarnings ordena en memoria, sin
+              // índice, igual que el resto de fallbacks del proyecto — y ya
+              // es lo que usa GananciasChoferPage, así que consolidamos en
+              // un solo mecanismo en vez de mantener dos.
+              FutureBuilder<Map<String, dynamic>>(
+                future: getIt<WalletService>().getDriverEarnings(() {
+                  final authState = context.read<AuthBloc>().state;
+                  return authState is AuthLoaded ? authState.user.uid : '';
+                }()),
+                builder: (context, snapshot) {
+                  final total = (snapshot.data?['total_ganancia'] as num?)?.toDouble() ?? 0.0;
                   return Material(
                     color: _amarillo,
                     borderRadius: BorderRadius.circular(16),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
-                      // Antes esta tarjeta solo mostraba el total y no
-                      // llevaba a ningún lado — el historial con filtros
-                      // (HistorialIngresosPage) ya existía, solo faltaba
-                      // este acceso directo desde el total.
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const HistorialIngresosPage()),
+                        MaterialPageRoute(builder: (_) => const GananciasChoferPage()),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(20),
@@ -169,7 +188,7 @@ class _DriverWalletView extends StatelessWidget {
                 label: 'MOVIMIENTOS',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const HistorialIngresosPage()),
+                  MaterialPageRoute(builder: (_) => const GananciasChoferPage()),
                 ),
               ),
               const SizedBox(height: 10),
@@ -192,15 +211,25 @@ class _DriverWalletView extends StatelessWidget {
               const SizedBox(height: 10),
               Builder(
                 builder: (context) => _WalletActionButton(
-                  icon: Icons.refresh,
+                  icon: Icons.qr_code_scanner_outlined,
                   label: 'ACTUALIZAR QR',
                   onTap: () {
-                    final bloc = context.read<DriverOperationsBloc>();
-                    final state = bloc.state;
-                    if (state is DriverOperationsLoaded && state.activeChargeQr != null) {
-                      bloc.add(const ClearTripCharge());
+                    final serviceState = context.read<DriverServiceBloc>().state;
+                    final vehicle = serviceState is DriverServiceLoaded
+                        ? serviceState.vehicle
+                        : serviceState is DriverServiceError
+                            ? serviceState.vehicle
+                            : null;
+                    if (vehicle == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Registra y activa tu unidad primero.')),
+                      );
+                      return;
                     }
-                    _showQrSheet(context, bloc);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => UnitQrPage(vehicle: vehicle)),
+                    );
                   },
                 ),
               ),

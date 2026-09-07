@@ -150,6 +150,7 @@ class OperationalReportDatasource {
           completedTrips: driverTrips.length,
           rating: rating,
           isSuspended: active is bool ? !active : false,
+          assignedRouteRef: (user['assigned_route_ref'] ?? '').toString(),
         ),
       );
     }

@@ -4,6 +4,7 @@ import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_trip_history_page.dart';
 
 const _amarillo = Color(0xFFFFC12F);
 
@@ -22,6 +23,7 @@ class _RendimientoPageState extends State<RendimientoPage> {
   bool _loading = true;
   String? _error;
   DriverPerformanceSummary? _summary;
+  String _uid = '';
 
   @override
   void initState() {
@@ -32,6 +34,7 @@ class _RendimientoPageState extends State<RendimientoPage> {
   Future<void> _load() async {
     final authState = context.read<AuthBloc>().state;
     final uid = authState is AuthLoaded ? authState.user.uid : '';
+    _uid = uid;
     try {
       final service = getIt<DriverService>();
       final trips = await service.getTripHistory(uid);
@@ -62,17 +65,35 @@ class _RendimientoPageState extends State<RendimientoPage> {
               ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!)))
               : Padding(
                   padding: const EdgeInsets.all(20),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(child: _StatCard(label: 'Viajes', value: '${_summary!.totalTrips}')),
-                      const SizedBox(width: 12),
-                      Expanded(child: _StatCard(label: 'Pagados', value: '${_summary!.paidTrips}')),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _StatCard(
-                          label: 'Promedio',
-                          value: 'Bs. ${_summary!.averageFare.toStringAsFixed(2)}',
-                        ),
+                      Row(
+                        children: [
+                          Expanded(child: _StatCard(label: 'Viajes', value: '${_summary!.totalTrips}')),
+                          const SizedBox(width: 12),
+                          Expanded(child: _StatCard(label: 'Pagados', value: '${_summary!.paidTrips}')),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _StatCard(
+                              label: 'Promedio',
+                              value: 'Bs. ${_summary!.averageFare.toStringAsFixed(2)}',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      OutlinedButton.icon(
+                        onPressed: _uid.isEmpty
+                            ? null
+                            : () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => DriverTripHistoryPage(driverId: _uid),
+                                  ),
+                                ),
+                        icon: const Icon(Icons.history),
+                        label: const Text('Ver historial de viajes y descargar PDF'),
                       ),
                     ],
                   ),

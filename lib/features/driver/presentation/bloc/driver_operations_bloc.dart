@@ -84,7 +84,11 @@ class DriverOperationsBloc extends Bloc<DriverOperationsEvent, DriverOperationsS
       _tripSubscription?.cancel();
       _tripSubscription = _service.streamTripStatus(charge['tripId']).listen((statusMap) {
         if (statusMap != null && statusMap['payment_status'] == 'paid') {
-          add(TripPaymentReceived(charge['tripId'], charge['amount'] as double));
+          add(TripPaymentReceived(
+            charge['tripId'],
+            charge['amount'] as double,
+            passengerId: statusMap['passenger_id'] as String?,
+          ));
         }
       });
     } catch (e) {
@@ -104,10 +108,13 @@ class DriverOperationsBloc extends Bloc<DriverOperationsEvent, DriverOperationsS
     final current = state;
     if (current is! DriverOperationsLoaded) return;
     
-    // Oculta el QR y guarda el monto para mostrar el snackbar
+    // Oculta el QR y guarda el monto (y el viaje/pasajero) para mostrar el
+    // snackbar y, si corresponde, abrir "calificar al pasajero".
     emit(current.copyWith(
       clearActiveCharge: true,
       lastPaymentReceivedAmount: event.amount,
+      lastPaymentReceivedTripId: event.tripId,
+      lastPaymentReceivedPassengerId: event.passengerId,
     ));
     
     // Recarga la data del chofer para actualizar ingresos e historial

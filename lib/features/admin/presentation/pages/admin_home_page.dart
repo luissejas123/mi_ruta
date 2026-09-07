@@ -5,6 +5,7 @@ import 'package:mi_ruta/features/admin/domain/entities/admin_permissions.dart';
 import 'package:mi_ruta/features/admin/domain/services/admin_access_service.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_bloc.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/asignar_lineas_presidente_page.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/user_management_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/widgets/admin_bottom_navigation_bar.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_privileges_page.dart';
@@ -140,6 +141,20 @@ class AdminHomePage extends StatelessWidget {
                               value: getIt<UserManagementBloc>(),
                               child: const UserManagementPage(),
                             ),
+                          ),
+                        );
+                      },
+                    ),
+                  if (AdminAccessService.canAccessOperation(user, AdminOperation.manageUsers))
+                    _MenuCard(
+                      icon: Icons.groups_outlined,
+                      title: 'Asignar línea a presidente',
+                      subtitle: 'Qué línea(s) gestiona cada dirigente',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AsignarLineasPresidentePage(),
                           ),
                         );
                       },

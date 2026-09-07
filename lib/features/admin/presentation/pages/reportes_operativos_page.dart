@@ -76,6 +76,23 @@ class _ReportesOperativosPageState extends State<ReportesOperativosPage> {
                 return _ErrorView(onRetry: _refresh);
               }
               final report = snapshot.data!;
+              // Un presidente ve solo sus choferes (líneas que gestiona,
+              // `users.presidente_info.managed_lines`); admin sigue viendo
+              // el sistema completo. Vacío en cualquiera de los dos casos
+              // (admin, o presidente sin línea asignada todavía) no filtra.
+              final isPresidente = role == 'presidente' || role == 'dirigente';
+              final managedLines = authState is AuthLoaded ? authState.user.managedLines : const <String>[];
+              final displayDrivers = isPresidente
+                  ? report.driversForLines(managedLines)
+                  : report.drivers;
+              final suspended = displayDrivers.where((d) => d.isSuspended).toList();
+              final featured = displayDrivers
+                      .where((d) => !d.isSuspended && d.rating >= 4.5)
+                      .toList()
+                    ..sort((a, b) {
+                      final byRating = b.rating.compareTo(a.rating);
+                      return byRating != 0 ? byRating : b.completedTrips.compareTo(a.completedTrips);
+                    });
               return RefreshIndicator(
                 color: const Color(0xFFFFC12F),
                 onRefresh: _refresh,
@@ -120,8 +137,8 @@ class _ReportesOperativosPageState extends State<ReportesOperativosPage> {
                         ),
                         _SummaryCard(
                           icon: Icons.groups_outlined,
-                          label: 'Choferes registrados',
-                          value: report.totalDrivers,
+                          label: isPresidente ? 'Choferes de mi línea' : 'Choferes registrados',
+                          value: displayDrivers.length,
                         ),
                         _SummaryCard(
                           icon: Icons.groups,
@@ -143,16 +160,16 @@ class _ReportesOperativosPageState extends State<ReportesOperativosPage> {
                     const SizedBox(height: 18),
                     _DriverSection(
                       title: 'Choferes suspendidos',
-                      count: report.suspendedDrivers.length,
-                      drivers: report.suspendedDrivers,
+                      count: suspended.length,
+                      drivers: suspended,
                       emptyText: 'No hay choferes suspendidos.',
                       accent: Colors.red.shade700,
                     ),
                     const SizedBox(height: 14),
                     _DriverSection(
                       title: 'Buen desempeño',
-                      count: report.featuredDrivers.length,
-                      drivers: report.featuredDrivers,
+                      count: featured.length,
+                      drivers: featured,
                       emptyText: 'No hay choferes destacados todavía.',
                       accent: Colors.green.shade700,
                       showRating: true,

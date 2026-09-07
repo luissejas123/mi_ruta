@@ -14,6 +14,7 @@ class AuthModel extends AuthEntity {
     super.settings,
     super.isSuperAdmin,
     super.roles,
+    super.managedLines,
   });
 
   factory AuthModel.fromJson(Map<String, dynamic> json) {
@@ -50,6 +51,9 @@ class AuthModel extends AuthEntity {
       settings: json['settings'] as Map<String, dynamic>?,
       isSuperAdmin: json['is_super_admin'] as bool? ?? false,
       roles: roles,
+      managedLines: List<String>.from(
+        (json['presidente_info'] as Map?)?['managed_lines'] ?? const [],
+      ),
     );
   }
 

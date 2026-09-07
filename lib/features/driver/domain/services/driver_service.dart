@@ -135,6 +135,12 @@ class DriverService {
     );
   }
 
+  /// Logo del QR fijo de la unidad (ver `DriverDatasource.updateVehicleQrLogo`
+  /// — no reenvía la unidad a revisión, a diferencia de `updateVehicleInfo`).
+  Future<void> updateVehicleQrLogo(String vehicleId, String qrLogoUrl) {
+    return _datasource.updateVehicleQrLogo(vehicleId, qrLogoUrl);
+  }
+
   /// Unidades pendientes de revisión (nuevas o recién editadas por su
   /// dueño), para la pantalla de revisión del presidente/admin.
   Future<List<VehicleEntity>> getVehiclesPendingReview() =>

@@ -5,11 +5,14 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/period_filter_button.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/transaction_card.dart';
 
+/// "MOVIMIENTOS" de la billetera del chofer (DriverWalletPage) — se llega
+/// aquí siempre con Navigator.push, nunca por tab de navegación inferior,
+/// así que no lleva su propio CustomBottomNav (antes lo tenía, y como no
+/// reenviaba homeBuilder/walletBuilder/routesBuilder, tocar "Inicio" desde
+/// acá mandaba al chofer a la pantalla del pasajero).
 class GananciasChoferPage extends StatefulWidget {
   const GananciasChoferPage({super.key});
 
@@ -18,13 +21,11 @@ class GananciasChoferPage extends StatefulWidget {
 }
 
 class _GananciasChoferPageState extends State<GananciasChoferPage> {
-  static const _navIndexWallet = 1;
   static const _filterOptions = ['Hoy', 'Semanal', 'Mensual', 'Todos'];
   static const _defaultFilter = 'Todos';
   static const _defaultUserId = 'user_demo';
   static const _amarillo = Color(0xFFFFC12F);
 
-  final int _currentNavIndex = _navIndexWallet;
   String _selectedFilter = _defaultFilter;
   late String _userId;
 
@@ -44,8 +45,6 @@ class _GananciasChoferPageState extends State<GananciasChoferPage> {
     if (authState is AuthLoaded) return authState.user.uid;
     return _defaultUserId;
   }
-
-  void _onNavTap(int index) => navigateBottomNav(context, index);
 
   void _selectFilter(String filter) {
     setState(() => _selectedFilter = filter);
@@ -286,10 +285,6 @@ class _GananciasChoferPageState extends State<GananciasChoferPage> {
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: _currentNavIndex,
-        onTap: _onNavTap,
       ),
     );
   }

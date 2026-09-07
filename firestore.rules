@@ -51,7 +51,7 @@ service cloud.firestore {
     function touchesPrivilegedField() {
       return affected().hasAny([
         'role', 'roles', 'userType', 'is_super_admin', 'admin_permissions',
-        'tickeador_info', 'qa_access', 'assigned_route_ref'
+        'tickeador_info', 'qa_access', 'assigned_route_ref', 'presidente_info'
       ]);
     }
 
@@ -84,7 +84,8 @@ service cloud.firestore {
         && request.resource.data.get('qa_access', false) == false
         && request.resource.data.get('role', 'user') == 'user'
         && !('admin_permissions' in request.resource.data)
-        && !('tickeador_info' in request.resource.data);
+        && !('tickeador_info' in request.resource.data)
+        && !('presidente_info' in request.resource.data);
 
       // El dueño edita su perfil (nombre, teléfono, foto, wallet, settings),
       // pero no los campos privilegiados.

@@ -23,6 +23,9 @@ class AuthEntity extends Equatable {
   // se usa como pantalla de inicio. Ver RoleHierarchy para las
   // combinaciones válidas.
   final List<String> roles;
+  // `presidente_info.managed_lines` — refs de línea que este presidente
+  // gestiona. Vacía para cualquiera que no sea presidente.
+  final List<String> managedLines;
 
   const AuthEntity({
     required this.uid,
@@ -37,6 +40,7 @@ class AuthEntity extends Equatable {
     this.settings,
     this.isSuperAdmin = false,
     this.roles = const ['user'],
+    this.managedLines = const [],
   });
 
   Map<String, dynamic> get effectiveSettings => {
@@ -88,5 +92,6 @@ class AuthEntity extends Equatable {
     settings,
     isSuperAdmin,
     roles,
+    managedLines,
   ];
 }

@@ -27,7 +27,12 @@ const _amarillo = Color(0xFFFFC12F);
 class UnitQrPage extends StatefulWidget {
   final VehicleEntity vehicle;
 
-  const UnitQrPage({super.key, required this.vehicle});
+  /// Nombre del chofer dueño-operador (con el que se registró) — el
+  /// pasajero/tickeador que escanea el QR necesita saber a quién le está
+  /// pagando, no solo la placa.
+  final String driverName;
+
+  const UnitQrPage({super.key, required this.vehicle, required this.driverName});
 
   @override
   State<UnitQrPage> createState() => _UnitQrPageState();
@@ -125,8 +130,12 @@ class _UnitQrPageState extends State<UnitQrPage> {
                     ),
                     const SizedBox(height: 12),
                     Text(
+                      widget.driverName,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black),
+                    ),
+                    Text(
                       'Placa ${vehicle.vehicleId} · Línea ${vehicle.lineNumber}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                      style: const TextStyle(color: Colors.black87),
                     ),
                   ],
                 ),

@@ -21,6 +21,10 @@ class _AdministracionBeneficiosPageState
   late Future<List<BenefitRequest>> _requests;
   String _filter = 'all';
   int _tabIndex = 0;
+  // Al tocar un tipo en la pestaña "Beneficios" (_BenefitsList), se activa
+  // esto y se salta a "Solicitudes" ya filtrado por ese tipo — antes esa
+  // fila no hacía nada al tocarla.
+  String? _benefitTypeFilter;
 
   @override
   void initState() {
@@ -50,6 +54,8 @@ class _AdministracionBeneficiosPageState
     final query = _searchController.text.trim().toLowerCase();
     return requests.where((request) {
       final matchesFilter = _filter == 'all' || request.status == _filter;
+      final matchesType =
+          _benefitTypeFilter == null || request.benefitType == _benefitTypeFilter;
       final searchable = [
         request.userName,
         request.userEmail,
@@ -57,7 +63,9 @@ class _AdministracionBeneficiosPageState
         request.benefitType,
         request.description,
       ].whereType<String>().join(' ').toLowerCase();
-      return matchesFilter && (query.isEmpty || searchable.contains(query));
+      return matchesFilter &&
+          matchesType &&
+          (query.isEmpty || searchable.contains(query));
     }).toList();
   }
 
@@ -175,8 +183,10 @@ class _AdministracionBeneficiosPageState
                     controller: _searchController,
                     selectedFilter: _filter,
                     tabIndex: _tabIndex,
+                    benefitTypeFilter: _benefitTypeFilter,
                     onFilterChanged: (value) => setState(() => _filter = value),
                     onTabChanged: (value) => setState(() => _tabIndex = value),
+                    onClearTypeFilter: () => setState(() => _benefitTypeFilter = null),
                   ),
                   Expanded(
                     child: _tabIndex == 0
@@ -185,7 +195,14 @@ class _AdministracionBeneficiosPageState
                             onTap: _showDetails,
                             onRefresh: _reload,
                           )
-                        : _BenefitsList(requests: requests),
+                        : _BenefitsList(
+                            requests: requests,
+                            onTypeTap: (type) => setState(() {
+                              _benefitTypeFilter = type;
+                              _filter = 'all';
+                              _tabIndex = 0;
+                            }),
+                          ),
                   ),
                 ],
               );
@@ -212,15 +229,19 @@ class _SearchAndTabs extends StatelessWidget {
   final TextEditingController controller;
   final String selectedFilter;
   final int tabIndex;
+  final String? benefitTypeFilter;
   final ValueChanged<String> onFilterChanged;
   final ValueChanged<int> onTabChanged;
+  final VoidCallback onClearTypeFilter;
 
   const _SearchAndTabs({
     required this.controller,
     required this.selectedFilter,
     required this.tabIndex,
+    required this.benefitTypeFilter,
     required this.onFilterChanged,
     required this.onTabChanged,
+    required this.onClearTypeFilter,
   });
 
   @override
@@ -257,7 +278,7 @@ class _SearchAndTabs extends StatelessWidget {
             ),
           ],
         ),
-        if (tabIndex == 0)
+        if (tabIndex == 0) ...[
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -279,6 +300,21 @@ class _SearchAndTabs extends StatelessWidget {
               ],
             ),
           ),
+          // Viene de tocar un tipo en la pestaña "Beneficios" — antes esa
+          // fila no filtraba nada al tocarla.
+          if (benefitTypeFilter != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: InputChip(
+                  avatar: const Icon(Icons.filter_alt_outlined, size: 18),
+                  label: Text('Solo ${_benefitLabel(benefitTypeFilter!)}'),
+                  onDeleted: onClearTypeFilter,
+                ),
+              ),
+            ),
+        ],
       ],
     ),
   );
@@ -380,8 +416,16 @@ class _RequestDetails extends StatelessWidget {
                 'Documentos',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              for (final url in request.documentUrls)
-                SelectableText(url, style: const TextStyle(fontSize: 12)),
+              // Antes mostraba la URL cruda como texto — nadie va a pegarla
+              // en el navegador para revisar un comprobante. Botón directo
+              // a verla en grande.
+              for (var i = 0; i < request.documentUrls.length; i++)
+                _DocumentButton(
+                  label: request.documentUrls.length > 1
+                      ? 'Ver documento ${i + 1}'
+                      : 'Ver documento',
+                  url: request.documentUrls[i],
+                ),
             ],
             if (request.adminNotes?.isNotEmpty == true)
               _Detail('Observación administrativa', request.adminNotes!),
@@ -420,7 +464,8 @@ class _RequestDetails extends StatelessWidget {
 
 class _BenefitsList extends StatelessWidget {
   final List<BenefitRequest> requests;
-  const _BenefitsList({required this.requests});
+  final ValueChanged<String> onTypeTap;
+  const _BenefitsList({required this.requests, required this.onTypeTap});
 
   @override
   Widget build(BuildContext context) {
@@ -439,6 +484,9 @@ class _BenefitsList extends StatelessWidget {
             .length;
         return Card(
           child: ListTile(
+            // Antes no tenía onTap: mostraba el resumen pero no llevaba a
+            // las solicitudes de ese tipo.
+            onTap: () => onTypeTap(entry.key),
             leading: const CircleAvatar(
               backgroundColor: Color(0xFFFFC12F),
               child: Icon(Icons.school_outlined, color: Colors.black),
@@ -451,6 +499,40 @@ class _BenefitsList extends StatelessWidget {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+/// Botón que abre el documento subido (siempre imagen — `SolicitudBeneficioPage`
+/// solo permite `ImagePicker`, nunca PDF) para revisarlo antes de aprobar o
+/// rechazar, en vez de mostrar la URL en texto plano.
+class _DocumentButton extends StatelessWidget {
+  final String label;
+  final String url;
+  const _DocumentButton({required this.label, required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: OutlinedButton.icon(
+        onPressed: () => showDialog(
+          context: context,
+          builder: (_) => Dialog(
+            child: InteractiveViewer(
+              child: Image.network(
+                url,
+                errorBuilder: (_, _, _) => const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text('No se pudo cargar la imagen.'),
+                ),
+              ),
+            ),
+          ),
+        ),
+        icon: const Icon(Icons.image_outlined, size: 18),
+        label: Text(label),
+      ),
     );
   }
 }

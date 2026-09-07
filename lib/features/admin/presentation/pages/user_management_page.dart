@@ -12,9 +12,13 @@ import 'package:mi_ruta/features/admin/presentation/pages/admin_permissions_edit
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 
+// Claves = valores reales de `AuthEntity.roles`/`RoleHierarchy` ('user',
+// 'driver', 'admin', 'presidente') — antes acá decía 'passenger', que no es
+// un rol real (nunca hay ninguna cuenta con 'passenger' en `roles`), así que
+// ese filtro nunca mostraba resultados.
 const _roleFilters = <String?, String>{
   null: 'Todos',
-  'passenger': 'Pasajeros',
+  'user': 'Pasajeros',
   'driver': 'Choferes',
   //'tickeador': 'Tickeadores',
   'admin': 'Administradores',
@@ -53,7 +57,7 @@ class UserManagementPage extends StatefulWidget {
 
 class _UserManagementPageState extends State<UserManagementPage> {
   late final TextEditingController _searchController;
-  bool _onlyAdmins = false;
+  String? _activeRoleFilter;
 
   @override
   void initState() {
@@ -393,9 +397,11 @@ class _UserManagementPageState extends State<UserManagementPage> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final visible = _onlyAdmins
-              ? state.filteredUsers.where((u) => u.isAdmin).toList()
-              : state.filteredUsers;
+          final visible = _activeRoleFilter == null
+              ? state.filteredUsers
+              : state.filteredUsers
+                  .where((u) => u.roles.contains(_activeRoleFilter))
+                  .toList();
 
           return Column(
             children: [
@@ -426,23 +432,42 @@ class _UserManagementPageState extends State<UserManagementPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
+                    // Barra de chips de colores por rol (la que se había
+                    // perdido en el merge de la rama de Carlos — acá está
+                    // reconstruida sobre `state.filteredUsers` en vez de
+                    // pedirle un filtro nuevo al bloc, para que funcione
+                    // igual con cuentas de más de un rol).
                     Expanded(
-                      child: SegmentedButton<bool>(
-                        segments: const [
-                          ButtonSegment(
-                            value: false,
-                            label: Text('Todos'),
-                            icon: Icon(Icons.people_outline),
-                          ),
-                          ButtonSegment(
-                            value: true,
-                            label: Text('Administradores'),
-                            icon: Icon(Icons.admin_panel_settings_outlined),
-                          ),
-                        ],
-                        selected: {_onlyAdmins},
-                        onSelectionChanged: (selection) =>
-                            setState(() => _onlyAdmins = selection.first),
+                      child: SizedBox(
+                        height: 40,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: _roleFilters.entries.map((entry) {
+                            final selected = entry.key == _activeRoleFilter;
+                            final chipColor = roleColorForUserType(entry.key);
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(
+                                  entry.value,
+                                  style: TextStyle(
+                                    color: selected ? Colors.white : chipColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                selected: selected,
+                                selectedColor: chipColor,
+                                backgroundColor: chipColor.withValues(alpha: 0.12),
+                                showCheckmark: false,
+                                side: BorderSide(
+                                  color: chipColor.withValues(alpha: selected ? 0 : 0.5),
+                                ),
+                                onSelected: (_) =>
+                                    setState(() => _activeRoleFilter = entry.key),
+                              ),
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
                     if (_canManageAdmins) ...[

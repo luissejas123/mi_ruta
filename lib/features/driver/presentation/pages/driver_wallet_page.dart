@@ -60,12 +60,25 @@ class _DriverWalletView extends StatelessWidget {
 
   const _DriverWalletView({required this.role});
 
-  void _showQrSheet(BuildContext context, DriverOperationsBloc operationsBloc) {
+  void _showQrSheet(
+    BuildContext context,
+    DriverOperationsBloc operationsBloc,
+    DriverServiceBloc serviceBloc,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (sheetContext) => BlocProvider.value(
-        value: operationsBloc,
+      // showModalBottomSheet monta su builder en el overlay del Navigator,
+      // no como descendiente del árbol de esta página — solo ve los
+      // providers que se le pasan acá explícitamente. Antes solo se
+      // reenviaba DriverOperationsBloc; el BlocBuilder<DriverServiceBloc> de
+      // abajo no encontraba su Provider y tiraba
+      // "Could not find the correct Provider<DriverServiceBloc>".
+      builder: (sheetContext) => MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: operationsBloc),
+          BlocProvider.value(value: serviceBloc),
+        ],
         child: Padding(
           padding: EdgeInsets.only(
             left: 20,
@@ -205,7 +218,11 @@ class _DriverWalletView extends StatelessWidget {
                 builder: (context) => _WalletActionButton(
                   icon: Icons.qr_code_2,
                   label: 'MOSTRAR QR',
-                  onTap: () => _showQrSheet(context, context.read<DriverOperationsBloc>()),
+                  onTap: () => _showQrSheet(
+                    context,
+                    context.read<DriverOperationsBloc>(),
+                    context.read<DriverServiceBloc>(),
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -226,9 +243,13 @@ class _DriverWalletView extends StatelessWidget {
                       );
                       return;
                     }
+                    final authState = context.read<AuthBloc>().state;
+                    final driverName = authState is AuthLoaded ? authState.user.fullName : '';
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => UnitQrPage(vehicle: vehicle)),
+                      MaterialPageRoute(
+                        builder: (_) => UnitQrPage(vehicle: vehicle, driverName: driverName),
+                      ),
                     );
                   },
                 ),

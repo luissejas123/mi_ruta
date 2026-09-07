@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/map_styles.dart';
@@ -11,13 +14,21 @@ import 'package:mi_ruta/features/user/domain/usecases/get_current_location_useca
 const _amarillo = Color(0xFFFFC12F);
 
 /// Mapa de la unidad del chofer para las vistas de inicio/detener servicio
-/// (Figma "3.3 Inicio Servicio" / "3.3 Detener Servicio"): ubicación actual
-/// + la ruta asignada dibujada, si el catálogo GTFS tiene su polyline.
+/// (Figma "3.3 Inicio Servicio" / "3.3 Detener Servicio"): posición del
+/// chofer en tiempo real (mismo patrón de `Geolocator.getPositionStream`
+/// que ya usa `NavigationBloc` para el pasajero en ruta) + la ruta asignada
+/// dibujada, si el catálogo GTFS tiene su polyline.
 class DriverServiceMap extends StatefulWidget {
   final RouteEntity? assignedRoute;
   final bool inService;
+  final double height;
 
-  const DriverServiceMap({super.key, required this.assignedRoute, required this.inService});
+  const DriverServiceMap({
+    super.key,
+    required this.assignedRoute,
+    required this.inService,
+    this.height = 220,
+  });
 
   @override
   State<DriverServiceMap> createState() => _DriverServiceMapState();
@@ -28,6 +39,7 @@ class _DriverServiceMapState extends State<DriverServiceMap> {
   LatLng? _myLocation;
   bool _loading = true;
   bool _locationDenied = false;
+  StreamSubscription<Position>? _positionSubscription;
 
   @override
   void initState() {
@@ -48,8 +60,25 @@ class _DriverServiceMapState extends State<DriverServiceMap> {
           _myLocation = latLng;
           _loading = false;
         });
+        _startLiveTracking();
       },
     );
+  }
+
+  /// Igual que `NavigationBloc._startGpsTracking`: la ubicación inicial ya
+  /// se obtuvo arriba (con su propio manejo de permisos vía
+  /// GetCurrentLocationUseCase), acá solo se agrega el stream para que el
+  /// marcador se mueva solo mientras la pantalla está abierta.
+  void _startLiveTracking() {
+    _positionSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      ),
+    ).listen((position) {
+      if (!mounted) return;
+      setState(() => _myLocation = LatLng(position.latitude, position.longitude));
+    });
   }
 
   List<LatLng> _routePoints() {
@@ -67,6 +96,7 @@ class _DriverServiceMapState extends State<DriverServiceMap> {
 
   @override
   void dispose() {
+    _positionSubscription?.cancel();
     _controller?.dispose();
     super.dispose();
   }
@@ -77,7 +107,7 @@ class _DriverServiceMapState extends State<DriverServiceMap> {
 
     if (_loading) {
       return Container(
-        height: 220,
+        height: widget.height,
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(16),
@@ -87,7 +117,7 @@ class _DriverServiceMapState extends State<DriverServiceMap> {
     }
     if (_myLocation == null) {
       return Container(
-        height: 220,
+        height: widget.height,
         padding: const EdgeInsets.all(16),
         alignment: Alignment.center,
         decoration: BoxDecoration(
@@ -110,7 +140,7 @@ class _DriverServiceMapState extends State<DriverServiceMap> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: SizedBox(
-        height: 220,
+        height: widget.height,
         child: GoogleMap(
           style: isDark ? MapStyles.dark : null,
           initialCameraPosition: CameraPosition(target: _myLocation!, zoom: 15),

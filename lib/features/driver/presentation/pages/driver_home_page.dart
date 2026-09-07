@@ -413,138 +413,30 @@ class _VehicleCard extends StatelessWidget {
     this.assignedRoute,
   });
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'approved':
-        return Colors.green;
-      case 'pending_review':
-        return Colors.orange;
-      case 'rejected':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _statusLabel(String status) {
-    switch (status) {
-      case 'approved':
-        return 'Aprobada';
-      case 'pending_review':
-        return 'En revisión';
-      case 'rejected':
-        return 'Rechazada';
-      default:
-        return status;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final canOperate = vehicle.isApproved;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        DriverServiceMap(assignedRoute: assignedRoute, inService: vehicle.isOnDuty),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: const BoxDecoration(
-                      color: DriverHomePage._amarillo,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.directions_bus, color: Colors.black),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${vehicle.brand} ${vehicle.model}'.trim(),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                        ),
-                        Text(
-                          'Placa ${vehicle.vehicleId} · Línea ${vehicle.lineNumber}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: _statusColor(vehicle.status).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _statusLabel(vehicle.status),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: _statusColor(vehicle.status),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 28),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Estado del servicio',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: vehicle.isOnDuty ? Colors.green : Colors.grey,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        vehicle.isOnDuty ? 'En servicio' : 'Fuera de servicio',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              if (!canOperate) ...[
-                const SizedBox(height: 10),
-                Text(
-                  'Esta unidad debe estar aprobada antes de poder iniciar servicio.',
-                  style: TextStyle(fontSize: 12, color: Colors.red.shade400),
-                ),
-              ],
-            ],
-          ),
+        // Sin la card de datos de la unidad (placa/marca/estado): el mapa en
+        // vivo con la posición del chofer + la ruta asignada es lo que
+        // importa acá, y usa el espacio que antes ocupaba la card. El
+        // status de la unidad ya se ve en el color del marcador del mapa
+        // (verde/naranja) y en el propio botón de abajo.
+        DriverServiceMap(
+          assignedRoute: assignedRoute,
+          inService: vehicle.isOnDuty,
+          height: 340,
         ),
+        if (!canOperate) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Esta unidad debe estar aprobada antes de poder iniciar servicio.',
+            style: TextStyle(fontSize: 12, color: Colors.red.shade400),
+          ),
+        ],
         const SizedBox(height: 16),
         SizedBox(
           height: 52,

@@ -216,11 +216,39 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
     setState(() => _scheduledAt = scheduledAt);
   }
 
+  bool _isSameLocation() {
+    final origin = _origin;
+    final destination = _destination;
+    if (origin == null || destination == null) return false;
+
+    final latDiff = (origin.latLng.latitude - destination.latLng.latitude).abs();
+    final lngDiff = (origin.latLng.longitude - destination.latLng.longitude).abs();
+    return latDiff < 1e-6 && lngDiff < 1e-6;
+  }
+
   void _search() {
     final origin = _origin;
     final destination = _destination;
     final scheduledAt = _scheduledAt;
-    if (origin == null || destination == null || scheduledAt == null) return;
+
+    if (origin == null || destination == null || scheduledAt == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Debes seleccionar origen, destino y horario.'),
+        ),
+      );
+      return;
+    }
+
+    if (_isSameLocation()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Origen y destino no pueden ser el mismo punto.'),
+        ),
+      );
+      return;
+    }
+
     context.read<TripPlannerBloc>().add(
       SearchTripOptions(
         userId: _userId,
@@ -309,6 +337,53 @@ class _SearchTab extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Column(
       children: [
+        if (origin != null || destination != null || scheduledAt != null)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: colorScheme.onSurface.withValues(alpha: 0.08),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (origin != null)
+                  _SummaryRow(
+                    label: 'Origen',
+                    value: origin!.name,
+                    icon: Icons.location_on,
+                    iconColor: Colors.green,
+                  ),
+                if (destination != null)
+                  Padding(
+                    padding: EdgeInsets.only(top: origin != null ? 8 : 0),
+                    child: _SummaryRow(
+                      label: 'Destino',
+                      value: destination!.name,
+                      icon: Icons.flag,
+                      iconColor: Colors.red,
+                    ),
+                  ),
+                if (scheduledAt != null)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      top: (origin != null || destination != null) ? 8 : 0,
+                    ),
+                    child: _SummaryRow(
+                      label: 'Horario',
+                      value: DateFormatter.formatWithTime(scheduledAt!),
+                      icon: Icons.schedule,
+                      iconColor: const Color(0xFFFFA000),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         // ── Location pickers ──
         Container(
           color: colorScheme.surface,
@@ -515,6 +590,50 @@ class _LocationPicker extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color iconColor;
+
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: iconColor),
+        const SizedBox(width: 8),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: DefaultTextStyle.of(context).style.copyWith(
+                fontSize: 12,
+                color: colorScheme.onSurface.withValues(alpha: 0.8),
+              ),
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                TextSpan(text: value),
+              ],
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

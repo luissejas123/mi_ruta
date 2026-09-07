@@ -12,6 +12,7 @@ import 'package:mi_ruta/features/driver/presentation/pages/vehicle_review_page.d
 import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
 import 'package:mi_ruta/features/presidente/presentation/pages/asignar_ruta_chofer_page.dart';
+import 'package:mi_ruta/features/presidente/presentation/pages/ver_ruta_chofer_page.dart';
 import 'package:mi_ruta/features/presidente/presentation/pages/presidente_reclamos_page.dart';
 import 'package:mi_ruta/features/presidente/presentation/pages/presidente_rutas_page.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/asignar_tickeador_page.dart';
@@ -118,6 +119,18 @@ class _PresidentePanelView extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => const AsignarRutaChoferPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.route_outlined,
+                    title: 'Ver ruta de un chofer',
+                    subtitle: 'Recorrido y línea asignada, de solo lectura',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const VerRutaChoferPage(),
                       ),
                     ),
                   ),
@@ -303,7 +316,15 @@ class _StatsGrid extends StatelessWidget {
 class RouteControlSection extends StatefulWidget {
   final PresidentePanelLoaded state;
 
-  const RouteControlSection({super.key, required this.state});
+  /// false (default): la lista se limita a 320px — es una sección más
+  /// dentro del scroll largo de `PresidentePanelPage` (stats + gestión de
+  /// personal + esto). true: la lista ocupa todo el alto disponible —
+  /// úsalo cuando esta sección es el contenido completo de la pantalla
+  /// (`PresidenteRutasPage`), si no queda un contenedor chico con un montón
+  /// de espacio en blanco debajo (bug real reportado).
+  final bool expand;
+
+  const RouteControlSection({super.key, required this.state, this.expand = false});
 
   @override
   State<RouteControlSection> createState() => RouteControlSectionState();
@@ -338,77 +359,100 @@ class RouteControlSectionState extends State<RouteControlSection> {
                 r.ref.toLowerCase().contains(query))
             .toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        TextField(
-          controller: _searchCtrl,
-          onChanged: (v) => setState(() => _query = v),
-          decoration: InputDecoration(
-            hintText: 'Buscar por línea o nombre de ruta',
-            prefixIcon: const Icon(Icons.search, size: 20),
-            isDense: true,
-            filled: true,
-            fillColor: colorScheme.surfaceContainerHighest,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-          ),
+    final searchField = TextField(
+      controller: _searchCtrl,
+      onChanged: (v) => setState(() => _query = v),
+      decoration: InputDecoration(
+        hintText: 'Buscar por línea o nombre de ruta',
+        prefixIcon: const Icon(Icons.search, size: 20),
+        isDense: true,
+        filled: true,
+        fillColor: colorScheme.surfaceContainerHighest,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
         ),
-        const SizedBox(height: 10),
-        if (routes.isEmpty)
+      ),
+    );
+
+    if (routes.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          searchField,
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
               'Ninguna ruta activa coincide con "$_query".',
               style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withValues(alpha: 0.6)),
             ),
-          )
-        else
+          ),
+        ],
+      );
+    }
+
+    final list = ListView.separated(
+      shrinkWrap: !widget.expand,
+      physics: widget.expand ? null : const NeverScrollableScrollPhysics(),
+      itemCount: routes.length,
+      separatorBuilder: (context, i) => const SizedBox(height: 10),
+      itemBuilder: (context, i) {
+        final route = routes[i];
+        final count = byLine[route.ref] ?? 0;
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: count > 0 ? Colors.green : Colors.grey,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${route.name} · Línea ${route.ref}',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                '$count unidad${count == 1 ? '' : 'es'} en ruta',
+                style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!widget.expand) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          searchField,
+          const SizedBox(height: 10),
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 320),
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: routes.length,
-              separatorBuilder: (context, i) => const SizedBox(height: 10),
-              itemBuilder: (context, i) {
-                final route = routes[i];
-                final count = byLine[route.ref] ?? 0;
-                return Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: count > 0 ? Colors.green : Colors.grey,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          '${route.name} · Línea ${route.ref}',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text(
-                        '$count unidad${count == 1 ? '' : 'es'} en ruta',
-                        style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6)),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+            child: list,
           ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        searchField,
+        const SizedBox(height: 10),
+        Expanded(child: list),
       ],
     );
   }

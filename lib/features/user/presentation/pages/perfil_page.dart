@@ -450,18 +450,13 @@ class _PerfilPageState extends State<PerfilPage> {
                     ),
                   ),
                 ],
-                if (user.userType == 'driver' || user.userType == 'passenger')
-                  _buildMenuItem(
-                    icon: Icons.route_outlined,
-                    title: 'Ruta asignada',
-                    subtitle: 'Ver recorrido y línea del chofer',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => DriverAssignedRoutesPage(),
-                      ),
-                    ),
-                  ),
+                // Antes había una segunda tarjeta "Ruta asignada" acá
+                // (visible también para pasajero) que iba a la misma
+                // pantalla que la de arriba — duplicada de verdad, no solo
+                // parecida. "Ver recorrido y línea del chofer" es una
+                // herramienta del dirigente, no del propio chofer/pasajero:
+                // ver `_ActionTile` "Ver ruta de un chofer" en
+                // PresidentePanelPage.
                 if (user.userType == 'tickeador')
                   _buildMenuItem(
                     icon: Icons.history,

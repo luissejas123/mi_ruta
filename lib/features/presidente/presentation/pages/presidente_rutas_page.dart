@@ -63,11 +63,9 @@ class _PresidenteRutasView extends StatelessWidget {
             return RefreshIndicator(
               onRefresh: () async =>
                   context.read<PresidentePanelBloc>().add(const LoadPresidentePanel()),
-              child: ListView(
+              child: Padding(
                 padding: const EdgeInsets.all(20),
-                children: [
-                  RouteControlSection(state: state),
-                ],
+                child: RouteControlSection(state: state, expand: true),
               ),
             );
           }

@@ -32,6 +32,31 @@
         { "fieldPath": "driver_id", "order": "ASCENDING" },
         { "fieldPath": "created_at", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "trips",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "verified_by", "order": "ASCENDING" },
+        { "fieldPath": "verified_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "trips",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "vehicle_id", "order": "ASCENDING" },
+        { "fieldPath": "payment_status", "order": "ASCENDING" },
+        { "fieldPath": "paid_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "recharges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "user_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

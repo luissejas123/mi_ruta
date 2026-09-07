@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
@@ -600,10 +601,18 @@ class _TripOptionCard extends StatelessWidget {
             children: [
               Expanded(
                 child: TextButton(
-                  onPressed: () {
+                  onPressed: () async {
                     final tripToSave = rescheduleId != null
                         ? trip.copyWith(id: rescheduleId)
                         : trip;
+                    if (rescheduleId != null) {
+                      // Evita restaurar progreso de abordaje de la ruta
+                      // vieja si la reprogramada termina con la misma
+                      // cantidad de tramos (mismo trip.id reusado).
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.remove('plan_progress_$rescheduleId');
+                    }
+                    if (!context.mounted) return;
                     context
                         .read<TripPlannerBloc>()
                         .add(SaveTripPlan(tripToSave));

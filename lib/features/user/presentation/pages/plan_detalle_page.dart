@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/map_styles.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
@@ -36,12 +39,54 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
   // Real polyline points per leg loaded from GTFS (null = not loaded yet)
   final List<List<LatLng>?> _legPolylines = [];
 
+  String get _progressPrefsKey => 'plan_progress_${widget.trip.id}';
+
   @override
   void initState() {
     super.initState();
     _completedLegs.addAll(List.filled(widget.trip.legs.length, false));
     _legPolylines.addAll(List.filled(widget.trip.legs.length, null));
     _loadPolylines();
+    _loadProgress();
+  }
+
+  /// Restaura el progreso de abordaje (tramos completados / tramo activo) si
+  /// el usuario cerró la app a mitad de un viaje multi-tramo.
+  Future<void> _loadProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_progressPrefsKey);
+    if (raw == null || !mounted) return;
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      final completed = (data['completedLegs'] as List).cast<bool>();
+      final currentLeg = data['currentLeg'] as int;
+      if (completed.length == widget.trip.legs.length) {
+        setState(() {
+          for (int i = 0; i < completed.length; i++) {
+            _completedLegs[i] = completed[i];
+          }
+          _currentLeg = currentLeg;
+        });
+      }
+    } catch (_) {
+      // Progreso corrupto/incompatible — se ignora, arranca de cero.
+    }
+  }
+
+  Future<void> _saveProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _progressPrefsKey,
+      jsonEncode({
+        'completedLegs': _completedLegs,
+        'currentLeg': _currentLeg,
+      }),
+    );
+  }
+
+  Future<void> _clearProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_progressPrefsKey);
   }
 
   /// Loads real transit polylines for each leg in the background so the
@@ -224,6 +269,7 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
           _completedLegs[i] = true;
         }
       });
+      await _saveProgress();
 
       if (_allLegsCompleted) await _finishTrip();
     } catch (e) {
@@ -240,30 +286,53 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
     if (authState is! AuthLoaded) return;
     final userId = authState.user.uid;
 
-    await getIt<TripHistoryService>().saveTrip(
-      userId: userId,
-      routeName: widget.trip.routesSummary,
-      originName: widget.trip.originName,
-      destinationName: widget.trip.destinationName,
-      elapsed: Duration(minutes: widget.trip.totalMinutes),
-    );
+    // Historial y notificaciones son "mejor esfuerzo": si fallan (p. ej. sin
+    // conexión) no deben impedir marcar el plan como completado.
+    try {
+      await getIt<TripHistoryService>().saveTrip(
+        userId: userId,
+        routeName: widget.trip.routesSummary,
+        originName: widget.trip.originName,
+        destinationName: widget.trip.destinationName,
+        elapsed: Duration(minutes: widget.trip.totalMinutes),
+      );
 
-    final notifService = getIt<NotificationService>();
-    await notifService.saveTripNotification(userId, widget.trip.routesSummary);
-    if (notifService.shouldGiveGift()) {
-      final discount = await notifService.saveGiftNotification(userId);
+      final notifService = getIt<NotificationService>();
+      await notifService.saveTripNotification(userId, widget.trip.routesSummary);
+      if (notifService.shouldGiveGift()) {
+        final discount = await notifService.saveGiftNotification(userId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('🎁 ¡Recibiste un $discount% de descuento!'),
+              backgroundColor: const Color(0xFFFFC12F),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    } catch (_) {
+      // No bloqueante — ver comentario arriba.
+    }
+
+    try {
+      await getIt<PlannedTripService>().markCompleted(userId, widget.trip.id);
+      await _clearProgress();
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('🎁 ¡Recibiste un $discount% de descuento!'),
-            backgroundColor: const Color(0xFFFFC12F),
-            duration: const Duration(seconds: 4),
+            content: const Text(
+                'No se pudo marcar el plan como completado (sin conexión).'),
+            action: SnackBarAction(
+              label: 'Reintentar',
+              onPressed: _finishTrip,
+            ),
           ),
         );
       }
+      return;
     }
-
-    await getIt<PlannedTripService>().markCompleted(userId, widget.trip.id);
 
     if (mounted) {
       showDialog(

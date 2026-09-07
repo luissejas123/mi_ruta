@@ -54,7 +54,16 @@ class _DriverHomeView extends StatelessWidget {
           ),
         ],
       ),
-      body: BlocBuilder<DriverVehicleBloc, DriverVehicleState>(
+      body: BlocConsumer<DriverVehicleBloc, DriverVehicleState>(
+        listener: (context, state) {
+          if (state is DriverVehicleLoaded && state.toggleError != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                  content: Text(
+                      'No se pudo actualizar el estado de la unidad: ${state.toggleError}')),
+            );
+          }
+        },
         builder: (context, state) {
           if (state is DriverVehicleLoading ||
               state is DriverVehicleInitial) {

@@ -88,6 +88,7 @@ class BenefitRequestDatasource {
         'approved_at': FieldValue.serverTimestamp(),
         'admin_notes': adminNotes,
       });
+      await _syncMirroredTransactionStatus(requestId, 'approved');
     } catch (e) {
       throw Exception('Error al aprobar solicitud: $e');
     }
@@ -100,9 +101,27 @@ class BenefitRequestDatasource {
         'status': 'rejected',
         'admin_notes': adminNotes,
       });
+      await _syncMirroredTransactionStatus(requestId, 'rejected');
     } catch (e) {
       throw Exception('Error al rechazar solicitud: $e');
     }
+  }
+
+  /// [createBenefitRequest] crea un movimiento espejo en `transactions`
+  /// (amount 0.0, para trazabilidad en "Movimientos"). Su `status` debe
+  /// reflejar el estado real de la solicitud, si no queda "En revisión"
+  /// para siempre aunque ya se haya aprobado/rechazado.
+  Future<void> _syncMirroredTransactionStatus(
+    String requestId,
+    String status,
+  ) async {
+    final mirrored = await _firestore
+        .collection('transactions')
+        .where('benefit_request_id', isEqualTo: requestId)
+        .limit(1)
+        .get();
+    if (mirrored.docs.isEmpty) return;
+    await mirrored.docs.first.reference.update({'status': status});
   }
 
   BenefitRequest _mapToBenefitRequest(DocumentSnapshot doc) {

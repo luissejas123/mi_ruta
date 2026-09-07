@@ -95,9 +95,10 @@ class IniciarSesionPage extends StatelessWidget {
   }
 }
 
-/// TEMPORAL — Modo prueba para QA: entra a cada panel (pasajero/chofer/admin)
-/// con Firebase Auth anónimo real + datos reales en Firestore, sin pedir
-/// credenciales. Quitar esta sección cuando ya no se necesite para pruebas.
+/// TEMPORAL — Modo prueba para QA: entra a los paneles de chofer/admin (sin
+/// cuentas reales de esos roles todavía) con datos fijos en memoria, sin
+/// tocar Firebase ni Firestore. No incluye pasajero — ese caso ya se prueba
+/// con login real. Quitar esta sección cuando ya no se necesite para pruebas.
 class _ModoPruebaSection extends StatelessWidget {
   const _ModoPruebaSection();
 
@@ -124,10 +125,6 @@ class _ModoPruebaSection extends StatelessWidget {
           runSpacing: 8,
           alignment: WrapAlignment.center,
           children: [
-            OutlinedButton(
-              onPressed: () => _entrar(context, 'user'),
-              child: const Text('Pasajero'),
-            ),
             OutlinedButton(
               onPressed: () => _entrar(context, 'driver'),
               child: const Text('Chofer'),

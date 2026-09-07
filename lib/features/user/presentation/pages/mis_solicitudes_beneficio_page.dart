@@ -32,11 +32,13 @@ class _MisSolicitudesBeneficioPageState
     context.read<BenefitRequestBLoC>().add(LoadBenefitHistoryEvent(_userId));
   }
 
-  void _renovar() {
-    Navigator.push(
+  Future<void> _renovar() async {
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const SolicitudBeneficioPage()),
     );
+    if (!mounted) return;
+    context.read<BenefitRequestBLoC>().add(LoadBenefitHistoryEvent(_userId));
   }
 
   String _benefitTypeLabel(String type) {

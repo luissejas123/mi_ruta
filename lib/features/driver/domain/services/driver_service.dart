@@ -9,7 +9,9 @@ import 'package:mi_ruta/features/driver/domain/entities/driver_trip_entity.dart'
 import 'package:mi_ruta/features/driver/domain/entities/vehicle_entity.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
+import 'package:mi_ruta/features/routes/domain/services/tariff_service.dart';
 import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
+import 'package:mi_ruta/features/user/domain/services/trip_payment_service.dart';
 
 class DriverPerformanceSummary {
   final int totalTrips;
@@ -29,14 +31,20 @@ class DriverService {
   final DriverDatasource _datasource;
   final RouteService _routeService;
   final NotificationService _notificationService;
+  final TariffService _tariffService;
+  final TripPaymentService _tripPaymentService;
 
   DriverService({
     required DriverDatasource datasource,
     required RouteService routeService,
     required NotificationService notificationService,
+    required TariffService tariffService,
+    required TripPaymentService tripPaymentService,
   })  : _datasource = datasource,
         _routeService = routeService,
-        _notificationService = notificationService;
+        _notificationService = notificationService,
+        _tariffService = tariffService,
+        _tripPaymentService = tripPaymentService;
 
   Future<VehicleEntity?> getAssignedVehicle(String driverUid) =>
       _datasource.getVehicleForOwner(driverUid);
@@ -91,6 +99,16 @@ class DriverService {
   }
 
   Future<VehicleEntity> stopService(VehicleEntity vehicle) async {
+    // Si el chofer detiene servicio con pasajeros que abordaron pero nunca
+    // avisaron que bajaron, se les cobra la tarifa máxima de su línea antes
+    // de cerrar — política ya decidida por el usuario (docs/
+    // PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2, paso 3). Un fallo acá no debe
+    // bloquear al chofer de detener servicio.
+    try {
+      await _chargeOpenBoardingTrips(
+        await _datasource.getOpenBoardingTripsForVehicle(vehicle.vehicleId),
+      );
+    } catch (_) {}
     await _datasource.setVehicleServiceStatus(vehicle.vehicleId, false);
     return vehicle.copyWith(isOnDuty: false, isOnDutyUpdatedAt: DateTime.now());
   }
@@ -179,12 +197,64 @@ class DriverService {
     final tripId = await _datasource.createTripCharge(
       driverId: vehicle.ownerUid,
       vehicleId: vehicle.vehicleId,
-      routeRef: vehicle.lineNumber,
+      // `route` viene de `getAssignedRoute` (RQ4-PRE: el presidente asigna
+      // rutas al chofer) — es la fuente de verdad correcta. `vehicle.lineNumber`
+      // es el valor legado que queda si el chofer nunca tuvo una ruta asignada
+      // por el presidente; sin este fallback, `routeRef` quedaría vacío para
+      // esos choferes y ninguna tarifa por línea (Bloque 2) se les aplicaría.
+      routeRef: route?.ref ?? vehicle.lineNumber,
       routeName: route?.name ?? vehicle.lineNumber,
       baseFare: amount,
     );
     final qrData = '${vehicle.ownerUid}|$tripId|$amount';
     return {'tripId': tripId, 'qrData': qrData, 'amount': amount};
+  }
+
+  /// Registra el abordaje de un pasajero que escaneó el QR fijo de la
+  /// unidad (`UnitQrPage`) — a diferencia de [generateTripCharge] (el chofer
+  /// teclea un monto y genera un QR de cobro inmediato), acá no hay monto
+  /// todavía: se resuelve después, por distancia, cuando el pasajero avise
+  /// que baja (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2, paso 3).
+  Future<String> createBoardingTrip({
+    required VehicleEntity vehicle,
+    required String passengerId,
+    RouteEntity? route,
+  }) {
+    return _datasource.createBoardingTrip(
+      driverId: vehicle.ownerUid,
+      vehicleId: vehicle.vehicleId,
+      routeRef: route?.ref ?? vehicle.lineNumber,
+      routeName: route?.name ?? vehicle.lineNumber,
+      passengerId: passengerId,
+    );
+  }
+
+  /// Cobra la tarifa máxima de su línea a cualquier viaje de abordaje de
+  /// [driverId] que lleve más de 2 horas sin que el pasajero avise que baja
+  /// — respaldo cuando ni el pasajero avisa ni el chofer detiene servicio.
+  /// Se llama al abrir la pantalla de operación del chofer (no hay Cloud
+  /// Functions/cron en este proyecto — ver docs/PLAN_SEGURIDAD_TARIFAS_GPS.md,
+  /// decisión de "cliente de confianza" del Bloque 0), así que la cobertura
+  /// depende de que el chofer abra la app; se complementa con el cobro
+  /// inmediato de [stopService] cuando el chofer sí detiene servicio.
+  Future<void> chargeStaleBoardingTrips(String driverId) async {
+    try {
+      await _chargeOpenBoardingTrips(await _datasource.getStaleBoardingTrips(driverId));
+    } catch (_) {
+      // No bloquea el flujo normal del chofer si esto falla.
+    }
+  }
+
+  Future<void> _chargeOpenBoardingTrips(List<DriverTripEntity> trips) async {
+    for (final trip in trips) {
+      final maxFare = await _tariffService.resolveMaxFare(trip.routeRef);
+      await _tripPaymentService.processDistanceFare(
+        userId: trip.passengerId ?? '',
+        driverId: trip.driverId,
+        tripId: trip.tripId,
+        amount: maxFare,
+      );
+    }
   }
 
   /// Escucha en tiempo real los cambios de estado de un viaje
@@ -194,10 +264,16 @@ class DriverService {
 
   /// Avisa a los pasajeros que abordaron esta unidad recientemente que el
   /// chofer se aproxima a una parada (RQ-66). Devuelve cuántos fueron notificados.
-  Future<int> notifyStop(VehicleEntity vehicle, String stopName) async {
-    if (stopName.trim().isEmpty) {
-      throw Exception('Ingresa el nombre de la parada.');
-    }
+  ///
+  /// Ya no pide un nombre de parada escrito a mano — no hay catálogo de
+  /// paradas reales sembrado (`stops_meta` vacío, ver
+  /// docs/PLAN_SEGURIDAD_TARIFAS_GPS.md Bloque 1), así que inventar un
+  /// nombre sería un dato falso. La UI valida proximidad real por GPS
+  /// contra `RouteEntity.polyline` antes de llamar a este método (no acá,
+  /// para no depender de `DistanceUtils`/`google_maps_flutter` en el
+  /// dominio de choferes) y solo permite avisar si el chofer está sobre su
+  /// ruta asignada.
+  Future<int> notifyStop(VehicleEntity vehicle) async {
     final passengerIds =
         await _datasource.getRecentPassengerIdsForVehicle(vehicle.vehicleId);
     for (final passengerId in passengerIds) {
@@ -205,7 +281,7 @@ class DriverService {
         passengerId,
         'Tu bus se aproxima',
         'La unidad ${vehicle.internalNumber.isNotEmpty ? vehicle.internalNumber : vehicle.vehicleId} '
-            'se aproxima a la parada "$stopName".',
+            'se aproxima a tu parada.',
       );
     }
     return passengerIds.length;

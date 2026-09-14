@@ -140,8 +140,8 @@ These rules exist because of real mistakes/incidents in this repo. Follow them e
 
 ## Reference Docs
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — Architecture explanation with data flow
-- [CLEAN_ARCHITECTURE_IMPLEMENTATION.md](CLEAN_ARCHITECTURE_IMPLEMENTATION.md) — Concrete implementation patterns
 - [FIRESTORE_COLLECTIONS_GUIDE.md](FIRESTORE_COLLECTIONS_GUIDE.md) — Database schema
-- [PAGES_GUIDE.md](PAGES_GUIDE.md) — UI pages and navigation flow
 - [SECURITY.md](SECURITY.md) — Sensitive file handling (.env, credentials, keystore)
+- [README.md](README.md) — Full index of every other project doc ("Dónde está la fuente de verdad de cada cosa")
+
+(2026-09-13: dropped dead links to `ARCHITECTURE.md`/`CLEAN_ARCHITECTURE_IMPLEMENTATION.md`/`PAGES_GUIDE.md` — those files were moved to `docs/archive/` a while back and this section was never updated. The Architecture section above already covers what the first two described; `docs/archive/PAGES_GUIDE.md` is historical only, already flagged as stale by `docs/archive/COMPARACION_FIGMA_CODIGO_DOCS.md` §5 — the real page/navigation map lives in the code, not in a doc.)

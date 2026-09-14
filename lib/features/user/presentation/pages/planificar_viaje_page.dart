@@ -682,9 +682,8 @@ class _TripOptionCard extends StatelessWidget {
                           '${trip.legs.length} tramos · 1 transbordo',
                           style: TextStyle(
                             fontSize: 11,
-                            color: const Color(
-                              0xFFFFC12F,
-                            ).withValues(alpha: 0.9),
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface.withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -718,9 +717,9 @@ class _TripOptionCard extends StatelessWidget {
                         .read<TripPlannerBloc>()
                         .add(SaveTripPlan(tripToSave));
                   },
-                  child: const Text(
+                  child: Text(
                     'Guardar',
-                    style: TextStyle(color: Color(0xFFFFC12F)),
+                    style: TextStyle(color: colorScheme.onSurface),
                   ),
                 ),
               ),
@@ -738,10 +737,10 @@ class _TripOptionCard extends StatelessWidget {
                           PlanDetallePage(trip: trip, userId: userId),
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Elegir',
                     style: TextStyle(
-                      color: Color(0xFFFFC12F),
+                      color: colorScheme.onSurface,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1012,7 +1011,7 @@ class _SavedPlanCard extends StatelessWidget {
                     size: 16,
                     color: trip.isCompleted
                         ? colorScheme.onSurface.withValues(alpha: 0.3)
-                        : const Color(0xFFFFC12F),
+                        : colorScheme.onSurface,
                   ),
                   label: Text(
                     isScheduledForFuture ? 'Programado' : 'Iniciar',
@@ -1021,7 +1020,7 @@ class _SavedPlanCard extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                       color: trip.isCompleted || isScheduledForFuture
                           ? colorScheme.onSurface.withValues(alpha: 0.3)
-                          : const Color(0xFFFFC12F),
+                          : colorScheme.onSurface,
                     ),
                   ),
                 ),

@@ -73,6 +73,13 @@ class RouteDataSyncService {
       print('✅ SQLite ya tiene $withPolyline rutas con polyline');
     }
 
+    final stopCount = await _localDb.countStops();
+    if (stopCount == 0) {
+      await _seedStopsFromGtfs();
+    } else {
+      print('✅ SQLite ya tiene $stopCount paradas');
+    }
+
     // Verificar actualización del admin panel en background (no bloquea la búsqueda)
     unawaited(_versionCheckFuture ??= _checkAndSyncVersion());
   }
@@ -287,49 +294,6 @@ class RouteDataSyncService {
     );
   }
 
-  RouteEntity _firestoreDocToEntity(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-
-    List<Map<String, double>> stops = [];
-    if (data['stops'] is List) {
-      stops = (data['stops'] as List)
-          .whereType<Map<String, dynamic>>()
-          .map(
-            (s) => {
-              'lat': ((s['lat'] ?? 0.0) as num).toDouble(),
-              'lng': ((s['lng'] ?? 0.0) as num).toDouble(),
-            },
-          )
-          .toList();
-    }
-
-    List<Map<String, double>> polyline = [];
-    if (data['polyline'] is List) {
-      polyline = (data['polyline'] as List)
-          .whereType<Map<String, dynamic>>()
-          .map(
-            (c) => {
-              'lat': ((c['lat'] ?? 0.0) as num).toDouble(),
-              'lng': ((c['lng'] ?? 0.0) as num).toDouble(),
-            },
-          )
-          .toList();
-    }
-
-    return RouteEntity(
-      id: doc.id,
-      name: data['name'] ?? '',
-      ref: data['ref'] ?? '',
-      color: data['color'] as String?,
-      directionId: data['direction_id'] as String?,
-      stops: stops,
-      polyline: polyline,
-      latMin: (data['lat_min'] as num?)?.toDouble(),
-      latMax: (data['lat_max'] as num?)?.toDouble(),
-      lngMin: (data['lng_min'] as num?)?.toDouble(),
-      lngMax: (data['lng_max'] as num?)?.toDouble(),
-    );
-  }
 }
 
 enum RouteSyncStatus { idle, syncing, updated }

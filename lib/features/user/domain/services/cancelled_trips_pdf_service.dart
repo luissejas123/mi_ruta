@@ -3,17 +3,39 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:mi_ruta/features/routes/domain/entities/planned_trip.dart';
+import 'package:mi_ruta/features/routes/domain/services/tariff_service.dart';
 
 /// Builds the "Historial de viajes cancelados" PDF document as raw bytes.
 ///
-/// Kept dependency-free of Flutter (only the pure-Dart `pdf` package) so it
-/// stays testable like the rest of the domain layer — the presentation
-/// layer is responsible for handing the resulting bytes to `printing` for
-/// preview/share/save.
+/// Layout uses only the pure-Dart `pdf` package (no Flutter widgets) — the
+/// presentation layer hands the resulting bytes to `printing` for
+/// preview/share/save. Depends on `TariffService` (Firestore-backed) to
+/// resolve real per-trip costs — same pattern already used elsewhere for
+/// cross-feature domain services (e.g. `DriverService`).
 class CancelledTripsPdfService {
   static const _accent = PdfColor.fromInt(0xFFFFC12F);
 
+  final TariffService _tariffService;
+
+  CancelledTripsPdfService({required TariffService tariffService})
+      : _tariffService = tariffService;
+
   Future<Uint8List> build(List<PlannedTrip> trips) async {
+    // Costo real por tarifa/distancia configurada, no el monto plano
+    // `busLegs.length * 2.5` que se imprimía antes sin mirar la línea real
+    // — es lo que Padre marcó como la exposición más seria de este bug
+    // (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2, paso 3): un PDF de
+    // "recibo" mostrando un monto inventado. Si falla la consulta (sin
+    // conexión), cae al estimado plano en vez de romper la descarga.
+    final costs = <String, double>{};
+    for (final t in trips) {
+      try {
+        costs[t.id] = await _tariffService.resolvePlannedTripFare(t);
+      } catch (_) {
+        costs[t.id] = t.totalCostBs;
+      }
+    }
+
     final doc = pw.Document();
 
     doc.addPage(
@@ -96,7 +118,7 @@ class CancelledTripsPdfService {
                     t.originName,
                     t.destinationName,
                     _formatDateTime(t.cancelledAt ?? t.createdAt),
-                    t.totalCostBs.toStringAsFixed(2),
+                    (costs[t.id] ?? t.totalCostBs).toStringAsFixed(2),
                   ],
               ],
             ),

@@ -54,7 +54,11 @@ class _UnitQrPageState extends State<UnitQrPage> {
 
   Future<void> _pickLogo() async {
     try {
-      final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      final picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1280,
+      );
       if (picked == null) return;
       setState(() => _busy = true);
       final url = await getIt<StorageService>().uploadVehicleDocument(

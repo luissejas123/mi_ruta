@@ -54,7 +54,11 @@ import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_bloc.dar
 import 'package:mi_ruta/features/presidente/presentation/bloc/claims_bloc.dart';
 import 'package:mi_ruta/features/routes/data/datasources/route_datasource.dart';
 import 'package:mi_ruta/features/routes/data/datasources/gtfs_datasource.dart';
+import 'package:mi_ruta/features/routes/data/datasources/route_deviation_datasource.dart';
+import 'package:mi_ruta/features/routes/data/datasources/tariff_datasource.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
+import 'package:mi_ruta/features/routes/domain/services/route_deviation_service.dart';
+import 'package:mi_ruta/features/routes/domain/services/tariff_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_migration_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_migration_bbox_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
@@ -73,8 +77,6 @@ import 'package:mi_ruta/features/driver/domain/repositories/vehicle_repository.d
 import 'package:mi_ruta/features/driver/domain/usecases/vehicle_usecases.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_vehicle_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_active_vehicles_bloc.dart';
-import 'package:mi_ruta/features/driver/data/datasources/driver_assigned_routes_datasource.dart';
-import 'package:mi_ruta/features/driver/domain/services/driver_assigned_routes_service.dart';
 import 'package:mi_ruta/features/driver/data/datasources/tickeador_operations_datasource.dart';
 import 'package:mi_ruta/features/driver/domain/services/tickeador_operations_service.dart';
 import 'package:mi_ruta/features/admin/data/datasources/admin_privileges_datasource.dart';
@@ -476,6 +478,26 @@ void setupDependencies() {
   );
 
   // ============================================
+  // ROUTE DEVIATION NOTES (desvíos marcados por el presidente)
+  // ============================================
+  getIt.registerSingleton<RouteDeviationDatasource>(
+    RouteDeviationDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+  getIt.registerSingleton<RouteDeviationService>(
+    RouteDeviationService(datasource: getIt<RouteDeviationDatasource>()),
+  );
+
+  // ============================================
+  // TARIFFS (tarifas por distancia, configuradas por el presidente)
+  // ============================================
+  getIt.registerSingleton<TariffDatasource>(
+    TariffDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+  getIt.registerSingleton<TariffService>(
+    TariffService(datasource: getIt<TariffDatasource>()),
+  );
+
+  // ============================================
   // ROUTES FEATURE - DATA LAYER
   // ============================================
   getIt.registerSingleton<RouteDatasource>(
@@ -580,7 +602,7 @@ void setupDependencies() {
   );
 
   getIt.registerSingleton<CancelledTripsPdfService>(
-    CancelledTripsPdfService(),
+    CancelledTripsPdfService(tariffService: getIt<TariffService>()),
   );
 
   // ============================================
@@ -641,18 +663,8 @@ void setupDependencies() {
       datasource: getIt<DriverDatasource>(),
       routeService: getIt<RouteService>(),
       notificationService: getIt<NotificationService>(),
-    ),
-  );
-
-  getIt.registerSingleton<DriverAssignedRoutesDatasource>(
-    DriverAssignedRoutesDatasource(
-      firestore: getIt<FirebaseFirestore>(),
-      routeDatasource: getIt<RouteDatasource>(),
-    ),
-  );
-  getIt.registerSingleton<DriverAssignedRoutesService>(
-    DriverAssignedRoutesService(
-      datasource: getIt<DriverAssignedRoutesDatasource>(),
+      tariffService: getIt<TariffService>(),
+      tripPaymentService: getIt<TripPaymentService>(),
     ),
   );
 
@@ -686,7 +698,7 @@ void setupDependencies() {
   // ROUTES FEATURE - Horarios GTFS (GtfsScheduleService)
   // ============================================
   getIt.registerSingleton<GtfsScheduleService>(
-    GtfsScheduleService(getIt<GtfsDatasource>()),
+    GtfsScheduleService(getIt<GtfsDatasource>(), getIt<RouteLocalDatabase>()),
   );
 
   // ============================================

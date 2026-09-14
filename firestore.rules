@@ -130,8 +130,36 @@ service cloud.firestore {
     // ─────────────────────────────────────────────────────────────────
     match /transactions/{docId}    { allow read, write: if isSignedIn(); }
     match /recharges/{docId}       { allow read, write: if isSignedIn(); }
-    match /benefit_requests/{docId}{ allow read, write: if isSignedIn(); }
     match /trips/{docId}           { allow read, write: if isSignedIn(); }
+
+    // Solicitudes de beneficio (estudiante/universitario/adulto mayor):
+    // llevan documento de identidad adjunto, así que no son de lectura
+    // pública como `vehicles` — solo el dueño o staff. Mismo patrón que
+    // `vehicles` de arriba para evitar auto-aprobación: antes era `allow
+    // read, write: if isSignedIn()`, así que cualquier cliente con un
+    // `requestId` ajeno podía leer el documento de otro usuario o
+    // escribirse `status: 'approved'` directo.
+    match /benefit_requests/{docId} {
+      allow read: if isSignedIn()
+        && (isAdmin() || resource.data.user_id == request.auth.uid);
+
+      // Alta: solo el propio usuario, y no puede nacer ya aprobada.
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid
+        && request.resource.data.get('status', 'pending') == 'pending';
+
+      // El dueño puede renovar (volver a 'pending') o cancelar (poner
+      // 'rejected'), pero nunca otorgarse 'approved'.
+      allow update: if isSignedIn()
+        && resource.data.user_id == request.auth.uid
+        && !affected().hasAny(['user_id'])
+        && (!affected().hasAny(['status'])
+            || request.resource.data.status in ['pending', 'rejected']);
+
+      // Staff aprueba o rechaza — únicamente puede tocar status/admin_notes.
+      allow update: if isStaffManager()
+        && affected().hasOnly(['status', 'admin_notes', 'updated_at']);
+    }
 
     // trip_history y planned_trips son subcolecciones reales
     // (trip_history/{uid}/trips/{tripId}, ver TripHistoryDatasource/
@@ -177,6 +205,25 @@ service cloud.firestore {
     match /station_logs/{docId}    { allow read, write: if isSignedIn(); }
     match /ratings/{docId}         { allow read, write: if isSignedIn(); }
     match /claims/{docId}          { allow read, write: if isSignedIn(); }
+
+    // Notas de desvío que marca el presidente sobre una ruta (calle
+    // bloqueada, etc.) — informativo, no recalcula la ruta.
+    // docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 1.
+    match /route_deviation_notes/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isStaffManager();
+    }
+
+    // Tarifas por distancia de cada línea. El ref de línea es el ID del
+    // documento (no un campo) para poder exigir "solo tu línea" de forma
+    // nativa. docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2.
+    match /tariffs/{routeRef} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin()
+        || (isSignedIn()
+            && requester().get('role', 'user') == 'presidente'
+            && routeRef in requester().get('presidente_info', {}).get('managed_lines', []));
+    }
 
     // `notifications/{uid}/items/{itemId}` — subcolección por usuario.
     // La lectura es solo del dueño; la escritura la hace cualquier sesión

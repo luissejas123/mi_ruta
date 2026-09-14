@@ -301,6 +301,68 @@ class DriverDatasource {
         .toList();
   }
 
+  /// Crea el viaje al ABORDAR (no al pagar) — a diferencia de
+  /// [createTripCharge] (chofer teclea un monto y genera un QR de cobro
+  /// inmediato), acá el pasajero ya escaneó el QR fijo de la unidad
+  /// (`UnitQrPage`) para confirmar que subió; `passenger_id` queda puesto
+  /// desde el inicio y el monto se resuelve después, por distancia, cuando
+  /// el pasajero avise que baja (o por el respaldo de tarifa máxima si
+  /// nunca avisa). `base_fare: 0` marca "todavía no hay monto preestablecido"
+  /// — a diferencia de un cobro por QR, que siempre nace con un monto > 0.
+  /// docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2, paso 3.
+  Future<String> createBoardingTrip({
+    required String driverId,
+    required String vehicleId,
+    required String routeRef,
+    required String routeName,
+    required String passengerId,
+  }) async {
+    final doc = await _firestore.collection('trips').add({
+      'driver_id': driverId,
+      'vehicle_id': vehicleId,
+      'route_ref': routeRef,
+      'route_name': routeName,
+      'base_fare': 0,
+      'status': 'boarding',
+      'payment_status': 'pending',
+      'passenger_id': passengerId,
+      'boarded_at': FieldValue.serverTimestamp(),
+      'created_at': FieldValue.serverTimestamp(),
+    });
+    return doc.id;
+  }
+
+  /// Viajes de abordaje todavía sin cobrar de una unidad — usado para cobrar
+  /// la tarifa máxima automáticamente si el chofer detiene servicio antes de
+  /// que el pasajero avise que bajó.
+  Future<List<DriverTripEntity>> getOpenBoardingTripsForVehicle(String vehicleId) async {
+    final snap = await _firestore
+        .collection('trips')
+        .where('vehicle_id', isEqualTo: vehicleId)
+        .where('status', isEqualTo: 'boarding')
+        .where('payment_status', isEqualTo: 'pending')
+        .get();
+    return snap.docs.map(_tripFromDoc).toList();
+  }
+
+  /// Viajes de abordaje sin cobrar de cualquier unidad de [driverId], con más
+  /// de [staleAfter] desde que abordaron — respaldo si el pasajero nunca
+  /// avisa que bajó y el chofer tampoco detiene servicio.
+  Future<List<DriverTripEntity>> getStaleBoardingTrips(
+    String driverId, {
+    Duration staleAfter = const Duration(hours: 2),
+  }) async {
+    final cutoff = DateTime.now().subtract(staleAfter);
+    final snap = await _firestore
+        .collection('trips')
+        .where('driver_id', isEqualTo: driverId)
+        .where('status', isEqualTo: 'boarding')
+        .where('payment_status', isEqualTo: 'pending')
+        .where('boarded_at', isLessThan: Timestamp.fromDate(cutoff))
+        .get();
+    return snap.docs.map(_tripFromDoc).toList();
+  }
+
   /// Viaje puntual por id, usado por el tickeador para validar un cobro (RQ-78).
   Future<DriverTripEntity?> getTripById(String tripId) async {
     final doc = await _firestore.collection('trips').doc(tripId).get();

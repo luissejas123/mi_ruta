@@ -143,8 +143,8 @@ Notas:
   "name": "106 - Trufi 106",
   "ref": "106",
   "color": "#FF5733",
-  "stops": [{"latitude": -17.32, "longitude": -66.14}],
-  "polyline": [{"latitude": -17.32, "longitude": -66.14}, "... cientos de puntos"],
+  "stops": [{"lat": -17.32, "lng": -66.14}],
+  "polyline": [{"lat": -17.32, "lng": -66.14}, "... cientos de puntos"],
   "description": null,
   "active": true,
   "created_at": "<Timestamp>",
@@ -153,6 +153,8 @@ Notas:
 ```
 
 **Uso:** Documentos pueden ser grandes (polyline con cientos de puntos) — la migración a `routes_bbox` se hace en lotes de 20 (`getAllActiveRoutesForMigration`) para evitar OOM.
+
+**Corrección (2026-09-12):** esta sección decía `latitude`/`longitude` para los puntos de `stops`/`polyline` — es falso, el lector real (`route_datasource.dart:511-513,526-527`, `_mapToRouteEntity`) lee `lat`/`lng`. Si alguien escribe un documento siguiendo el esquema viejo de esta guía, cada punto se lee como `(0.0, 0.0)` sin ningún error.
 
 ---
 
@@ -277,6 +279,8 @@ Los campos `discount_percent`, `business_name`, `is_used`, `valid_until` solo ex
 
 Al aprobar una solicitud, `active_benefits` se agrega al documento correspondiente de `users` mediante `arrayUnion`. La decisión queda registrada en `decision_at` y `decision_by`; los rechazos además usan `rejected_at` y `rejected_by`. La transacción espejo vinculada por `benefit_request_id` sincroniza su estado con la decisión.
 
+**Reglas (2026-09-13):** el dueño (`user_id == auth.uid`) puede leer/crear/actualizar su propia solicitud, pero solo para llevarla a `pending` o `rejected` (renovar/cancelar) — nunca puede escribirse `approved` a sí mismo. Solo staff (`isStaffManager()`) puede tocar `status`/`admin_notes` libremente. Antes la regla era `allow read, write: if isSignedIn()` sin ninguna de estas restricciones — cualquier usuario autenticado podía leer la solicitud (con documento de identidad adjunto) de otro usuario, o auto-aprobarse el beneficio. Ver `docs/DEUDA_TECNICA.md` ítem 10.
+
 ---
 
 ## 💳 Colección: recharges
@@ -346,28 +350,34 @@ Al aprobar una solicitud, `active_benefits` se agrega al documento correspondien
 
 ---
 
-## 🚌 Colección: trips (conductor)
+## 🚌 Colección: trips (cobro chofer↔pasajero)
 
-**Descripción:** Registro de viajes completados por conductores — leído por `TripPaymentService` para procesar pagos pasajero→conductor. Actualmente solo hay datos demo (`TRP_001`, `TRP_002`); no existe flujo de escritura desde la app (el módulo conductor está sin implementar).
+**Descripción:** Viaje/cobro real entre un chofer y un pasajero — leído/escrito por `DriverDatasource` (`lib/features/driver/data/datasources/driver_datasource.dart`) y `TripPaymentService` (`lib/features/user/domain/services/trip_payment_service.dart`). **Corregido 2026-09-13** — esta sección describía un esquema demo (`driver_uid`, `route_line`, `total_amount_accumulated`, etc.) que nunca coincidió con el código real; el esquema real es el siguiente. ID = `trip_id` (auto-id de Firestore).
 
 ```json
 {
-  "trip_id": "TRP_001",
-  "driver_uid": "driver_001",
+  "driver_id": "uid-del-chofer",
   "vehicle_id": "ABC-1234",
-  "route_line": "233",
-  "route_name": "Quillacollo - Cochabamba",
-  "start_point": "Terminal Quillacollo",
-  "end_point": "Plaza 14 de Septiembre",
-  "start_time": "2026-05-29T06:00:29",
-  "end_time": "2026-05-29T06:15:29",
-  "duration_minutes": 15,
-  "distance_km": 5.2,
-  "base_fare": 4,
-  "passengers_count": 8,
-  "total_amount_accumulated": 32
+  "route_ref": "108",
+  "route_name": "MiniBus 108",
+  "base_fare": 3,
+  "status": "pending",
+  "payment_status": "pending",
+  "passenger_id": null,
+  "payment_amount": null,
+  "created_at": "<Timestamp>",
+  "boarded_at": "<Timestamp>",
+  "paid_at": null,
+  "verified_by": null,
+  "verified_at": null
 }
 ```
+
+**Dos formas de crear el documento**, según quién inicia el viaje (ambas conviven, no se reemplaza una por otra — docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2):
+- **Cobro por QR del chofer** (`DriverDatasource.createTripCharge`, RQ-65): el chofer teclea un monto y genera el viaje con `base_fare` > 0, `status: 'pending'`, sin `passenger_id` (se completa recién cuando el pasajero escanea y `TripPaymentService.processPayment` corre). Sin campo `boarded_at`.
+- **Abordaje del pasajero** (`DriverDatasource.createBoardingTrip`, Bloque 2 paso 3): el pasajero escanea el QR fijo de la unidad (`UnitQrPage`) y el viaje nace con `base_fare: 0` (todavía no hay monto), `status: 'boarding'`, `passenger_id` ya puesto desde el inicio, y `boarded_at`. El monto real se resuelve después, por distancia (`TariffService`), cuando el pasajero presiona "Aviso de bajada" (`TripPaymentService.processDistanceFare`) o por el respaldo de tarifa máxima (`DriverService.chargeStaleBoardingTrips`/`stopService`) si nunca avisa.
+
+**Estados de `status`:** `pending` (cobro QR recién creado) → `completed` (pagado). `boarding` (abordaje recién creado) → `completed` (cobrado por distancia o por respaldo de tarifa máxima). **`payment_status`:** `pending` → `paid`. `payment_method` de la transacción espejo en `transactions` distingue `qr` de `distance`.
 
 ---
 
@@ -393,10 +403,16 @@ Corrección: esta sección decía que ninguna de las tres tenía código — fal
 ID = `rating_id`. Campos: `trip_id`, `reviewer_uid`, `target_uid`, `stars` (1-5), `selected_tags` (array de strings predefinidos), `created_at`. Se lee desde `lib/features/admin/data/datasources/operational_report_datasource.dart` (reporte operativo del admin). Escritura vía `RatingDatasource`/`RatingService` (`lib/features/user/data/datasources/rating_datasource.dart`) — un único método sirve para ambos sentidos gracias a que `reviewer_uid`/`target_uid` son genéricos: hoy lo usa el chofer para calificar al pasajero justo después de recibir un pago de viaje (`RatePassengerPage`). Falta todavía la UI del pasajero calificando al chofer.
 
 ### claims
-ID = `claim_id`. Campos: `reporter_id`, `target_id` (nullable), `line_id`, `claim_type` (`driver`/`user`/`service`), `title`, `description`, `status` (`open`/`resolved`), `created_at`, `resolved_at`, `resolved_by`. **Sigue sin ningún archivo en `lib/` que la lea o escriba** — esta es la única de las tres genuinamente huérfana hoy.
+ID = `claim_id`. Campos: `reporter_id`, `target_id` (nullable), `line_id`, `claim_type` (`driver`/`user`/`service`), `title`, `description`, `status` (`open`/`resolved`), `created_at`, `resolved_at`, `resolved_by`. **Ya no es huérfana** (corregido 2026-09-13, esta nota estaba desactualizada) — `ClaimDatasource`/`ClaimService` (`lib/features/user/data/datasources/claim_datasource.dart`) la leen y escriben; UI del lado del reportante y del staff que resuelve (`PresidenteReclamosPage`).
 
 ### station_logs
 ID = `log_id`. Campos: `tickeador_id`, `station_name`, `line_id`, `vehicle_plate`, `driver_id`, `passenger_count`, `max_capacity`, `log_type` (`departure`/`arrival`), `timestamp`, `time_since_last_departure`. **Sí se lee y escribe**, desde dos datasources distintos: `lib/features/tickeador/data/datasources/tickeador_datasource.dart` y `lib/features/driver/data/datasources/tickeador_operations_datasource.dart` — la duplicidad de Tickeador (ver `docs/DEUDA_TECNICA.md`) hace que dos implementaciones distintas escriban esta misma colección.
+
+### route_deviation_notes
+ID = `note_id`. Campos: `route_ref`, `note` (texto libre, ej. "calle bloqueada"), `reported_by`, `created_at`, `active` (bool). Se escribe/lee desde `RouteDeviationDatasource`/`RouteDeviationService` (`lib/features/routes/data/datasources/route_deviation_datasource.dart`), UI en `RutaMapaDesvioPage` (presidente, al tocar una card de "Control de rutas en vivo"). Puramente informativo — no toca ni recalcula el `polyline` de `routes`/`routes_bbox`. Agregado 2026-09-13 (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 1).
+
+### tariffs
+**ID = ref de línea** (ej. `"108"`), no un campo auto-generado — así la regla de Firestore puede exigir "solo tu línea" comparando el ID del documento directo, sin leer el contenido. Campos: `brackets` (array de `{max_km: number|null, fare: number}`, ordenado ascendente por `max_km`; el último tramo lleva `max_km: null` = "el resto, sin límite superior"), `updated_at`, `updated_by` (uid de quien configuró la tarifa). Ejemplo: `[{max_km:10, fare:3}, {max_km:15, fare:4}, {max_km:null, fare:5}]`. Se escribe/lee desde `TariffDatasource`/`TariffService` (`lib/features/routes/data/datasources/tariff_datasource.dart`), UI en `TarifasPage` (presidente, una línea gestionada por vez). `TariffService.resolveFareForDistance` es la función que de verdad calcula el cobro — si la línea no tiene tarifa configurada todavía, cae a una tarifa plana de respaldo (2.5 Bs, la misma constante hardcodeada que ya existía en el proyecto antes de este feature). Agregado 2026-09-13 (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2, paso 2).
 
 ---
 

@@ -14,6 +14,8 @@ import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_pa
 import 'package:mi_ruta/features/presidente/presentation/pages/asignar_ruta_chofer_page.dart';
 import 'package:mi_ruta/features/presidente/presentation/pages/ver_ruta_chofer_page.dart';
 import 'package:mi_ruta/features/presidente/presentation/pages/presidente_reclamos_page.dart';
+import 'package:mi_ruta/features/presidente/presentation/pages/tarifas_page.dart';
+import 'package:mi_ruta/features/presidente/presentation/pages/ruta_mapa_desvio_page.dart';
 import 'package:mi_ruta/features/presidente/presentation/pages/presidente_rutas_page.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/asignar_tickeador_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
@@ -170,6 +172,18 @@ class _PresidentePanelView extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => const ReportesOperativosPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.payments_outlined,
+                    title: 'Tarifas',
+                    subtitle: 'Configura la tarifa por distancia de tu línea',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TarifasPage(),
                       ),
                     ),
                   ),
@@ -399,35 +413,46 @@ class RouteControlSectionState extends State<RouteControlSection> {
       itemBuilder: (context, i) {
         final route = routes[i];
         final count = byLine[route.ref] ?? 0;
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
+        return InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RutaMapaDesvioPage(routeRef: route.ref, routeName: route.name),
+            ),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: count > 0 ? Colors.green : Colors.grey,
-                  shape: BoxShape.circle,
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: count > 0 ? Colors.green : Colors.grey,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '${route.name} · Línea ${route.ref}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${route.name} · Línea ${route.ref}',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              Text(
-                '$count unidad${count == 1 ? '' : 'es'} en ruta',
-                style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6)),
-              ),
-            ],
+                Text(
+                  '$count unidad${count == 1 ? '' : 'es'} en ruta',
+                  style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6)),
+                ),
+                const SizedBox(width: 6),
+                Icon(Icons.chevron_right, size: 18, color: colorScheme.onSurface.withValues(alpha: 0.4)),
+              ],
+            ),
           ),
         );
       },

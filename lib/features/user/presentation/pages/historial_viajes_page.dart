@@ -32,7 +32,12 @@ class HistorialViajesPage extends StatelessWidget {
 class _HistorialView extends StatelessWidget {
   const _HistorialView();
 
-  Future<void> _downloadDriverHistory(BuildContext context) async {
+  /// Descarga el historial completo en PDF (ya implementado en
+  /// `TripHistoryService` — antes vivía en este mismo archivo pero sin
+  /// ningún botón que lo llamara). No confundir con "Descargar constancia
+  /// de viaje" de `DetalleViajePage`, que es el comprobante de un viaje
+  /// individual — este es el resumen completo.
+  Future<void> _downloadFullHistory(BuildContext context) async {
     final authState = context.read<AuthBloc>().state;
     if (authState is! AuthLoaded) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -45,6 +50,7 @@ class _HistorialView extends StatelessWidget {
         .downloadDriverTripHistory(authState.user.uid);
 
     if (savedFilePath.isEmpty) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No hay historial para descargar')),
       );
@@ -53,6 +59,7 @@ class _HistorialView extends StatelessWidget {
 
     final savedFile = File(savedFilePath);
     if (!savedFile.existsSync()) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No se pudo crear el PDF del historial')),
       );
@@ -97,7 +104,10 @@ class _HistorialView extends StatelessWidget {
           }
           if (state is TripHistoryLoaded) {
             if (state.trips.isEmpty) return const _EmptyState();
-            return TripHistoryListWidget(trips: state.trips);
+            return TripHistoryListWidget(
+              trips: state.trips,
+              onDownloadFullHistory: () => _downloadFullHistory(context),
+            );
           }
           return const SizedBox.shrink();
         },
@@ -108,8 +118,13 @@ class _HistorialView extends StatelessWidget {
 
 class TripHistoryListWidget extends StatefulWidget {
   final List<TripHistoryEntry> trips;
+  final VoidCallback? onDownloadFullHistory;
 
-  const TripHistoryListWidget({super.key, required this.trips});
+  const TripHistoryListWidget({
+    super.key,
+    required this.trips,
+    this.onDownloadFullHistory,
+  });
 
   @override
   State<TripHistoryListWidget> createState() => _TripHistoryListWidgetState();
@@ -144,16 +159,6 @@ class _TripHistoryListWidgetState extends State<TripHistoryListWidget> {
     }).toList();
   }
 
-  String _formatTripDate(DateTime date) {
-    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    final hour = date.hour.toString().padLeft(2, '0');
-    final minute = date.minute.toString().padLeft(2, '0');
-    return '${date.day} ${months[date.month - 1]} ${date.year} - $hour:$minute';
-  }
-
-  String _formatAmount(TripHistoryEntry trip) =>
-      '- Bs ${trip.farePaid > 0 ? trip.farePaid.toStringAsFixed(2) : '0.00'}';
-
   @override
   Widget build(BuildContext context) {
     final filteredTrips = _filteredTrips;
@@ -167,16 +172,28 @@ class _TripHistoryListWidgetState extends State<TripHistoryListWidget> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 16),
-              const Text(
-                'MOVIMIENTOS',
-                style: TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black,
-                  letterSpacing: 0.5,
-                ),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'MOVIMIENTOS',
+                      style: TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  if (widget.onDownloadFullHistory != null)
+                    IconButton(
+                      tooltip: 'Descargar historial completo',
+                      icon: const Icon(Icons.download_outlined, color: Colors.black87),
+                      onPressed: widget.onDownloadFullHistory,
+                    ),
+                ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               SizedBox(
                 height: 42,
                 child: ListView.separated(
@@ -196,7 +213,7 @@ class _TripHistoryListWidgetState extends State<TripHistoryListWidget> {
                           borderRadius: BorderRadius.circular(10),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
+                              color: Colors.black.withValues(alpha: 0.08),
                               blurRadius: 2,
                               offset: const Offset(0, 1),
                             ),
@@ -227,56 +244,11 @@ class _TripHistoryListWidgetState extends State<TripHistoryListWidget> {
                 )
               else
                 Expanded(
-                  child: ListView.separated(
-                    itemCount: filteredTrips.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final trip = filteredTrips[index];
-                      final title = 'Pago Transporte ${trip.routeName}';
-
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.7),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    title,
-                                    style: const TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _formatTripDate(trip.date),
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              _formatAmount(trip),
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFFE0A209),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
+                  child: OrientationBuilder(
+                    builder: (context, orientation) {
+                      return orientation == Orientation.portrait
+                          ? _PortraitList(trips: filteredTrips)
+                          : _LandscapeList(trips: filteredTrips);
                     },
                   ),
                 ),
@@ -332,6 +304,10 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+/// Tarjeta rica con tap-to-detail — antes vivía en este archivo sin que
+/// nadie la usara (reemplazada en algún momento por una fila plana sin
+/// interacción). Recuperada: ahora es la única forma de renderizar un viaje
+/// en esta pantalla, en vertical (lista) y horizontal (cuadrícula).
 class _PortraitList extends StatelessWidget {
   final List<TripHistoryEntry> trips;
   const _PortraitList({required this.trips});
@@ -339,7 +315,7 @@ class _PortraitList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: const EdgeInsets.only(bottom: 16),
       itemCount: trips.length,
       separatorBuilder: (context, i) => const SizedBox(height: 10),
       itemBuilder: (context, i) => _TripCard(entry: trips[i]),
@@ -354,7 +330,7 @@ class _LandscapeList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: const EdgeInsets.only(bottom: 16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 12,
@@ -373,18 +349,8 @@ class _TripCard extends StatelessWidget {
 
   String _formatDate(DateTime d) {
     const months = [
-      'ene',
-      'feb',
-      'mar',
-      'abr',
-      'may',
-      'jun',
-      'jul',
-      'ago',
-      'sep',
-      'oct',
-      'nov',
-      'dic',
+      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
     ];
     return '${d.day} ${months[d.month - 1]}. ${d.year}';
   }
@@ -408,118 +374,127 @@ class _TripCard extends StatelessWidget {
         MaterialPageRoute(builder: (_) => DetalleViajePage(entry: entry)),
       ),
       child: Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: Color(0xFFFFC12F),
-              shape: BoxShape.circle,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFC12F),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.directions_bus,
+                color: Colors.black,
+                size: 22,
+              ),
             ),
-            child: const Icon(
-              Icons.directions_bus,
-              color: Colors.black,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  entry.routeName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    entry.routeName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        entry.originName,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          entry.originName,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(
-                        Icons.arrow_forward,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Icon(
+                          Icons.arrow_forward,
+                          size: 11,
+                          color: colorScheme.onSurface.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      Flexible(
+                        child: Text(
+                          entry.destinationName,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today_outlined,
                         size: 11,
-                        color: colorScheme.onSurface.withValues(alpha: 0.4),
+                        color: colorScheme.onSurface.withValues(alpha: 0.45),
                       ),
-                    ),
-                    Flexible(
-                      child: Text(
-                        entry.destinationName,
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatDate(entry.date),
                         style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          fontSize: 11,
+                          color: colorScheme.onSurface.withValues(alpha: 0.45),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 11,
-                      color: colorScheme.onSurface.withValues(alpha: 0.45),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _formatDate(entry.date),
-                      style: TextStyle(
-                        fontSize: 11,
+                      const SizedBox(width: 10),
+                      Icon(
+                        Icons.timer_outlined,
+                        size: 11,
                         color: colorScheme.onSurface.withValues(alpha: 0.45),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Icon(
-                      Icons.timer_outlined,
-                      size: 11,
-                      color: colorScheme.onSurface.withValues(alpha: 0.45),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _formatElapsed(entry.elapsed),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: colorScheme.onSurface.withValues(alpha: 0.45),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatElapsed(entry.elapsed),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colorScheme.onSurface.withValues(alpha: 0.45),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 10),
+                      Text(
+                        '- Bs ${entry.farePaid > 0 ? entry.farePaid.toStringAsFixed(2) : '0.00'}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFE0A209),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          Icon(
-            Icons.chevron_right,
-            size: 20,
-            color: colorScheme.onSurface.withValues(alpha: 0.3),
-          ),
-        ],
-      ),
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: colorScheme.onSurface.withValues(alpha: 0.3),
+            ),
+          ],
+        ),
       ),
     );
   }

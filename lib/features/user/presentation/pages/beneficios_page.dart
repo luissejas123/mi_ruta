@@ -17,7 +17,7 @@ class BeneficiosPage extends StatefulWidget {
 }
 
 class _BeneficiosPageState extends State<BeneficiosPage> {
-  String? _userId;
+  String _userId = '';
 
   @override
   void initState() {
@@ -33,20 +33,23 @@ class _BeneficiosPageState extends State<BeneficiosPage> {
     }
   }
 
+  // Siempre despacha, incluso con _userId vacío (AuthBloc aún no cargado):
+  // el BLoC igual resuelve a un estado terminal (BenefitHistoryLoaded([]) o
+  // BenefitRequestError), evitando que el build() se quede pegado en
+  // "Cargando beneficios..." para siempre.
   void _loadHistory() {
-    if (_userId == null || _userId!.isEmpty) return;
-    context.read<BenefitRequestBLoC>().add(LoadBenefitHistoryEvent(_userId!));
+    context.read<BenefitRequestBLoC>().add(LoadBenefitHistoryEvent(_userId));
   }
 
   void _renewBenefit(String requestId) {
-    if (_userId == null || _userId!.isEmpty) return;
+    if (_userId.isEmpty) return;
     context.read<BenefitRequestBLoC>().add(
-      RenewBenefitRequestEvent(userId: _userId!, requestId: requestId),
+      RenewBenefitRequestEvent(userId: _userId, requestId: requestId),
     );
   }
 
   void _cancelBenefit(String requestId) {
-    if (_userId == null || _userId!.isEmpty) return;
+    if (_userId.isEmpty) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -64,7 +67,7 @@ class _BeneficiosPageState extends State<BeneficiosPage> {
               Navigator.pop(ctx);
               context.read<BenefitRequestBLoC>().add(
                 CancelBenefitRequestEvent(
-                  userId: _userId!,
+                  userId: _userId,
                   requestId: requestId,
                 ),
               );
@@ -77,9 +80,9 @@ class _BeneficiosPageState extends State<BeneficiosPage> {
   }
 
   void _downloadPdf(String requestId) {
-    if (_userId == null || _userId!.isEmpty) return;
+    if (_userId.isEmpty) return;
     context.read<BenefitRequestBLoC>().add(
-      DownloadBenefitDocumentEvent(userId: _userId!, requestId: requestId),
+      DownloadBenefitDocumentEvent(userId: _userId, requestId: requestId),
     );
   }
 

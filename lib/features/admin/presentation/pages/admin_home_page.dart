@@ -5,6 +5,7 @@ import 'package:mi_ruta/features/admin/domain/entities/admin_permissions.dart';
 import 'package:mi_ruta/features/admin/domain/services/admin_access_service.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_bloc.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/actualizar_qr_recarga_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/asignar_lineas_presidente_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/administracion_beneficios_page.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/user_management_bloc.dart';
@@ -156,6 +157,20 @@ class AdminHomePage extends StatelessWidget {
                           context,
                           MaterialPageRoute(
                             builder: (_) => const AsignarLineasPresidentePage(),
+                          ),
+                        );
+                      },
+                    ),
+                  if (AdminAccessService.canAccessOperation(user, AdminOperation.manageUsers))
+                    _MenuCard(
+                      icon: Icons.qr_code_2,
+                      title: 'QR de recarga',
+                      subtitle: 'Actualizar el QR que ven los pasajeros al recargar saldo',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ActualizarQrRecargaPage(),
                           ),
                         );
                       },

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/core/utils/distance_utils.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
+import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_operations_bloc.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_operations_event.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_operations_state.dart';
@@ -245,6 +248,13 @@ class _NoVehicleMessage extends StatelessWidget {
 
 /// "Notificar parada" — vivía suelto en Inicio; se reubica aquí porque es
 /// una acción sobre la ruta en curso, igual que el switch de arriba.
+///
+/// Ya no pide un nombre de parada escrito a mano (no hay catálogo de
+/// paradas reales sembrado — inventar un nombre sería un dato falso, ver
+/// docs/PLAN_SEGURIDAD_TARIFAS_GPS.md Bloque 1). En su lugar, al tocar el
+/// botón se toma la posición GPS actual y se valida contra el polyline de
+/// la ruta asignada (mismo `DistanceUtils` que ya usa `getRoutesWithinRadius`)
+/// — solo se avisa si el chofer está de verdad sobre su ruta.
 class _NotifyStopSection extends StatefulWidget {
   final DriverOperationsLoaded state;
 
@@ -255,17 +265,50 @@ class _NotifyStopSection extends StatefulWidget {
 }
 
 class _NotifyStopSectionState extends State<_NotifyStopSection> {
-  final _stopCtrl = TextEditingController();
+  static const _maxDistanceFromRouteMeters = 150.0;
+  bool _checkingLocation = false;
 
-  @override
-  void dispose() {
-    _stopCtrl.dispose();
-    super.dispose();
+  Future<void> _notify() async {
+    final route = widget.state.assignedRoute;
+    final polyline = route?.polyline;
+    if (polyline == null || polyline.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay una ruta asignada con trazado para validar tu posición.')),
+      );
+      return;
+    }
+
+    setState(() => _checkingLocation = true);
+    final result = await getIt<GetCurrentLocationUseCase>()();
+    if (!mounted) return;
+    setState(() => _checkingLocation = false);
+
+    result.fold(
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo obtener tu ubicación GPS.')),
+      ),
+      (position) {
+        final points = polyline.map((p) => LatLng(p['lat']!, p['lng']!)).toList();
+        final distance = DistanceUtils.distanceToPolylineMeters(position, points);
+        if (distance > _maxDistanceFromRouteMeters) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'No pareces estar sobre tu ruta asignada (${DistanceUtils.formatMeters(distance)} de distancia).',
+              ),
+            ),
+          );
+          return;
+        }
+        context.read<DriverOperationsBloc>().add(const NotifyStop());
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
+    final busy = state.isBusy || _checkingLocation;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -282,32 +325,19 @@ class _NotifyStopSectionState extends State<_NotifyStopSection> {
               const Text('Notificar parada', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             ],
           ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _stopCtrl,
-            decoration: InputDecoration(
-              labelText: 'Nombre de la parada',
-              isDense: true,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            ),
+          const SizedBox(height: 6),
+          Text(
+            'Avisa a los pasajeros a bordo que te acercas — se valida tu posición GPS contra la ruta, no hace falta escribir nada.',
+            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
           ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: state.isBusy
-                  ? null
-                  : () {
-                      final stop = _stopCtrl.text.trim();
-                      if (stop.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Ingresa el nombre de la parada.')),
-                        );
-                        return;
-                      }
-                      context.read<DriverOperationsBloc>().add(NotifyStop(stop));
-                    },
-              icon: const Icon(Icons.notifications_active_outlined, size: 18),
+              onPressed: busy ? null : _notify,
+              icon: busy
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.notifications_active_outlined, size: 18),
               label: const Text('Avisar a pasajeros a bordo'),
             ),
           ),

@@ -44,7 +44,8 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
     try {
       final result = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 85,
+        imageQuality: 80,
+        maxWidth: 1280,
       );
       if (result == null) return;
 

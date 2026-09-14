@@ -33,9 +33,12 @@ class DriverOperationsBloc extends Bloc<DriverOperationsEvent, DriverOperationsS
     Emitter<DriverOperationsState> emit,
   ) async {
     emit(const DriverOperationsLoading());
+    // Respaldo de "tarifa máxima si nadie avisó que bajó" (Bloque 2, paso 3)
+    // — no bloquea la carga si falla o tarda.
+    unawaited(_service.chargeStaleBoardingTrips(event.vehicle.ownerUid));
     try {
       final route = await _service.getAssignedRoute(event.vehicle);
-      
+
       List<DriverTripEntity> trips = [];
       try {
         trips = await _service.getTripHistory(event.vehicle.ownerUid);
@@ -156,7 +159,7 @@ class DriverOperationsBloc extends Bloc<DriverOperationsEvent, DriverOperationsS
     if (current is! DriverOperationsLoaded) return;
     emit(current.copyWith(isBusy: true));
     try {
-      final count = await _service.notifyStop(current.vehicle, event.stopName);
+      final count = await _service.notifyStop(current.vehicle);
       emit(current.copyWith(lastStopNotifiedCount: count, isBusy: false));
     } catch (e) {
       emit(DriverOperationsError('No se pudo enviar el aviso: $e'));

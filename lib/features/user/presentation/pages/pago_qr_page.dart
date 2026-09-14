@@ -70,7 +70,8 @@ class _PagoQRViewState extends State<_PagoQRView> {
     try {
       final picked = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 100,
+        imageQuality: 80,
+        maxWidth: 1280,
       );
       if (picked == null) return;
 

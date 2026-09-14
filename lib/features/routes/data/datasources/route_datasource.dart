@@ -541,6 +541,7 @@ class RouteDatasource {
       createdAt: parseFirestoreDate(data['created_at']),
       updatedAt: parseFirestoreDate(data['updated_at']),
       active: data['active'] ?? true,
+      directionId: data['direction_id'] as String?,
       latMin: (data['lat_min'] as num?)?.toDouble(),
       latMax: (data['lat_max'] as num?)?.toDouble(),
       lngMin: (data['lng_min'] as num?)?.toDouble(),

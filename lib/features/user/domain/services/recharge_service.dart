@@ -88,16 +88,4 @@ class RechargeService {
     final recharges = await _datasource.getRechargesByUserId(userId);
     return recharges.where((r) => r.status == 'pending').toList();
   }
-
-  /// Obtiene la URL de generación del código QR
-  /// Retorna una URL que puede ser usada por un generador de QR
-  String getQRCodeUrl({
-    required String bankAccount,
-    required double amount,
-    required String reference,
-  }) {
-    // Puedes usar un servicio como qr-server para generar QR dinámicos
-    // O retornar datos para que un generador local lo haga
-    return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=BANCO|$bankAccount|$amount|$reference';
-  }
 }

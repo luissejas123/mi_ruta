@@ -158,6 +158,11 @@ class GtfsDatasource {
       // avenidas con coma), a diferencia de routes/trips/shapes — usa un
       // parser que respeta comillas en vez de _parseCSV (split naive).
       final rows = _parseQuotedCSV(stopsCsv);
+      // `stop_desc` trae route_id internos de GTFS ("23(0-1-108-...)"), no
+      // el ref/línea real (route_short_name) — sin esta traducción, un
+      // chofer de una línea vería paradas de otra sin ningún error visible
+      // (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 1).
+      final routeIdToRef = await _loadRouteIdToRefMap();
 
       final result = <Map<String, dynamic>>[];
       for (final row in rows) {
@@ -174,7 +179,7 @@ class GtfsDatasource {
           'name': name,
           'lat': lat,
           'lng': lng,
-          'route_refs': jsonEncode(_parseStopDescRefs(row['stop_desc'])),
+          'route_refs': jsonEncode(_parseStopDescRefs(row['stop_desc'], routeIdToRef)),
         });
       }
 
@@ -186,14 +191,41 @@ class GtfsDatasource {
     }
   }
 
-  /// Extrae los refs de línea de un stop_desc con formato "23(0-1-108-...)".
-  List<String> _parseStopDescRefs(String? desc) {
+  /// `route_id` (GTFS interno) → `route_short_name` (ref de línea real).
+  /// Mismo archivo que ya parsea `_parseGtfsSync` para `routeMeta`, pero acá
+  /// se necesita por separado porque `parseStopsForLocalDb` no comparte
+  /// estado con `parseRoutesForLocalDb`.
+  Future<Map<String, String>> _loadRouteIdToRefMap() async {
+    final routesCsv = await rootBundle.loadString('$_base/routes.txt');
+    final routesRows = _parseCSV(routesCsv);
+    final map = <String, String>{};
+    for (final row in routesRows) {
+      final id = row['route_id'] ?? '';
+      final ref = row['route_short_name'] ?? '';
+      if (id.isEmpty || ref.isEmpty) continue;
+      map[id] = ref;
+    }
+    return map;
+  }
+
+  /// Extrae los refs de línea reales de un `stop_desc` con formato
+  /// "23(0-1-108-...)" — los números entre paréntesis son `route_id` de
+  /// GTFS, se traducen contra [routeIdToRef] antes de devolverlos. Un
+  /// `route_id` sin traducción conocida se descarta (no se guarda el ID
+  /// crudo como si fuera un ref real).
+  List<String> _parseStopDescRefs(String? desc, Map<String, String> routeIdToRef) {
     if (desc == null) return [];
     final match = RegExp(r'\(([^)]*)\)').firstMatch(desc);
     if (match == null) return [];
     final inner = match.group(1) ?? '';
     if (inner.isEmpty) return [];
-    return inner.split('-').where((r) => r.isNotEmpty).toList();
+    return inner
+        .split('-')
+        .where((r) => r.isNotEmpty)
+        .map((routeId) => routeIdToRef[routeId])
+        .whereType<String>()
+        .toSet()
+        .toList();
   }
 
   /// Parsea CSV respetando campos citados con comas dentro (RFC4180 simple).

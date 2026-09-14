@@ -65,3 +65,30 @@ class NavigationStopped extends NavigationEvent {
 class TimerTick extends NavigationEvent {
   const TimerTick();
 }
+
+/// El pasajero escaneó el QR fijo de la unidad y se creó el viaje de
+/// abordaje (Bloque 2, paso 3 — docs/PLAN_SEGURIDAD_TARIFAS_GPS.md).
+class BoardingConfirmed extends NavigationEvent {
+  final String tripId;
+  final String driverId;
+  final String routeRef;
+
+  const BoardingConfirmed({
+    required this.tripId,
+    required this.driverId,
+    required this.routeRef,
+  });
+
+  @override
+  List<Object?> get props => [tripId, driverId, routeRef];
+}
+
+/// Se cobró la tarifa por distancia tras el "aviso de bajada".
+class FareCharged extends NavigationEvent {
+  final double amount;
+
+  const FareCharged(this.amount);
+
+  @override
+  List<Object?> get props => [amount];
+}

@@ -22,6 +22,14 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    // Mismo criterio que `isAdmin()` de firestore.rules — Storage Rules v2
+    // puede leer Firestore directo con `firestore.get`.
+    function isAdmin() {
+      return isSignedIn() &&
+        (firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.is_super_admin == true);
+    }
+
     // Perfil: foto de cada usuario, en su propia carpeta.
     match /profiles/{userId}/{fileName} {
       allow read: if isSignedIn();
@@ -49,6 +57,14 @@ service firebase.storage {
     match /vehicles/{ownerUid}/{plate}/{fileName} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && request.auth.uid == ownerUid;
+    }
+
+    // Config global de la app (hoy: el QR de recarga que ve todo pasajero).
+    // Mismo criterio que `config` en firestore.rules — lectura abierta,
+    // escritura solo admin (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 1).
+    match /config/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

@@ -112,6 +112,26 @@ class StorageService {
     }
   }
 
+  /// Sube una imagen de configuración global (hoy: el QR de recarga que ve
+  /// todo pasajero en `RecargaQrPage`, `config/qr_recarga.qr_url` en
+  /// Firestore). Solo el admin puede escribir acá (`storage.rules`).
+  /// [configKey] es la clave sin extensión (ej. "qr_recarga").
+  Future<String> uploadConfigImage({
+    required String configKey,
+    required File imageFile,
+  }) async {
+    try {
+      final fileName = imageFile.path.split('/').last;
+      final fileExtension = fileName.contains('.') ? fileName.split('.').last : 'jpg';
+      final ref = _storage.ref().child('config/$configKey.$fileExtension');
+      await ref.putFile(imageFile);
+      final downloadUrl = await ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      throw Exception('Error al subir imagen de configuración: $e');
+    }
+  }
+
   /// Genera un comprobante PDF real a partir del documento asociado a un beneficio.
   /// Si el documento original es imagen, se convierte a PDF; si ya es PDF, se descarga tal cual.
   Future<File> generateBenefitPdf(BenefitRequest request) async {

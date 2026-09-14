@@ -66,6 +66,53 @@ class DistanceUtils {
     return minDist;
   }
 
+  /// Fracción (0-1, clampeada) del segmento [a]-[b] donde cae la proyección
+  /// de [point] — mismo cálculo que usa `_pointToSegmentMeters` para el
+  /// punto más cercano, pero devolviendo `t` en vez de la distancia.
+  static double _projectionFraction(LatLng point, LatLng a, LatLng b) {
+    const metersPerDegLat = 111000.0;
+    final metersPerDegLng = 111000.0 * math.cos(a.latitude * math.pi / 180);
+
+    double toX(double lng) => (lng - a.longitude) * metersPerDegLng;
+    double toY(double lat) => (lat - a.latitude) * metersPerDegLat;
+
+    const ax = 0.0, ay = 0.0;
+    final bx = toX(b.longitude), by = toY(b.latitude);
+    final px = toX(point.longitude), py = toY(point.latitude);
+
+    final abx = bx - ax, aby = by - ay;
+    final lenSq = abx * abx + aby * aby;
+    var t = lenSq == 0 ? 0.0 : ((px - ax) * abx + (py - ay) * aby) / lenSq;
+    return t.clamp(0.0, 1.0);
+  }
+
+  /// Distancia recorrida a lo largo de [polyline] desde su inicio hasta la
+  /// proyección más cercana de [point]: la longitud completa de cada
+  /// segmento ya superado, más la porción parcial del segmento donde cae la
+  /// proyección de [point]. Usada para "cuánto avanzó el pasajero sobre su
+  /// ruta de bus" (aviso de bajada, cobro por distancia) — a diferencia de
+  /// [distanceToPolylineMeters], que da la distancia perpendicular más
+  /// cercana, no la distancia recorrida a lo largo de la ruta.
+  static double distanceAlongPolylineMeters(LatLng point, List<LatLng> polyline) {
+    if (polyline.length < 2) return 0;
+    var bestPerpendicular = double.infinity;
+    var bestCumulative = 0.0;
+    var cumulative = 0.0;
+    for (var i = 0; i < polyline.length - 1; i++) {
+      final a = polyline[i];
+      final b = polyline[i + 1];
+      final segmentLength = metersApprox(a, b);
+      final perpendicular = _pointToSegmentMeters(point, a, b);
+      if (perpendicular < bestPerpendicular) {
+        bestPerpendicular = perpendicular;
+        final t = _projectionFraction(point, a, b);
+        bestCumulative = cumulative + t * segmentLength;
+      }
+      cumulative += segmentLength;
+    }
+    return bestCumulative;
+  }
+
   /// Formatea una duración como texto compacto: "05:32" o "1:05:32".
   static String formatDuration(Duration d) {
     final h = d.inHours;

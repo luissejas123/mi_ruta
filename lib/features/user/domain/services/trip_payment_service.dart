@@ -27,100 +27,170 @@ class TripPaymentService {
         throw Exception('Monto inválido');
       }
 
-      // Verificar que el viaje exista
-      final tripDoc = await _firestore.collection('trips').doc(tripId).get();
-      if (!tripDoc.exists) {
-        throw Exception('Viaje no encontrado');
-      }
-
-      final tripData = tripDoc.data() as Map<String, dynamic>;
-      if (tripData['driver_id'] != driverId) {
-        throw Exception('El chofer no coincide con el viaje');
-      }
-
-      // Obtener datos del usuario para verificar saldo
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      if (!userDoc.exists) {
-        throw Exception('Usuario no encontrado');
-      }
-
-      final userData = userDoc.data() as Map<String, dynamic>;
-      final passengerName = userData['fullName'] ?? userData['full_name'] ?? userData['name'] ?? 'Desconocido';
-      final walletData = userData['wallet'] as Map<String, dynamic>?;
-      
-      final driverDoc = await _firestore.collection('users').doc(driverId).get();
-      final driverData = driverDoc.data() as Map<String, dynamic>?;
-      final driverName = driverData?['fullName'] ?? driverData?['full_name'] ?? driverData?['name'] ?? 'Desconocido';
-      final currentBalance = (walletData?['current_balance'] ?? 0).toDouble();
-
-      if (currentBalance < amount) {
-        throw Exception(
-          'Saldo insuficiente. Saldo: Bs. ${currentBalance.toStringAsFixed(2)}, Requerido: Bs. ${amount.toStringAsFixed(2)}',
-        );
-      }
-
-      // Realizar transacción atómica
-      await _firestore.runTransaction((transaction) async {
-        // Descontar de billetera del usuario
-        transaction.update(_firestore.collection('users').doc(userId), {
-          'wallet.current_balance': FieldValue.increment(-amount),
-          'wallet.updated_at': FieldValue.serverTimestamp(),
-        });
-
-        // Acreditar al chofer
-        transaction.update(_firestore.collection('users').doc(driverId), {
-          'wallet.current_balance': FieldValue.increment(amount),
-          'wallet.updated_at': FieldValue.serverTimestamp(),
-        });
-
-        // Actualizar estado del viaje
-        transaction.update(_firestore.collection('trips').doc(tripId), {
-          'status': 'completed',
-          'passenger_id': userId,
-          'payment_status': 'paid',
-          'payment_amount': amount,
-          'paid_at': FieldValue.serverTimestamp(),
-        });
-      });
-
-      // Registrar transacción para el usuario
-      await _firestore.collection('transactions').add({
-        'user_id': userId,
-        'transaction_type': 'trip_payment',
-        'amount': -amount,
-        'description': 'Pago a chofer $driverName',
-        'timestamp': FieldValue.serverTimestamp(),
-        'payment_method': 'qr',
-        'status': 'completed',
-        'trip_id': tripId,
-        'driver_id': driverId,
-      });
-
-      // Registrar transacción para el chofer
-      await _firestore.collection('transactions').add({
-        'user_id': driverId,
-        'transaction_type': 'trip_payment_received',
-        'amount': amount,
-        'description': 'Cobro a pasajero $passengerName',
-        'timestamp': FieldValue.serverTimestamp(),
-        'payment_method': 'qr',
-        'status': 'completed',
-        'trip_id': tripId,
-        'passenger_id': userId,
-      });
-
-      return {
-        'success': true,
-        'amount': amount,
-        'driverId': driverId,
-        'tripId': tripId,
-        'newBalance': currentBalance - amount,
-        'message':
-            'Pago procesado exitosamente. Saldo: Bs. ${(currentBalance - amount).toStringAsFixed(2)}',
-      };
+      return await _chargeTrip(
+        userId: userId,
+        driverId: driverId,
+        tripId: tripId,
+        amount: amount,
+        paymentMethod: 'qr',
+      );
     } catch (e) {
       return {'success': false, 'message': 'Error al procesar pago: $e'};
     }
+  }
+
+  /// Cobra un viaje de abordaje (Bloque 2, paso 3) por [amount] ya resuelto
+  /// según distancia recorrida (`TariffService`) — a diferencia de
+  /// [processPayment], acá no hay QR de cobro que decodificar: el viaje ya
+  /// existe desde que el pasajero abordó (`DriverService.createBoardingTrip`,
+  /// `passenger_id` ya puesto) y el monto se calcula recién ahora, al avisar
+  /// que baja. Comparte la misma transacción atómica que el flujo de QR —
+  /// mismas garantías contra doble cobro.
+  Future<Map<String, dynamic>> processDistanceFare({
+    required String userId,
+    required String driverId,
+    required String tripId,
+    required double amount,
+  }) async {
+    try {
+      if (amount <= 0) {
+        throw Exception('Monto inválido');
+      }
+      return await _chargeTrip(
+        userId: userId,
+        driverId: driverId,
+        tripId: tripId,
+        amount: amount,
+        paymentMethod: 'distance',
+      );
+    } catch (e) {
+      return {'success': false, 'message': 'Error al procesar cobro: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _chargeTrip({
+    required String userId,
+    required String driverId,
+    required String tripId,
+    required double amount,
+    required String paymentMethod,
+  }) async {
+    // Verificar que el viaje exista
+    final tripDoc = await _firestore.collection('trips').doc(tripId).get();
+    if (!tripDoc.exists) {
+      throw Exception('Viaje no encontrado');
+    }
+
+    final tripData = tripDoc.data() as Map<String, dynamic>;
+    if (tripData['driver_id'] != driverId) {
+      throw Exception('El chofer no coincide con el viaje');
+    }
+
+    // Obtener datos del usuario para verificar saldo
+    final userDoc = await _firestore.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      throw Exception('Usuario no encontrado');
+    }
+
+    final userData = userDoc.data() as Map<String, dynamic>;
+    final passengerName =
+        userData['fullName'] ??
+        userData['full_name'] ??
+        userData['name'] ??
+        'Desconocido';
+    final walletData = userData['wallet'] as Map<String, dynamic>?;
+
+    final driverDoc = await _firestore.collection('users').doc(driverId).get();
+    final driverData = driverDoc.data() as Map<String, dynamic>?;
+    final driverName =
+        driverData?['fullName'] ??
+        driverData?['full_name'] ??
+        driverData?['name'] ??
+        'Desconocido';
+    final currentBalance = (walletData?['current_balance'] ?? 0).toDouble();
+
+    if (currentBalance < amount) {
+      throw Exception(
+        'Saldo insuficiente. Saldo: Bs. ${currentBalance.toStringAsFixed(2)}, Requerido: Bs. ${amount.toStringAsFixed(2)}',
+      );
+    }
+
+    // Realizar transacción atómica. La relectura de `tripRef` DENTRO de la
+    // transacción (antes de cualquier escritura, como exige Firestore) es
+    // la guarda real contra el doble cobro: si dos pasajeros escanean el
+    // mismo QR casi al mismo tiempo, la segunda transacción ve
+    // `payment_status: 'paid'` ya escrito por la primera y aborta — la
+    // lectura de `tripDoc` de más arriba solo sirvió para el chequeo
+    // rápido de UI, no reemplaza esta (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md,
+    // Bloque 0).
+    final tripRef = _firestore.collection('trips').doc(tripId);
+    await _firestore.runTransaction((transaction) async {
+      final freshTripSnap = await transaction.get(tripRef);
+      if (!freshTripSnap.exists) {
+        throw Exception('Viaje no encontrado');
+      }
+      final freshTripData = freshTripSnap.data() as Map<String, dynamic>;
+      if (freshTripData['payment_status'] == 'paid') {
+        throw Exception('Este viaje ya fue pagado');
+      }
+
+      // Descontar de billetera del usuario
+      transaction.update(_firestore.collection('users').doc(userId), {
+        'wallet.current_balance': FieldValue.increment(-amount),
+        'wallet.updated_at': FieldValue.serverTimestamp(),
+      });
+
+      // Acreditar al chofer
+      transaction.update(_firestore.collection('users').doc(driverId), {
+        'wallet.current_balance': FieldValue.increment(amount),
+        'wallet.updated_at': FieldValue.serverTimestamp(),
+      });
+
+      // Actualizar estado del viaje
+      transaction.update(tripRef, {
+        'status': 'completed',
+        'passenger_id': userId,
+        'payment_status': 'paid',
+        'payment_amount': amount,
+        'paid_at': FieldValue.serverTimestamp(),
+      });
+    });
+
+    // Registrar transacción para el usuario
+    await _firestore.collection('transactions').add({
+      'user_id': userId,
+      'transaction_type': 'trip_payment',
+      'amount': -amount,
+      'description': 'Pago a chofer $driverName',
+      'timestamp': FieldValue.serverTimestamp(),
+      'payment_method': paymentMethod,
+      'status': 'completed',
+      'trip_id': tripId,
+      'driver_id': driverId,
+    });
+
+    // Registrar transacción para el chofer
+    await _firestore.collection('transactions').add({
+      'user_id': driverId,
+      'transaction_type': 'trip_payment_received',
+      'amount': amount,
+      'description': 'Cobro a pasajero $passengerName',
+      'timestamp': FieldValue.serverTimestamp(),
+      'payment_method': paymentMethod,
+      'status': 'completed',
+      'trip_id': tripId,
+      'passenger_id': userId,
+    });
+
+    return {
+      'success': true,
+      'amount': amount,
+      'driverId': driverId,
+      'tripId': tripId,
+      'newBalance': currentBalance - amount,
+      'message':
+          'Pago procesado exitosamente. Saldo: Bs. ${(currentBalance - amount).toStringAsFixed(2)}',
+    };
   }
 
   /// Obtiene el historial de pagos de viajes del usuario

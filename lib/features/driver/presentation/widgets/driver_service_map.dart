@@ -77,7 +77,12 @@ class _DriverServiceMapState extends State<DriverServiceMap> {
       ),
     ).listen((position) {
       if (!mounted) return;
-      setState(() => _myLocation = LatLng(position.latitude, position.longitude));
+      final updated = LatLng(position.latitude, position.longitude);
+      setState(() => _myLocation = updated);
+      // El marcador se movía solo (arriba), pero la cámara se quedaba fija
+      // en la posición inicial — sin esto la app parecía no rastrear en
+      // tiempo real (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 1).
+      _controller?.animateCamera(CameraUpdate.newLatLng(updated));
     });
   }
 

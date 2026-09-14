@@ -31,6 +31,10 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
   static const _navIndexWallet = 1;
   static const _amarillo = Color(0xFFFFC12F);
   static const _maxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
+  // Tope de monto por recarga — antes solo se validaba `amount > 0`, sin
+  // límite superior, lo que dejaba corromper el saldo mostrado con un
+  // monto absurdo (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0).
+  static const _maxRechargeAmount = 5000.0;
 
   late String _userId;
   File? _selectedImage;
@@ -189,13 +193,15 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
     try {
       return await picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 90,
+        imageQuality: 80,
+        maxWidth: 1280,
       );
     } on PlatformException catch (e) {
       if (e.code == 'metadata_fetch_failed' || e.code == 'no_activity') {
         return await picker.pickImage(
           source: ImageSource.gallery,
-          imageQuality: 90,
+          imageQuality: 80,
+          maxWidth: 1280,
           requestFullMetadata: false,
         );
       }
@@ -206,7 +212,8 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
       if (e.toString().contains('_Namespace') || e.toString().contains('metadata')) {
         return await picker.pickImage(
           source: ImageSource.gallery,
-          imageQuality: 90,
+          imageQuality: 80,
+          maxWidth: 1280,
           requestFullMetadata: false,
         );
       }
@@ -218,6 +225,13 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
     final amount = double.tryParse(_amountController.text);
     if (amount == null || amount <= 0) {
       _showSnackBar('Ingresa un monto válido', isError: true);
+      return;
+    }
+    if (amount > _maxRechargeAmount) {
+      _showSnackBar(
+        'El monto máximo por recarga es Bs. ${_maxRechargeAmount.toStringAsFixed(2)}',
+        isError: true,
+      );
       return;
     }
     if (_selectedImage == null) {
@@ -411,12 +425,17 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
       TextField(
         controller: _amountController,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^\d{0,7}(\.\d{0,2})?$')),
+        ],
+        maxLength: 8,
         decoration: InputDecoration(
           hintText: '0.00',
           prefixText: 'Bs. ',
           prefixStyle: const TextStyle(
             fontWeight: FontWeight.bold,
           ),
+          counterText: '',
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
           ),

@@ -11,6 +11,7 @@ import 'package:mi_ruta/features/routes/domain/services/gtfs_schedule_service.da
 import 'package:mi_ruta/features/routes/domain/services/planned_trip_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_entity_converter.dart';
+import 'package:mi_ruta/features/routes/domain/services/tariff_service.dart';
 import 'package:mi_ruta/features/user/domain/entities/osm_route.dart';
 import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
@@ -278,13 +279,22 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
     if (authState is! AuthLoaded) return;
     final userId = authState.user.uid;
 
+    double farePaid;
+    try {
+      farePaid = await getIt<TariffService>().resolvePlannedTripFare(widget.trip);
+    } catch (_) {
+      // Sin conexión u otro error al resolver tarifas reales: el respaldo
+      // plano es mejor que bloquear el cierre del viaje por esto.
+      farePaid = widget.trip.totalCostBs;
+    }
+
     await getIt<TripHistoryService>().saveTrip(
       userId: userId,
       routeName: widget.trip.routesSummary,
       originName: widget.trip.originName,
       destinationName: widget.trip.destinationName,
       elapsed: Duration(minutes: widget.trip.totalMinutes),
-      farePaid: widget.trip.totalCostBs,
+      farePaid: farePaid,
     );
 
     final notifService = getIt<NotificationService>();
@@ -323,10 +333,7 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
                 Navigator.of(context).pop();
                 Navigator.of(context).pop();
               },
-              child: const Text(
-                'OK',
-                style: TextStyle(color: Color(0xFFFFC12F)),
-              ),
+              child: const Text('OK'),
             ),
           ],
         ),
@@ -595,14 +602,14 @@ class _InfoChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: const Color(0xFFFFC12F)),
+          Icon(icon, size: 13, color: Colors.black),
           const SizedBox(width: 4),
           Text(
             label,
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: Color(0xFFFFC12F),
+              color: Colors.black,
             ),
           ),
         ],
@@ -680,7 +687,15 @@ class _UpcomingDeparturesCard extends StatelessWidget {
               ),
             )
           else
-            ...departures.map((d) => _DepartureRow(departure: d)),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 160),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: departures.length,
+                itemBuilder: (context, i) =>
+                    _DepartureRow(departure: departures[i]),
+              ),
+            ),
         ],
       ),
     );
@@ -714,7 +729,7 @@ class _DepartureRow extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFFFFC12F),
+                color: Colors.black,
               ),
             ),
           ),

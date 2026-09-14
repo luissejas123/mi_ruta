@@ -92,7 +92,8 @@ class _SolicitudChoferPageState extends State<SolicitudChoferPage> {
     try {
       final picked = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 85,
+        imageQuality: 80,
+        maxWidth: 1280,
       );
       if (picked == null) return;
       setState(() {

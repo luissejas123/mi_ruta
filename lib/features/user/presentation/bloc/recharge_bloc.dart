@@ -30,14 +30,14 @@ class RechargeBloC extends Bloc<RechargeEvent, RechargeState> {
         proofImageFile: event.proofImageFile,
       );
 
-      // Aprobar la recarga automáticamente (en producción sería manual)
-      await _rechargeService.approveRecharge(rechargeId, event.userId);
-
+      // La recarga queda "pending" hasta que el tickeador verifique el
+      // comprobante (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0) — antes
+      // se auto-aprobaba acá mismo, acreditando cualquier monto sin revisión.
       emit(
         RechargeSubmitted(
           rechargeId: rechargeId,
           amount: event.amount,
-          message: 'Recarga procesada exitosamente. Saldo actualizado.',
+          message: 'Solicitud de recarga enviada. Un tickeador verificará tu comprobante antes de acreditar el saldo.',
         ),
       );
     } catch (e) {

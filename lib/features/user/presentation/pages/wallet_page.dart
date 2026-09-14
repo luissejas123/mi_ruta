@@ -6,14 +6,10 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/beneficios_page.dart';
-import 'package:mi_ruta/features/user/presentation/pages/mis_solicitudes_beneficio_page.dart';
-import 'package:mi_ruta/features/user/presentation/pages/movimientos_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/pago_qr_page.dart';
-import 'package:mi_ruta/features/user/presentation/pages/historial_beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recarga_saldo_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_page.dart';
-import 'package:mi_ruta/features/user/presentation/pages/estado_beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/balance_card.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
@@ -98,7 +94,7 @@ class _WalletPageState extends State<WalletPage> {
   void _navigateToMisSolicitudesBeneficio() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const MisSolicitudesBeneficioPage()),
+      MaterialPageRoute(builder: (_) => const BeneficiosPage()),
     );
   }
 

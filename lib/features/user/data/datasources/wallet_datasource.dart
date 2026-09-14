@@ -63,36 +63,22 @@ class WalletDatasource {
                   as num)
               .toDouble();
 
-      // Las ganancias del chofer (pagos QR recibidos) se acreditan como
-      // transacciones `trip_payment_received` y no en `wallet.current_balance`.
-      // Se suman solo en lectura para que el saldo refleje las ganancias reales.
-      final earnings = await _sumDriverEarnings(userId);
-
+      // Las ganancias del chofer (pagos QR recibidos) YA se acreditan a
+      // `wallet.current_balance` dentro de la misma transacción atómica de
+      // `TripPaymentService.processPayment` — sumar `_sumDriverEarnings` acá
+      // duplicaba el monto (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0).
+      // `_sumDriverEarnings`/`getDriverEarningsTransactions` se dejan intactas:
+      // siguen usándose para LISTAR transacciones (GananciasChoferPage,
+      // DriverWalletPage), no para calcular saldo.
       return Wallet(
         userId: userId,
-        currentBalance: baseBalance + earnings,
+        currentBalance: baseBalance,
         currency: walletData['currency'] as String? ?? 'Bs',
         createdAt: parseFirestoreDate(walletData['created_at']) ?? DateTime.now(),
         updatedAt: parseFirestoreDate(walletData['updated_at']) ?? DateTime.now(),
       );
     } catch (e) {
       throw Exception('Error obteniendo billetera: $e');
-    }
-  }
-
-  /// Suma las ganancias acumuladas del chofer a partir de las transacciones
-  /// `trip_payment_received` registradas por TripPaymentService.
-  Future<double> _sumDriverEarnings(String userId) async {
-    try {
-      final transactions = await getDriverEarningsTransactions(userId);
-      double total = 0.0;
-      for (final tx in transactions) {
-        total += (tx['amount'] as num?)?.toDouble() ?? 0.0;
-      }
-      return total;
-    } catch (e) {
-      // Si falla la consulta de ganancias, no bloquear la billetera.
-      return 0.0;
     }
   }
 

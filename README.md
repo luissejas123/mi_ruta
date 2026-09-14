@@ -26,6 +26,14 @@ Clean Architecture por feature (`data` / `domain` / `presentation`), BLoC para e
 
 `.env`, `firebase_options.dart`, `google-services.json`, `GoogleService-Info.plist`, certificados (`*.pem`/`*.key`/`*.p12`), `debug.keystore`. Guía completa, incluido el runbook para sembrar el primer SuperAdmin: [SECURITY.md](SECURITY.md).
 
+## Estado del proyecto (2026-09-13)
+
+Sprint 3 avanzado y parcialmente completado; varios módulos que originalmente estaban planificados para Sprint 4 (chofer/admin/tickeador/presidente) ya se adelantaron y están implementados — Sprint 3 y 4 corrieron en paralelo, no en secuencia estricta, con cambios de alcance pedidos sobre la marcha (típico en Scrum). El detalle día a día de quién implementó qué vive en `docs/specs/claude Documento 8 Bitácora de Implementación.docx`.
+
+## Documentación formal del proyecto (`docs/specs/`)
+
+Los documentos académicos originales (`Documento 1` a `Documento 10`, formato `.docx`, uno por cada nivel de la `Guía de Documentación de Desarrollo.docx`) describen el sistema como se diseñó en el papel — no siempre coinciden con lo que quedó implementado. Cada uno tiene una versión espejo con el prefijo `claude ` (ej. `claude Documento 1 Modelo del Dominio.docx`) que corrige el contenido contra el código real, con cita de archivo:línea en cada corrección — los originales no se tocan. Los diagramas UML (`Documento 4` y sus sub-documentos `4.1`-`4.6`) tienen el texto/tablas corregidos pero las imágenes quedan como `[DIAGRAMA PENDIENTE]` hasta que se regeneren visualmente. `docs/figma/claude Figma explicado Mi Ruta.docx` hace lo mismo para el inventario de pantallas de Figma. `Documento 7.1 Product Backlog.xlsx` queda fuera de este proceso a propósito.
+
 ## Dónde está la fuente de verdad de cada cosa
 
 Este proyecto tuvo, en algún momento, más de un documento reclamando ser la fuente de un mismo concepto — la causa raíz real detrás del bug de "ruta asignada" que describe `docs/DEUDA_TECNICA.md` §1. Esta tabla existe para que no se repita: antes de escribir un documento nuevo sobre algo de la lista, edita el que ya existe.
@@ -36,10 +44,9 @@ Este proyecto tuvo, en algún momento, más de un documento reclamando ser la fu
 | Esquema de colecciones de Firestore | [FIRESTORE_COLLECTIONS_GUIDE.md](FIRESTORE_COLLECTIONS_GUIDE.md) |
 | Archivos sensibles, runbook de SuperAdmin | [SECURITY.md](SECURITY.md) |
 | Ciclo de vida de navegación/tracking GPS | [NAVIGATION_FIX.md](NAVIGATION_FIX.md) |
-| Roles, permisos, jerarquía Admin→Presidente→Chofer/Tickeador | [docs/SPRINT4_JERARQUIA_ROLES_PLAN.md](docs/SPRINT4_JERARQUIA_ROLES_PLAN.md) |
-| Backlog activo por perfil, esquema de IDs `RQ4-<PERFIL>-NN` | [docs/REQUERIMIENTOS_POR_PERFIL_SPRINT3_SPRINT4.md](docs/REQUERIMIENTOS_POR_PERFIL_SPRINT3_SPRINT4.md) |
-| Estado de UI más reciente / correcciones post-QA | [docs/CORRECCIONES_QA_RONDA2_PLAN.md](docs/CORRECCIONES_QA_RONDA2_PLAN.md) |
+| Documentación formal del proyecto (modelo, diseño funcional, reglas, UML, arquitectura, QA, bitácora, anexos) | [docs/specs/](docs/specs/) — ver sección de arriba |
 | Bugs conocidos y decisiones técnicas pendientes | [docs/DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md) |
+| Plan activo: seguridad de dinero, tarifas por distancia, GPS en paradas | [docs/PLAN_SEGURIDAD_TARIFAS_GPS.md](docs/PLAN_SEGURIDAD_TARIFAS_GPS.md) |
 | Script de siembra de Firestore (⚠️ desactualizado, leer antes de correr) | [tools/FIRESTORE_INIT_README.md](tools/FIRESTORE_INIT_README.md) |
 
 ## Documentación archivada

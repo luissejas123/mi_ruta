@@ -121,6 +121,11 @@ class PlannedTrip extends Equatable {
         (s, l) => s + l.walkToMeters + l.transitMeters + l.walkFromMeters,
       ) /
       1000;
+  /// Estimado plano (Bs. 2.5 por tramo de bus), sin mirar distancia real ni
+  /// la tarifa configurada de cada línea — usar solo donde no se puede
+  /// esperar una consulta async (ej. una lista larga sin datos precargados).
+  /// Donde sí se puede, usar `TariffService.resolvePlannedTripFare(this)`
+  /// (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2, paso 3).
   double get totalCostBs => busLegs.length * 2.5;
   String get routesSummary => busLegs.map((l) => l.routeName).join(' + ');
 

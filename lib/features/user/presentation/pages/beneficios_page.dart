@@ -1,9 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
-import 'package:mi_ruta/features/user/domain/entities/benefit_request.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_state.dart';
@@ -153,10 +152,14 @@ class _BeneficiosPageState extends State<BeneficiosPage> {
             );
           }
           if (state is BenefitDocumentDownloaded) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.green.shade700,
+            // Antes solo mostraba la ruta cruda del archivo en un SnackBar
+            // ("...descargado en /storage/emulated/0/...") sin dar forma de
+            // abrirlo o compartirlo — se ofrece la hoja de compartir nativa
+            // en su lugar, mismo patrón que ya usa DriverService.shareFile.
+            SharePlus.instance.share(
+              ShareParams(
+                files: [XFile(state.filePath)],
+                subject: 'Comprobante de beneficio - Mi Ruta',
               ),
             );
           }
@@ -219,7 +222,7 @@ class _BeneficiosPageState extends State<BeneficiosPage> {
                               decoration: BoxDecoration(
                                 color: _colorForStatus(
                                   request.status,
-                                ).withOpacity(0.12),
+                                ).withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(

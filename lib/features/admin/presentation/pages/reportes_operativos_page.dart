@@ -30,7 +30,13 @@ class _ReportesOperativosPageState extends State<ReportesOperativosPage> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _report = _service.getReport());
+    // `() => _report = _service.getReport()` devuelve el Future asignado
+    // (valor de la expresión), no void — setState() lo rechaza en tiempo de
+    // ejecución (mismo bug que administracion_beneficios_page.dart, ver
+    // docs/Capturas QA 11).
+    setState(() {
+      _report = _service.getReport();
+    });
     await _report;
   }
 

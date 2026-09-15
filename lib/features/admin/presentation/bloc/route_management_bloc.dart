@@ -52,6 +52,12 @@ class RouteManagementBloc
     }
   }
 
+  // Las 4 ramas de abajo que llaman `_reload(emit)` dentro de un fold hacen
+  // `await result.fold(...)` (no `result.fold(...)` a secas): dartz'
+  // `fold` no espera el callback que le pasás, así que sin el `await`
+  // exterior el handler del evento terminaba (y bloc lo marcaba
+  // `_isCompleted`) antes de que `_reload`'s `emit` corriera, tirando
+  // "emit was called after an event handler completed normally".
   Future<void> _onCreateRoute(
     CreateAdminRouteEvent event,
     Emitter<RouteManagementState> emit,
@@ -63,8 +69,8 @@ class RouteManagementBloc
       color: event.color,
       description: event.description,
     );
-    result.fold(
-      (failure) => emit(RouteManagementError(failure.message)),
+    await result.fold(
+      (failure) async => emit(RouteManagementError(failure.message)),
       (_) async {
         emit(const RouteManagementSuccess('Ruta creada correctamente'));
         await _reload(emit);
@@ -85,8 +91,8 @@ class RouteManagementBloc
       description: event.description,
       active: event.active,
     );
-    result.fold(
-      (failure) => emit(RouteManagementError(failure.message)),
+    await result.fold(
+      (failure) async => emit(RouteManagementError(failure.message)),
       (_) async {
         emit(const RouteManagementSuccess('Ruta actualizada correctamente'));
         await _reload(emit);
@@ -100,8 +106,8 @@ class RouteManagementBloc
   ) async {
     emit(const RouteManagementLoading());
     final result = await deleteRouteUseCase.call(event.routeId);
-    result.fold(
-      (failure) => emit(RouteManagementError(failure.message)),
+    await result.fold(
+      (failure) async => emit(RouteManagementError(failure.message)),
       (_) async {
         emit(const RouteManagementSuccess('Ruta eliminada'));
         await _reload(emit);
@@ -115,8 +121,8 @@ class RouteManagementBloc
   ) async {
     emit(const RouteManagementLoading());
     final result = await loadRoutesFromGtfsUseCase.call();
-    result.fold(
-      (failure) => emit(RouteManagementError(failure.message)),
+    await result.fold(
+      (failure) async => emit(RouteManagementError(failure.message)),
       (count) async {
         emit(RouteManagementSuccess('$count rutas cargadas desde GTFS'));
         await _reload(emit);

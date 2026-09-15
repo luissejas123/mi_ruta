@@ -4,6 +4,7 @@ import 'package:mi_ruta/features/admin/data/datasources/admin_route_datasource.d
 import 'package:mi_ruta/features/routes/data/datasources/gtfs_datasource.dart';
 import 'package:mi_ruta/features/routes/data/datasources/route_datasource.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
+import 'package:mi_ruta/features/routes/domain/services/route_migration_bbox_service.dart';
 
 /// Datasource de gestión administrativa de rutas.
 ///
@@ -12,12 +13,15 @@ import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
 class AdminRouteDataSourceImpl implements AdminRouteDataSource {
   final RouteDatasource _routeDatasource;
   final GtfsDatasource _gtfsDatasource;
+  final RouteMigrationBboxService _bboxService;
 
   AdminRouteDataSourceImpl({
     required RouteDatasource routeDatasource,
     required GtfsDatasource gtfsDatasource,
+    required RouteMigrationBboxService bboxService,
   })  : _routeDatasource = routeDatasource,
-        _gtfsDatasource = gtfsDatasource;
+        _gtfsDatasource = gtfsDatasource,
+        _bboxService = bboxService;
 
   @override
   Future<List<RouteEntity>> getRoutes() async {
@@ -122,6 +126,16 @@ class AdminRouteDataSourceImpl implements AdminRouteDataSource {
         continue;
       }
     }
+
+    // `routes_bbox` es un espejo liviano de `routes` (routes_bbox.md, sin
+    // polyline) que usan "Gestión de rutas", el panel de presidente y la
+    // búsqueda por área — nadie más lo regenera automáticamente
+    // (`RouteMigrationBboxService` solo estaba cableado en el DI, sin
+    // ningún caller real). Sin este paso, tras recargar GTFS `routes`
+    // queda al día pero `routes_bbox` sigue mostrando los datos viejos (o
+    // vacío si se borró la colección), y esas pantallas parecen no reflejar
+    // la carga aunque sí haya funcionado.
+    await _bboxService.migrateRoutesToBoundingBoxes();
 
     return successCount;
   }

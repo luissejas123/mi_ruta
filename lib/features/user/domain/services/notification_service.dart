@@ -61,6 +61,11 @@ class NotificationService {
     );
   }
 
+  /// Se manda cuando el tickeador ya verificó el comprobante y el saldo
+  /// quedó realmente acreditado — no al enviar la solicitud (ver
+  /// [saveRechargeSubmittedNotification] para eso). docs/
+  /// PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0: antes esto se mandaba al
+  /// enviar el comprobante, prometiendo un saldo que todavía no existía.
   Future<void> saveRechargeNotification(String userId, double amount) async {
     if (!await _isNotificationEnabled(userId, 'recharge')) return;
 
@@ -71,6 +76,50 @@ class NotificationService {
         type: NotificationType.recharge,
         title: 'Recarga exitosa',
         body: 'Recargaste Bs. ${amount.toStringAsFixed(2)} a tu billetera',
+        isRead: false,
+        createdAt: DateTime.now(),
+      ),
+    );
+  }
+
+  /// Se manda al enviar el comprobante — todavía no hay saldo acreditado,
+  /// solo confirma que la solicitud llegó y está pendiente de revisión.
+  Future<void> saveRechargeSubmittedNotification(
+    String userId,
+    double amount,
+  ) async {
+    if (!await _isNotificationEnabled(userId, 'recharge')) return;
+
+    await _datasource.save(
+      AppNotification(
+        id: _id(),
+        userId: userId,
+        type: NotificationType.recharge,
+        title: 'Comprobante recibido',
+        body: 'Tu comprobante de Bs. ${amount.toStringAsFixed(2)} está en '
+            'revisión. Te avisaremos cuando se acredite a tu billetera.',
+        isRead: false,
+        createdAt: DateTime.now(),
+      ),
+    );
+  }
+
+  /// Se manda si el tickeador rechaza el comprobante (monto ilegible, no
+  /// corresponde, etc.) — el pasajero necesita saber que no se acreditará.
+  Future<void> saveRechargeRejectedNotification(
+    String userId,
+    double amount,
+  ) async {
+    if (!await _isNotificationEnabled(userId, 'recharge')) return;
+
+    await _datasource.save(
+      AppNotification(
+        id: _id(),
+        userId: userId,
+        type: NotificationType.recharge,
+        title: 'Recarga rechazada',
+        body: 'Tu comprobante de Bs. ${amount.toStringAsFixed(2)} fue '
+            'rechazado. Verifica el comprobante e intenta de nuevo.',
         isRead: false,
         createdAt: DateTime.now(),
       ),
@@ -119,6 +168,34 @@ class NotificationService {
         body: body,
         isRead: false,
         createdAt: DateTime.now(),
+      ),
+    );
+  }
+
+  /// El pasajero avisa que baja y elige pagar con QR (segunda opción de
+  /// "Aviso de bajada", `RutaNavegacionPage._payViaQr`) — le llega al
+  /// chofer con el `tripId` del abordaje ya conectado, así el chofer no
+  /// arma un cobro nuevo (que crearía un segundo `trips` desconectado):
+  /// solo muestra el QR que ya trae el monto y el viaje correctos.
+  Future<void> saveDropOffPaymentRequestNotification(
+    String driverId, {
+    required String tripId,
+    required double amount,
+    required String passengerName,
+    required String routeName,
+  }) async {
+    await _datasource.save(
+      AppNotification(
+        id: _id(),
+        userId: driverId,
+        type: NotificationType.operational,
+        title: 'Pasajero pagando por QR',
+        body: '$passengerName avisó que baja en $routeName y va a pagar '
+            'Bs. ${amount.toStringAsFixed(2)} escaneando tu QR.',
+        isRead: false,
+        createdAt: DateTime.now(),
+        relatedTripId: tripId,
+        relatedAmount: amount,
       ),
     );
   }

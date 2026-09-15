@@ -83,6 +83,18 @@ class _HistorialView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFD9D9D9),
+      // Esta pantalla nunca es un destino del bottom nav (siempre se llega
+      // empujándola desde WalletPage/PerfilPage, con predecesor real al
+      // que volver) — antes no tenía ningún botón de regreso, en ningún
+      // estado (loading/error/vacío/cargado).
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFD9D9D9),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
       body: BlocBuilder<TripHistoryBloc, TripHistoryState>(
         builder: (context, state) {
           if (state is TripHistoryLoading) {
@@ -177,8 +189,10 @@ class _TripHistoryListWidgetState extends State<TripHistoryListWidget> {
                   const Expanded(
                     child: Text(
                       'MOVIMIENTOS',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 40,
+                        fontSize: 26,
                         fontWeight: FontWeight.w800,
                         color: Colors.black,
                         letterSpacing: 0.5,
@@ -476,7 +490,14 @@ class _TripCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
                       Text(
-                        '- Bs ${entry.farePaid > 0 ? entry.farePaid.toStringAsFixed(2) : '0.00'}',
+                        // "Estimado", no "- Bs X": esta pantalla es el
+                        // historial de PLANIFICACIÓN de viajes
+                        // (trip_history), no el ledger real de la billetera
+                        // (transactions) — mostrarlo con estilo de débito
+                        // real generaba confusión (ver docs/Capturas QA,
+                        // reporte sobre "cobro automático" que en realidad
+                        // nunca mueve dinero real).
+                        'Estimado: Bs ${entry.farePaid > 0 ? entry.farePaid.toStringAsFixed(2) : '0.00'}',
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,

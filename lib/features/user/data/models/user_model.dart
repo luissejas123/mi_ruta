@@ -21,6 +21,7 @@ class UserModel extends UserEntity {
     super.role,
     super.roles,
     super.managedLines,
+    super.assignedRouteRef,
   });
 
   /// Convertir JSON de Firestore a UserModel
@@ -67,6 +68,7 @@ class UserModel extends UserEntity {
       managedLines: List<String>.from(
         (json['presidente_info'] as Map?)?['managed_lines'] ?? const [],
       ),
+      assignedRouteRef: json['assigned_route_ref'] as String?,
     );
   }
 

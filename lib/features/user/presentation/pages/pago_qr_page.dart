@@ -37,6 +37,16 @@ class _PagoQRViewState extends State<_PagoQRView> {
   File? _selectedQRImage;
   final ImagePicker _picker = ImagePicker();
 
+  @override
+  void initState() {
+    super.initState();
+    // TripPaymentBLoC es un singleton de app (getIt) — sin este reset, un
+    // error/éxito de una visita anterior a esta pantalla se queda pegado y
+    // se vuelve a mostrar de inmediato al reabrirla, aunque el usuario nunca
+    // haya vuelto a tocar nada acá.
+    context.read<TripPaymentBLoC>().add(const ClearPaymentEvent());
+  }
+
   String? _getUserId() {
     final authState = context.read<AuthBloc>().state;
     return authState is AuthLoaded ? authState.user.uid : null;

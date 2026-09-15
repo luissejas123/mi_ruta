@@ -8,6 +8,7 @@ import 'package:mi_ruta/features/user/domain/services/trip_route_map_builder_ser
 import 'package:mi_ruta/features/user/presentation/bloc/trip_line_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_line_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_line_state.dart';
+import 'package:mi_ruta/features/user/presentation/pages/confirmar_abordaje_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/ruta_navegacion_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
@@ -78,6 +79,21 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
     required List<LatLng> walkStartPoints,
     required List<LatLng> walkEndPoints,
   }) async {
+    // Confirmar abordaje real (escanear QR de la unidad o escribir su
+    // placa) es obligatorio antes de navegar — elegir la línea ya no cuenta
+    // por sí solo como "ya estoy en el vehículo" (Bloque 2, paso 3,
+    // rediseño 2026-09-14).
+    final boardingResult = await Navigator.push<BoardingConfirmationResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ConfirmarAbordajePage(
+          plannedRouteRef: widget.route.ref,
+          plannedRouteName: widget.route.displayName,
+        ),
+      ),
+    );
+    if (boardingResult == null || !mounted) return;
+
     final boarded = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -91,6 +107,9 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
           transitSegment: transitSegment,
           walkStartPoints: walkStartPoints,
           walkEndPoints: walkEndPoints,
+          initialBoardingTripId: boardingResult.tripId,
+          initialBoardingDriverId: boardingResult.driverId,
+          initialBoardingRouteRef: boardingResult.routeRef,
         ),
       ),
     );

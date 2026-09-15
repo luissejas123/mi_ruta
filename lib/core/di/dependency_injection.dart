@@ -407,7 +407,10 @@ void setupDependencies() {
   // RECHARGE FEATURE - PRESENTATION LAYER (BLoC)
   // ============================================
   getIt.registerSingleton<RechargeBloC>(
-    RechargeBloC(rechargeService: getIt<RechargeService>()),
+    RechargeBloC(
+      rechargeService: getIt<RechargeService>(),
+      notificationService: getIt<NotificationService>(),
+    ),
   );
 
   // ============================================
@@ -533,6 +536,7 @@ void setupDependencies() {
     AdminRouteDataSourceImpl(
       routeDatasource: getIt<RouteDatasource>(),
       gtfsDatasource: getIt<GtfsDatasource>(),
+      bboxService: getIt<RouteMigrationBboxService>(),
     ),
   );
 

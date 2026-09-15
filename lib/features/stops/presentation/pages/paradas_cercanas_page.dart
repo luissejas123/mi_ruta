@@ -10,6 +10,7 @@ import 'package:mi_ruta/features/stops/presentation/bloc/nearby_routes_state.dar
 import 'package:mi_ruta/features/user/data/datasources/location_datasource.dart';
 import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 import 'package:mi_ruta/features/user/presentation/pages/map_location_picker_page.dart';
+import 'package:mi_ruta/features/stops/presentation/pages/ruta_mapa_pasajero_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
 
 /// "Paradas cercanas": no hay registros de paradas GTFS reales sembrados
@@ -200,58 +201,72 @@ class _RouteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    // Sin onTap a un "detalle de parada": no hay una pantalla de detalle de
-    // ruta que muestre datos reales (la única existente, StopDetailPage, usa
-    // RouteStopInfo con campos fijos como "Tráfico moderado" — justo lo que
-    // el CLAUDE.md del repo prohíbe simular). La tarjeta queda informativa.
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
+    // Al tocar, se abre el mapa con el recorrido real de la línea
+    // (`RutaMapaPasajeroPage`, reusa `AssignedRouteCard` — mismo widget que
+    // ya usan chofer/presidente, sin nada inventado como "Tráfico
+    // moderado"). No es un "detalle de parada" — es el recorrido de la
+    // línea, que es lo que realmente hay datos reales para mostrar.
+    return Material(
+      color: colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
         borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: Color(0xFFFFC12F),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.directions_bus_filled_outlined,
-              color: Colors.black,
-              size: 22,
-            ),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RutaMapaPasajeroPage(route: route),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Línea ${route.ref} · ${route.name}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFC12F),
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  'Pasa a ${DistanceUtils.formatMeters(distanceMeters)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
+                child: const Icon(
+                  Icons.directions_bus_filled_outlined,
+                  color: Colors.black,
+                  size: 22,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Línea ${route.ref} · ${route.name}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Pasa a ${DistanceUtils.formatMeters(distanceMeters)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

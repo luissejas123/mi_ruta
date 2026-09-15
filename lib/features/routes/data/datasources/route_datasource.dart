@@ -104,11 +104,26 @@ class RouteDatasource {
     );
   }
 
-  /// Crea la ruta si no existe una con el mismo `ref` (+ `direction_id`
-  /// cuando se da), o la actualiza si ya existe. A diferencia de
-  /// [createRoute] (siempre `.add()`), esto es idempotente — pensado para
-  /// "Cargar rutas desde GTFS", que antes duplicaba las ~280 rutas completas
-  /// cada vez que se presionaba el botón.
+  /// Crea la ruta si no existe una con este `ref`, o la actualiza si ya
+  /// existe. A diferencia de [createRoute] (siempre `.add()`), esto es
+  /// idempotente — pensado para "Cargar rutas desde GTFS", que antes
+  /// duplicaba las ~280 rutas completas cada vez que se presionaba el botón.
+  ///
+  /// El documento usa `ref` como ID fijo (no un ID de query-then-branch por
+  /// ref+direction_id como antes): el GTFS parseado siempre trae un
+  /// `direction_id` no nulo por línea (una entrada por sentido), pero ningún
+  /// documento legado en Firestore llegó a tener ese campo escrito — y
+  /// `.where('direction_id', isEqualTo: directionId)` NO matchea documentos
+  /// donde el campo simplemente no existe (mismo gotcha de Firestore que
+  /// [getActiveRoutesPaginated]). Eso hacía que la búsqueda de "ya existe"
+  /// nunca encontrara nada y cada corrida de "Cargar rutas desde GTFS"
+  /// agregara un documento nuevo por línea en vez de reemplazar el viejo
+  /// (confirmado en Firestore: refs con 2-4 documentos duplicados). Con un
+  /// ID fijo = ref no hace falta query para decidir si ya existe, así que el
+  /// bug de matching desaparece por completo. Ambos sentidos de una misma
+  /// línea comparten un solo documento — igual que ya lo consume el resto
+  /// de la app (`getRouteByRef`/`getRouteById` siempre devuelven un único
+  /// documento por ref).
   Future<void> upsertRouteByRef({
     required String name,
     required String ref,
@@ -118,12 +133,8 @@ class RouteDatasource {
     List<Map<String, double>>? polyline,
     String? description,
   }) async {
-    Query<Map<String, dynamic>> query =
-        _firestore.collection('routes').where('ref', isEqualTo: ref);
-    if (directionId != null) {
-      query = query.where('direction_id', isEqualTo: directionId);
-    }
-    final existing = await query.limit(1).get();
+    final docRef = _firestore.collection('routes').doc(ref);
+    final existing = await docRef.get();
 
     final data = {
       'name': name,
@@ -135,16 +146,10 @@ class RouteDatasource {
       'description': description,
       'active': true,
       'updated_at': FieldValue.serverTimestamp(),
+      if (!existing.exists) 'created_at': FieldValue.serverTimestamp(),
     };
 
-    if (existing.docs.isNotEmpty) {
-      await existing.docs.first.reference.set(data, SetOptions(merge: true));
-    } else {
-      await _firestore.collection('routes').add({
-        ...data,
-        'created_at': FieldValue.serverTimestamp(),
-      });
-    }
+    await docRef.set(data, SetOptions(merge: true));
   }
 
   /// Obtiene rutas activas para migración (en lotes para evitar OOM)
@@ -327,13 +332,21 @@ class RouteDatasource {
     }
   }
 
-  /// Obtiene una ruta por número de referencia
+  /// Obtiene una ruta por número de referencia.
+  ///
+  /// Sin filtro 'active': este método resuelve un ref YA elegido en algún
+  /// momento (ruta asignada a un chofer, línea de un presidente, etc.) — no
+  /// es una búsqueda/exploración donde tenga sentido excluir inactivas. Con
+  /// el filtro, cualquier documento de `routes` sin el campo `active`
+  /// (Firestore no lo incluye en un `where(isEqualTo:)`, ver
+  /// `getActiveRoutesPaginated` arriba) desaparecía en silencio — el chofer
+  /// perdía su "ruta asignada" en pantalla aunque `assigned_route_ref`
+  /// siguiera correcto en Firestore, sin ningún error visible.
   Future<RouteEntity?> getRouteByRef(String ref) async {
     try {
       final snapshot = await _firestore
           .collection('routes')
           .where('ref', isEqualTo: ref)
-          .where('active', isEqualTo: true)
           .limit(1)
           .get();
 

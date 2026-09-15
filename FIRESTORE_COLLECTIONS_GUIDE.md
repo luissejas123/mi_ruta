@@ -156,6 +156,8 @@ Notas:
 
 **Corrección (2026-09-12):** esta sección decía `latitude`/`longitude` para los puntos de `stops`/`polyline` — es falso, el lector real (`route_datasource.dart:511-513,526-527`, `_mapToRouteEntity`) lee `lat`/`lng`. Si alguien escribe un documento siguiendo el esquema viejo de esta guía, cada punto se lee como `(0.0, 0.0)` sin ningún error.
 
+**Corrección (2026-09-15):** el ID de documento vía `createRoute` (alta manual desde el admin) sigue siendo auto-id, pero `upsertRouteByRef` (usado por "Cargar rutas desde GTFS") ahora usa **`ref` como ID fijo del documento**, no un ID de query-then-branch. Antes buscaba por `ref`+`direction_id` para decidir si ya existía la ruta, pero como el GTFS parseado siempre trae `direction_id` no nulo y ningún documento legado llegó a tener ese campo escrito, la búsqueda nunca encontraba coincidencia (Firestore no matchea campos ausentes en una igualdad) — cada corrida del botón agregaba un documento nuevo por línea en vez de reemplazar el viejo. Se detectaron y limpiaron manualmente ~140 documentos duplicados/corruptos de una siembra GTFS anterior (mayo 2026, IDs `gtfs_0`..`gtfs_141`, sin `direction_id` ni `description`, con polylines de miles de puntos por concatenar varios shapes sin separador — la causa de rutas que se veían como "polígonos cerrados" en el mapa) antes de aplicar este fix.
+
 ---
 
 ## 🗺️ Colección: routes_bbox
@@ -234,6 +236,8 @@ final routes = await FirebaseFirestore.instance
 
 Los campos `discount_percent`, `business_name`, `is_used`, `valid_until` solo existen cuando `type == "gift"`. `NotificationType` define los valores válidos de `type` en [lib/features/user/domain/entities/app_notification.dart](lib/features/user/domain/entities/app_notification.dart).
 
+**Campos opcionales (2026-09-15):** `related_trip_id` (string) y `related_amount` (number) existen solo en la notificación que el pasajero le manda al chofer con `type: "operational"` al elegir "Escanear QR del chofer" en "Aviso de bajada" (`NotificationService.saveDropOffPaymentRequestNotification`). Traen conectado el `tripId` del viaje de abordaje y el monto ya calculado por distancia — `NotificacionesPage` los usa para armar el QR (`"$driverId|$tripId|$amount"`, mismo formato que decodifica `TripPaymentService.processPayment`) sin que el chofer tenga que crear un cobro nuevo ni teclear un monto.
+
 ---
 
 ## 🕓 Subcolección: trip_history/{uid}/trips
@@ -302,6 +306,8 @@ Al aprobar una solicitud, `active_benefits` se agrega al documento correspondien
 **Estados:** `pending`, `approved`, `rejected`
 **Efecto secundario:** al aprobarse, se actualiza `users/{uid}.wallet.current_balance` y se agrega un doc en `transactions`.
 
+**Revisión (2026-09-14):** el tickeador aprueba/rechaza desde `RevisionRecargasPage` (`lib/features/tickeador/presentation/pages/revision_recargas_page.dart`) — botón en el AppBar de `TickeadorHomePage`. `RechargeService.approveRecharge`/`rejectRecharge` ya existían implementados (créditos correctos a la billetera, campos snake/camelCase sincronizados) pero nada los llamaba desde el Bloque 0 en adelante — las recargas se quedaban `pending` para siempre. `RecargeDatasource.getAllPendingRecharges()` es nuevo (cross-usuario, sin `orderBy` a propósito para no pedir un índice compuesto — se ordena en memoria, mismo patrón que `ClaimDatasource.getClaims`). **Regla de Firestore endurecida** el mismo día: antes `allow read, write: if isSignedIn()` — cualquier usuario podía leerse la recarga de otro o auto-aprobarse `status: 'approved'`. Ahora solo el dueño (crear, siempre en `pending`) o tickeador/admin (aprobar/rechazar) — nueva función `isTickeador()` en `firestore.rules`, mismo patrón dual `roles`/`role` que ya usa `ClaimDatasource._ensureStaff` en Dart.
+
 ---
 
 ## 💰 Colección: transactions
@@ -367,6 +373,7 @@ Al aprobar una solicitud, `active_benefits` se agrega al documento correspondien
   "payment_amount": null,
   "created_at": "<Timestamp>",
   "boarded_at": "<Timestamp>",
+  "route_mismatch": false,
   "paid_at": null,
   "verified_by": null,
   "verified_at": null
@@ -374,8 +381,8 @@ Al aprobar una solicitud, `active_benefits` se agrega al documento correspondien
 ```
 
 **Dos formas de crear el documento**, según quién inicia el viaje (ambas conviven, no se reemplaza una por otra — docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2):
-- **Cobro por QR del chofer** (`DriverDatasource.createTripCharge`, RQ-65): el chofer teclea un monto y genera el viaje con `base_fare` > 0, `status: 'pending'`, sin `passenger_id` (se completa recién cuando el pasajero escanea y `TripPaymentService.processPayment` corre). Sin campo `boarded_at`.
-- **Abordaje del pasajero** (`DriverDatasource.createBoardingTrip`, Bloque 2 paso 3): el pasajero escanea el QR fijo de la unidad (`UnitQrPage`) y el viaje nace con `base_fare: 0` (todavía no hay monto), `status: 'boarding'`, `passenger_id` ya puesto desde el inicio, y `boarded_at`. El monto real se resuelve después, por distancia (`TariffService`), cuando el pasajero presiona "Aviso de bajada" (`TripPaymentService.processDistanceFare`) o por el respaldo de tarifa máxima (`DriverService.chargeStaleBoardingTrips`/`stopService`) si nunca avisa.
+- **Cobro por QR del chofer** (`DriverDatasource.createTripCharge`, RQ-65): el chofer teclea un monto y genera el viaje con `base_fare` > 0, `status: 'pending'`, sin `passenger_id` (se completa recién cuando el pasajero escanea y `TripPaymentService.processPayment` corre). Sin campo `boarded_at`/`route_mismatch`.
+- **Abordaje del pasajero** (`DriverDatasource.createBoardingTrip`, Bloque 2 paso 3, rediseño 2026-09-14): el pasajero, antes de navegar, confirma abordaje en `ConfirmarAbordajePage` — escanea el QR fijo de la unidad (`UnitQrPage`) o escribe su placa (`DriverDatasource.getVehicleByPlate`). El viaje nace con `base_fare: 0` (todavía no hay monto), `status: 'boarding'`, `passenger_id` ya puesto desde el inicio, `boarded_at`, y `route_mismatch` (bool) — `true` si el GPS del pasajero, al confirmar, estaba a más de 150 m del trazado real de la línea de esa unidad (`DistanceUtils.distanceToPolylineMeters`); se le avisa en el momento pero no se bloquea el abordaje, solo queda registrado como observación. El monto real se resuelve después, por distancia (`TariffService`), cuando el pasajero presiona "Aviso de bajada" (`TripPaymentService.processDistanceFare`) o por el respaldo de tarifa máxima (`DriverService.chargeStaleBoardingTrips`/`stopService`) si nunca avisa.
 
 **Estados de `status`:** `pending` (cobro QR recién creado) → `completed` (pagado). `boarding` (abordaje recién creado) → `completed` (cobrado por distancia o por respaldo de tarifa máxima). **`payment_status`:** `pending` → `paid`. `payment_method` de la transacción espejo en `transactions` distingue `qr` de `distance`.
 

@@ -304,11 +304,16 @@ class DriverDatasource {
   /// Crea el viaje al ABORDAR (no al pagar) — a diferencia de
   /// [createTripCharge] (chofer teclea un monto y genera un QR de cobro
   /// inmediato), acá el pasajero ya escaneó el QR fijo de la unidad
-  /// (`UnitQrPage`) para confirmar que subió; `passenger_id` queda puesto
-  /// desde el inicio y el monto se resuelve después, por distancia, cuando
-  /// el pasajero avise que baja (o por el respaldo de tarifa máxima si
-  /// nunca avisa). `base_fare: 0` marca "todavía no hay monto preestablecido"
-  /// — a diferencia de un cobro por QR, que siempre nace con un monto > 0.
+  /// (`UnitQrPage`) o escribió la placa para confirmar que subió;
+  /// `passenger_id` queda puesto desde el inicio y el monto se resuelve
+  /// después, por distancia, cuando el pasajero avise que baja (o por el
+  /// respaldo de tarifa máxima si nunca avisa). `base_fare: 0` marca
+  /// "todavía no hay monto preestablecido" — a diferencia de un cobro por
+  /// QR, que siempre nace con un monto > 0.
+  /// [routeMismatch] queda registrado si el GPS del pasajero al confirmar
+  /// el abordaje estaba lejos del trazado real de la línea de la unidad —
+  /// observación silenciosa, no bloquea el abordaje (ver
+  /// `ConfirmarAbordajePage`).
   /// docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2, paso 3.
   Future<String> createBoardingTrip({
     required String driverId,
@@ -316,6 +321,7 @@ class DriverDatasource {
     required String routeRef,
     required String routeName,
     required String passengerId,
+    bool routeMismatch = false,
   }) async {
     final doc = await _firestore.collection('trips').add({
       'driver_id': driverId,
@@ -326,10 +332,30 @@ class DriverDatasource {
       'status': 'boarding',
       'payment_status': 'pending',
       'passenger_id': passengerId,
+      'route_mismatch': routeMismatch,
       'boarded_at': FieldValue.serverTimestamp(),
       'created_at': FieldValue.serverTimestamp(),
     });
     return doc.id;
+  }
+
+  /// Busca un vehículo por placa (`vehicle_id`) — segunda forma de
+  /// confirmar abordaje además de escanear el QR fijo de la unidad. Mismo
+  /// patrón que `TickeadorDatasource.buscarVehiculoPorPlaca` (trim +
+  /// mayúsculas, query por campo en vez de asumir que `vehicle_id` es el ID
+  /// del documento).
+  Future<VehicleEntity?> getVehicleByPlate(String plate) async {
+    final placaTrim = plate.trim().toUpperCase();
+    if (placaTrim.isEmpty) return null;
+    final snapshot = await _firestore
+        .collection('vehicles')
+        .where('vehicle_id', isEqualTo: placaTrim)
+        .limit(1)
+        .get();
+    if (snapshot.docs.isEmpty) return null;
+    return _vehicleFromDoc(
+      snapshot.docs.first as DocumentSnapshot<Map<String, dynamic>>,
+    );
   }
 
   /// Viajes de abordaje todavía sin cobrar de una unidad — usado para cobrar

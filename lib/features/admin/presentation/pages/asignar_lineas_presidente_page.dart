@@ -58,7 +58,13 @@ class _AsignarLineasPresidentePageState extends State<AsignarLineasPresidentePag
       await getIt<UserManagementService>()
           .assignPresidenteLines(presidente.uid, managedLines: picked);
       if (!mounted) return;
-      setState(() => _future = _load());
+      // `() => _future = _load()` devuelve el Future asignado (valor de la
+      // expresión), no void — setState() lo rechaza en tiempo de ejecución
+      // aunque la escritura ya haya funcionado (mismo bug que
+      // administracion_beneficios_page.dart, ver docs/Capturas QA 11).
+      setState(() {
+        _future = _load();
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

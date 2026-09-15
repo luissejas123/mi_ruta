@@ -41,7 +41,13 @@ class _AdministracionBeneficiosPageState
   }
 
   Future<void> _reload() async {
-    setState(() => _requests = _service.getAllBenefitRequests());
+    // `() => _requests = ...` devuelve el Future asignado (valor de la
+    // expresión), no void — setState() lo rechaza en tiempo de ejecución
+    // ("callback argument returned a Future") aunque la escritura ya haya
+    // funcionado. El bloque `{ ... }` sí devuelve void.
+    setState(() {
+      _requests = _service.getAllBenefitRequests();
+    });
     await _requests;
   }
 

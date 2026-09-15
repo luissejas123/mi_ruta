@@ -123,6 +123,20 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
+  // Mismo criterio que PresidentePanelPage (tabs [0,2,3]) y
+  // TickeadorHomePage (tabs [0,3]): esos roles no tienen billetera propia,
+  // así que Perfil tampoco debe ofrecer esa pestaña.
+  List<int> _tabsForRole(String role) {
+    switch (role) {
+      case 'presidente':
+        return const [0, 2, 3];
+      case 'tickeador':
+        return const [0, 3];
+      default:
+        return const [0, 1, 2, 3];
+    }
+  }
+
   void _navigateToEditarPerfil(
     String uid,
     String fullName,
@@ -746,6 +760,14 @@ class _PerfilPageState extends State<PerfilPage> {
         ),
         bottomNavigationBar: CustomBottomNav(
           currentIndex: _navIndexPerfil,
+          // PerfilPage es compartida por todos los roles (se llega igual
+          // desde cualquier "Inicio"), así que antes siempre mostraba las 4
+          // pestañas — incluida Billetera para dirigente/tickeador, que no
+          // tienen billetera en sus propios paneles de inicio
+          // (PresidentePanelPage: tabs [0,2,3], TickeadorHomePage: tabs
+          // [0,3]). Mismo criterio acá para que Perfil no "readquiera" una
+          // pestaña que el resto de las pantallas del rol ya esconde.
+          tabs: _tabsForRole(authState is AuthLoaded ? authState.user.role : ''),
           onTap: _onNavTap,
         ),
       );

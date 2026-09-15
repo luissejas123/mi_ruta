@@ -3,18 +3,22 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/core/utils/distance_utils.dart';
 import 'package:mi_ruta/core/utils/location_icon_painter.dart';
-import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/tariff_service.dart';
 import 'package:mi_ruta/features/user/domain/entities/osm_route.dart';
 import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 import 'package:mi_ruta/features/user/domain/services/navigation_marker_builder_service.dart';
 import 'package:mi_ruta/features/user/domain/services/navigation_polyline_builder_service.dart';
 import 'package:mi_ruta/features/user/domain/services/navigation_utils_service.dart';
+import 'package:mi_ruta/features/user/domain/services/pago_qr_utils_service.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_phase_service.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_payment_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_state.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_event.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_state.dart';
+import 'package:mi_ruta/features/user/presentation/pages/qr_scanner_page.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/map_styles.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
@@ -22,9 +26,6 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_history_service.dart';
 import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
-import 'package:mi_ruta/features/user/presentation/pages/qr_scanner_page.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/nav_bottom_panel.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/nav_summary_sheet.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/nav_top_bar.dart';
@@ -39,6 +40,12 @@ class RutaNavegacionPage extends StatelessWidget {
   final List<LatLng> transitSegment;
   final List<LatLng> walkStartPoints;
   final List<LatLng> walkEndPoints;
+  // Abordaje ya confirmado en ConfirmarAbordajePage antes de llegar acá
+  // (Bloque 2, paso 3, rediseño 2026-09-14) — habilita "Aviso de bajada"
+  // desde el inicio, sin depender de ninguna fase de navegación.
+  final String? initialBoardingTripId;
+  final String? initialBoardingDriverId;
+  final String? initialBoardingRouteRef;
 
   const RutaNavegacionPage({
     super.key,
@@ -51,6 +58,9 @@ class RutaNavegacionPage extends StatelessWidget {
     required this.transitSegment,
     required this.walkStartPoints,
     required this.walkEndPoints,
+    this.initialBoardingTripId,
+    this.initialBoardingDriverId,
+    this.initialBoardingRouteRef,
   });
 
   @override
@@ -63,6 +73,9 @@ class RutaNavegacionPage extends StatelessWidget {
             boardingStop: boardingStop,
             alightingStop: alightingStop,
             destination: destination.latLng,
+            initialBoardingTripId: initialBoardingTripId,
+            initialBoardingDriverId: initialBoardingDriverId,
+            initialBoardingRouteRef: initialBoardingRouteRef,
           ),
         ),
       child: _RutaNavegacionView(
@@ -109,16 +122,17 @@ class _RutaNavegacionView extends StatefulWidget {
 
 class _RutaNavegacionViewState extends State<_RutaNavegacionView>
     with WidgetsBindingObserver {
-  static const _navIndexRoutes = 2;
-
   GoogleMapController? _mapController;
   BitmapDescriptor? _locationIcon;
   late final NavigationBloc _navBloc;
 
   bool _followUser = true;
   bool _isProgrammaticMove = false;
-  bool _confirmingBoarding = false;
   bool _chargingFare = false;
+  bool _payingViaQr = false;
+  // tripId del abordaje pendiente de cerrar sin cobro si el pago por QR
+  // (segunda opción de "Aviso de bajada") resulta exitoso.
+  String? _pendingQrBoardingTripId;
 
   @override
   void initState() {
@@ -168,110 +182,86 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
     Navigator.of(context).pop(false);
   }
 
-  /// Escanea el QR fijo de la unidad (`UnitQrPage`, `ownerUid|vehicleId`)
-  /// para confirmar abordaje — habilita "Aviso de bajada" (Bloque 2, paso 3).
-  /// Opcional: si el pasajero no escanea, sigue pudiendo navegar y pagar por
-  /// el flujo de QR de cobro del chofer como siempre (ambos mecanismos
-  /// conviven, no se reemplaza uno por otro).
-  Future<void> _confirmBoarding() async {
-    if (_confirmingBoarding) return;
-    setState(() => _confirmingBoarding = true);
-    try {
-      final qrCode = await Navigator.push<String>(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              const QRScannerPage(title: 'Escanea el QR de la unidad'),
-        ),
-      );
-      if (qrCode == null || qrCode.isEmpty) return;
-
-      final parts = qrCode.split('|');
-      if (parts.length != 2) {
-        throw Exception(
-          'Ese QR no es el de una unidad — escanea el que está pegado en el vehículo.',
-        );
-      }
-      final ownerUid = parts[0];
-      final vehicleId = parts[1];
-
-      final driverService = getIt<DriverService>();
-      final vehicle = await driverService.getAssignedVehicle(ownerUid);
-      if (vehicle == null || vehicle.vehicleId != vehicleId) {
-        throw Exception('No se pudo verificar la unidad escaneada.');
-      }
-      if (!mounted) return;
-
-      final authState = context.read<AuthBloc>().state;
-      if (authState is! AuthLoaded) {
-        throw Exception('Sesión no válida.');
-      }
-
-      final route = await driverService.getAssignedRoute(vehicle);
-      final tripId = await driverService.createBoardingTrip(
-        vehicle: vehicle,
-        passengerId: authState.user.uid,
-        route: route,
-      );
-
-      if (!mounted) return;
-      _navBloc.add(
-        BoardingConfirmed(
-          tripId: tripId,
-          driverId: vehicle.ownerUid,
-          routeRef: route?.ref ?? vehicle.lineNumber,
-        ),
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Abordaje confirmado.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No se pudo confirmar el abordaje: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _confirmingBoarding = false);
-    }
-  }
-
-  /// Cobra la tarifa según la distancia recorrida desde que se abordó,
-  /// proyectada sobre el tramo de bus (`widget.transitSegment`) — misma
-  /// lógica que ya usa `DriverService.notifyStop`/`distanceToPolylineMeters`
-  /// para GPS, pero acumulando distancia recorrida en vez de solo cercanía.
-  Future<void> _avisoDeBajada() async {
-    if (_chargingFare) return;
+  /// Punto de entrada de "Aviso de bajada": calcula la tarifa por distancia
+  /// recorrida y deja elegir entre cobrarla directo o pagar escaneando el QR
+  /// del chofer (el mismo mecanismo de Billetera → "Pagar viaje"). El QR es
+  /// redundante — el viaje ya quedó identificado al abordar, en
+  /// `ConfirmarAbordajePage` — pero se ofrece igual porque le da al
+  /// pasajero la sensación de control total sobre su propio cobro.
+  Future<void> _onAvisoDeBajadaPressed() async {
+    if (_chargingFare || _payingViaQr) return;
     final navState = _navBloc.state;
     final tripId = navState.boardingTripId;
     final driverId = navState.boardingDriverId;
     final routeRef = navState.boardingRouteRef;
     if (tripId == null || driverId == null || routeRef == null) return;
 
+    final position = navState.currentPosition;
+    if (position == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo obtener tu ubicación actual.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    double fare;
+    try {
+      final traveledMeters = DistanceUtils.distanceAlongPolylineMeters(
+        position,
+        widget.transitSegment,
+      );
+      fare = await getIt<TariffService>().resolveFareForDistance(
+        routeRef,
+        traveledMeters / 1000,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo calcular la tarifa: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    final choice = await showModalBottomSheet<_AvisoBajadaChoice>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _AvisoBajadaSheet(fare: fare),
+    );
+    if (choice == null || !mounted) return;
+
+    if (choice == _AvisoBajadaChoice.distance) {
+      await _chargeByDistance(fare: fare, tripId: tripId, driverId: driverId);
+    } else {
+      await _payViaQr(
+        tripId: tripId,
+        driverId: driverId,
+        routeName: widget.route.name,
+        fare: fare,
+      );
+    }
+  }
+
+  /// Cobra directo la tarifa ya calculada por distancia recorrida — misma
+  /// lógica que ya usa `DriverService.notifyStop`/`distanceToPolylineMeters`
+  /// para GPS, pero acumulando distancia recorrida en vez de solo cercanía.
+  Future<void> _chargeByDistance({
+    required double fare,
+    required String tripId,
+    required String driverId,
+  }) async {
     setState(() => _chargingFare = true);
     try {
       final authState = context.read<AuthBloc>().state;
       if (authState is! AuthLoaded) {
         throw Exception('Sesión no válida.');
       }
-      final position = navState.currentPosition;
-      if (position == null) {
-        throw Exception('No se pudo obtener tu ubicación actual.');
-      }
-
-      final traveledMeters = DistanceUtils.distanceAlongPolylineMeters(
-        position,
-        widget.transitSegment,
-      );
-      final fare = await getIt<TariffService>().resolveFareForDistance(
-        routeRef,
-        traveledMeters / 1000,
-      );
 
       final result = await getIt<TripPaymentService>().processDistanceFare(
         userId: authState.user.uid,
@@ -301,6 +291,102 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
       );
     } finally {
       if (mounted) setState(() => _chargingFare = false);
+    }
+  }
+
+  /// Avisa al chofer (notificación con el mismo `tripId` del abordaje +
+  /// monto ya calculado) y abre el escáner — mismo flujo/formato que
+  /// `PagoQRPage` en Billetera ("driverId|tripId|amount"), pero el QR que
+  /// el chofer va a mostrar sale de esa notificación (`NotificacionesPage`
+  /// → "Mostrar QR"), no de un cobro nuevo: es el MISMO viaje de abordaje,
+  /// no uno desconectado. El resultado llega vía `TripPaymentBLoC`
+  /// (singleton de app), escuchado en `build()`.
+  Future<void> _payViaQr({
+    required String tripId,
+    required String driverId,
+    required String routeName,
+    required double fare,
+  }) async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthLoaded) return;
+
+    try {
+      await getIt<NotificationService>().saveDropOffPaymentRequestNotification(
+        driverId,
+        tripId: tripId,
+        amount: fare,
+        passengerName: authState.user.fullName,
+        routeName: routeName,
+      );
+    } catch (_) {
+      // No bloquea el flujo si la notificación falla — el chofer puede
+      // enterarse igual si el pasajero le avisa de palabra.
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Avisamos al chofer. Escaneá su QR cuando te lo muestre.'),
+        backgroundColor: Colors.blue,
+      ),
+    );
+
+    final qrResult = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => const QRScannerPage(title: 'Escanear QR del chofer'),
+      ),
+    );
+    if (!mounted || !PagoQRUtilsService.isValidQrResult(qrResult)) return;
+
+    // Limpia cualquier resultado pegado de una visita anterior a Billetera
+    // → Pagar viaje antes de esperar el nuestro (mismo bloc singleton).
+    context.read<TripPaymentBLoC>().add(const ClearPaymentEvent());
+    setState(() {
+      _pendingQrBoardingTripId = tripId;
+      _payingViaQr = true;
+    });
+    context.read<TripPaymentBLoC>().add(
+      ProcessPaymentEvent(userId: authState.user.uid, qrData: qrResult!),
+    );
+  }
+
+  /// Reacciona al resultado de `_payViaQr`. El QR que mostró el chofer
+  /// codifica el MISMO `tripId` del abordaje (ver
+  /// `NotificationService.saveDropOffPaymentRequestNotification` +
+  /// `NotificacionesPage._showQrDetail`), así que `TripPaymentService`
+  /// cobra directo ese viaje — no hace falta cerrar ningún otro por
+  /// separado. `state.tripId` se compara contra el que esperábamos por si
+  /// llega un resultado de otro pago desconectado (mismo bloc singleton).
+  void _onQrPaymentResult(TripPaymentState state) {
+    final expectedTripId = _pendingQrBoardingTripId;
+    if (!_payingViaQr || expectedTripId == null) return;
+
+    if (state is TripPaymentSuccess && state.tripId != expectedTripId) {
+      return;
+    }
+
+    if (state is TripPaymentSuccess) {
+      setState(() {
+        _payingViaQr = false;
+        _pendingQrBoardingTripId = null;
+      });
+      _navBloc.add(FareCharged(state.amount));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Cobrado Bs. ${state.amount.toStringAsFixed(2)} por QR'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else if (state is TripPaymentError) {
+      setState(() {
+        _payingViaQr = false;
+        _pendingQrBoardingTripId = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo procesar el QR: ${state.message}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -399,21 +485,32 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
   @override
   Widget build(BuildContext context) {
     final isDark = context.watch<ThemeCubit>().state;
-    return BlocListener<NavigationBloc, NavigationState>(
-      listener: (context, state) {
-        if (state.currentPosition != null &&
-            _mapController != null &&
-            _followUser) {
-          _isProgrammaticMove = true;
-          _mapController!.animateCamera(
-            CameraUpdate.newLatLng(state.currentPosition!),
-          );
-        }
-        // ✅ Comparación directa con enum en vez de toString()
-        if (state.phase == TripPhase.arrived) {
-          _showSummarySheet(state.elapsed);
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<NavigationBloc, NavigationState>(
+          listener: (context, state) {
+            if (state.currentPosition != null &&
+                _mapController != null &&
+                _followUser) {
+              _isProgrammaticMove = true;
+              _mapController!.animateCamera(
+                CameraUpdate.newLatLng(state.currentPosition!),
+              );
+            }
+            // ✅ Comparación directa con enum en vez de toString()
+            if (state.phase == TripPhase.arrived) {
+              _showSummarySheet(state.elapsed);
+            }
+          },
+        ),
+        // Resultado del pago por QR desde "Aviso de bajada" (segunda opción,
+        // ver _payViaQr). `listenWhen` evita reaccionar a un pago de QR sin
+        // relación disparado en otra pantalla — TripPaymentBLoC es singleton.
+        BlocListener<TripPaymentBLoC, TripPaymentState>(
+          listenWhen: (_, _) => _payingViaQr,
+          listener: (context, state) => _onQrPaymentResult(state),
+        ),
+      ],
       child: Scaffold(
         body: BlocBuilder<NavigationBloc, NavigationState>(
           builder: (context, state) {
@@ -470,7 +567,7 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
                   elapsed: DistanceUtils.formatDuration(state.elapsed),
                   onBack: _onBackPressed,
                 ),
-                if (state.phase == TripPhase.onBus)
+                if (state.boardingTripId != null)
                   Positioned(
                     top: 0,
                     left: 16,
@@ -479,12 +576,9 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
                       child: Padding(
                         padding: const EdgeInsets.only(top: 78),
                         child: _BoardingBanner(
-                          boardingTripId: state.boardingTripId,
                           farePaid: state.farePaid,
-                          confirmingBoarding: _confirmingBoarding,
-                          chargingFare: _chargingFare,
-                          onConfirmBoarding: _confirmBoarding,
-                          onAvisoDeBajada: _avisoDeBajada,
+                          chargingFare: _chargingFare || _payingViaQr,
+                          onAvisoDeBajada: _onAvisoDeBajadaPressed,
                         ),
                       ),
                     ),
@@ -523,33 +617,23 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
             );
           },
         ),
-        bottomNavigationBar: CustomBottomNav(
-          currentIndex: _navIndexRoutes,
-          onTap: (index) => navigateBottomNav(context, index),
-        ),
       ),
     );
   }
 }
 
-/// Banner de abordaje/cobro por distancia mientras `phase == onBus`
-/// (Bloque 2, paso 3). Tres estados: sin abordaje confirmado (botón para
-/// escanear el QR de la unidad), abordaje confirmado sin cobrar (botón
-/// "Aviso de bajada"), o ya cobrado (chip de confirmación).
+/// Banner de cobro por distancia — visible desde el inicio de la navegación
+/// (el abordaje ya se confirmó antes, en `ConfirmarAbordajePage`). Dos
+/// estados: sin cobrar todavía (botón "Aviso de bajada") o ya cobrado (chip
+/// de confirmación).
 class _BoardingBanner extends StatelessWidget {
-  final String? boardingTripId;
   final double? farePaid;
-  final bool confirmingBoarding;
   final bool chargingFare;
-  final VoidCallback onConfirmBoarding;
   final VoidCallback onAvisoDeBajada;
 
   const _BoardingBanner({
-    required this.boardingTripId,
     required this.farePaid,
-    required this.confirmingBoarding,
     required this.chargingFare,
-    required this.onConfirmBoarding,
     required this.onAvisoDeBajada,
   });
 
@@ -580,37 +664,6 @@ class _BoardingBanner extends StatelessWidget {
       );
     }
 
-    if (boardingTripId == null) {
-      return Material(
-        elevation: 4,
-        borderRadius: BorderRadius.circular(12),
-        child: ElevatedButton.icon(
-          onPressed: confirmingBoarding ? null : onConfirmBoarding,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFFC12F),
-            foregroundColor: Colors.black,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          icon: confirmingBoarding
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.black,
-                  ),
-                )
-              : const Icon(Icons.qr_code_scanner),
-          label: const Text(
-            'Escanear QR de la unidad',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
-      );
-    }
-
     return Material(
       elevation: 4,
       borderRadius: BorderRadius.circular(12),
@@ -636,6 +689,80 @@ class _BoardingBanner extends StatelessWidget {
         label: const Text(
           'Aviso de bajada',
           style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+}
+
+enum _AvisoBajadaChoice { distance, qr }
+
+/// Elegir cómo pagar al avisar que bajás: por distancia recorrida (ya
+/// calculada) o escaneando el QR de cobro del chofer — mismo mecanismo que
+/// Billetera → "Pagar viaje". El QR es redundante (el viaje ya quedó
+/// identificado al abordar), pero se ofrece para que el pasajero sienta que
+/// tiene control total sobre su propio cobro.
+class _AvisoBajadaSheet extends StatelessWidget {
+  final double fare;
+
+  const _AvisoBajadaSheet({required this.fare});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '¿Cómo querés pagar tu viaje?',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Tarifa calculada por la distancia recorrida: '
+              'Bs. ${fare.toStringAsFixed(2)}',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () =>
+                    Navigator.pop(context, _AvisoBajadaChoice.distance),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade600,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.logout),
+                label: Text('Pagar Bs. ${fare.toStringAsFixed(2)} (por distancia)'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.pop(context, _AvisoBajadaChoice.qr),
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Escanear QR del chofer'),
+              ),
+            ),
+          ],
         ),
       ),
     );

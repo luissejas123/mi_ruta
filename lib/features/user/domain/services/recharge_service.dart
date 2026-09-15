@@ -64,8 +64,9 @@ class RechargeService {
     return _datasource.getRechargesByUserId(userId);
   }
 
-  /// Aprueba una recarga (automático o manual)
-  /// Abona el saldo a la billetera
+  /// Aprueba una recarga (verificación del tickeador, docs/
+  /// PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0) — abona el saldo a la
+  /// billetera del usuario.
   Future<void> approveRecharge(String rechargeId, String userId) async {
     final recharge = await _datasource.getRechargeById(rechargeId);
 
@@ -77,15 +78,17 @@ class RechargeService {
       throw Exception('Solo se pueden aprobar recargas pendientes');
     }
 
-    // Aprobar en Firestore
     await _datasource.approveRecharge(rechargeId, userId);
-
-    // Opcional: Aquí podrías notificar al usuario
   }
 
-  /// Obtiene recargas pendientes (para admin)
-  Future<List<Recharge>> getPendingRecharges(String userId) async {
-    final recharges = await _datasource.getRechargesByUserId(userId);
-    return recharges.where((r) => r.status == 'pending').toList();
+  /// Rechaza una recarga (verificación del tickeador) — el comprobante no
+  /// corresponde/es ilegible/etc. No se acredita nada.
+  Future<void> rejectRecharge(String rechargeId, String reason) async {
+    await _datasource.rejectRecharge(rechargeId, reason);
   }
+
+  /// Todas las recargas pendientes de cualquier usuario — para la pantalla
+  /// de revisión del tickeador.
+  Future<List<Recharge>> getAllPendingRecharges() =>
+      _datasource.getAllPendingRecharges();
 }

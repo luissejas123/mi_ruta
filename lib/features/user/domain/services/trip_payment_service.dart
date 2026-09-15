@@ -133,6 +133,16 @@ class TripPaymentService {
       if (freshTripData['payment_status'] == 'paid') {
         throw Exception('Este viaje ya fue pagado');
       }
+      // Un viaje de abordaje (`createBoardingTrip`) ya trae `passenger_id`
+      // puesto desde que subió — si alguien escanea el QR equivocado (dos
+      // pasajeros bajando de la misma unidad casi a la vez), esto evita
+      // cobrarle a uno el viaje del otro. Un cobro manual del chofer
+      // (`createTripCharge`) nace sin `passenger_id`, así que lo toma quien
+      // lo escanee primero, sin cambios respecto al comportamiento actual.
+      final existingPassengerId = freshTripData['passenger_id'] as String?;
+      if (existingPassengerId != null && existingPassengerId != userId) {
+        throw Exception('Este viaje ya está asociado a otro pasajero');
+      }
 
       // Descontar de billetera del usuario
       transaction.update(_firestore.collection('users').doc(userId), {

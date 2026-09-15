@@ -13,8 +13,6 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_state.dart';
-import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
-import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
@@ -410,7 +408,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
       _buildStep('1', 'Descarga o escanea el QR con tu app bancaria'),
       _buildStep('2', 'Realiza la transferencia del monto deseado'),
       _buildStep('3', 'Ingresa el monto y sube el comprobante'),
-      _buildStep('4', 'Tu saldo se cargará de inmediato a tu billetera'),
+      _buildStep('4', 'Un tickeador revisará tu comprobante antes de acreditar el saldo'),
     ],
   );
 
@@ -554,23 +552,23 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Colors.green.shade50,
+      color: Colors.orange.shade50,
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: Colors.green.shade300, width: 1.5),
+      border: Border.all(color: Colors.orange.shade300, width: 1.5),
     ),
     child: Column(
       children: [
         Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.green.shade700, size: 24),
+            Icon(Icons.hourglass_top, color: Colors.orange.shade800, size: 24),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Saldo cargado',
+                'Comprobante en revisión',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: Colors.green.shade800,
+                  color: Colors.orange.shade900,
                 ),
               ),
             ),
@@ -579,15 +577,15 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
         const SizedBox(height: 8),
         Text(
           _lastRechargeAmount != null
-              ? 'Tu comprobante fue recibido y se cargó '
-                    'Bs. ${_lastRechargeAmount!.toStringAsFixed(2)} '
-                    'a tu billetera. '
-                    'Revisa tu saldo en Mi Billetera.'
-              : 'Tu comprobante fue recibido y el saldo se cargó '
-                    'a tu billetera de inmediato.',
+              ? 'Recibimos tu comprobante por Bs. '
+                    '${_lastRechargeAmount!.toStringAsFixed(2)}. '
+                    'Un tickeador lo verificará antes de acreditar el saldo '
+                    'a tu billetera — no está disponible todavía.'
+              : 'Recibimos tu comprobante. Un tickeador lo verificará antes '
+                    'de acreditar el saldo a tu billetera.',
           style: TextStyle(
             fontSize: 13,
-            color: Colors.green.shade800,
+            color: Colors.orange.shade900,
             height: 1.4,
           ),
         ),
@@ -645,9 +643,11 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
       listener: (context, state) {
         setState(() => _isProcessing = false);
         if (state is RechargeSubmitted) {
-          context.read<WalletBloc>().add(LoadWalletEvent(_userId));
+          // No se recarga el WalletBloc acá — todavía no hay saldo nuevo que
+          // reflejar, la recarga queda pendiente hasta que el tickeador la
+          // verifique (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0).
           getIt<NotificationService>()
-              .saveRechargeNotification(_userId, state.amount);
+              .saveRechargeSubmittedNotification(_userId, state.amount);
           setState(() {
             _comprobanteEnviado = true;
             _lastRechargeAmount = state.amount;

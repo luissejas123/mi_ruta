@@ -26,6 +26,10 @@ class NotificationDatasource {
       data['is_used'] = n.isUsed ?? false;
       data['valid_until'] = n.validUntil!.toIso8601String();
     }
+    if (n.relatedTripId != null) {
+      data['related_trip_id'] = n.relatedTripId;
+      data['related_amount'] = n.relatedAmount;
+    }
     await _col(n.userId).doc(n.id).set(data);
   }
 
@@ -87,6 +91,8 @@ class NotificationDatasource {
       validUntil: d['valid_until'] != null
           ? DateTime.parse(d['valid_until'] as String)
           : null,
+      relatedTripId: d['related_trip_id'] as String?,
+      relatedAmount: (d['related_amount'] as num?)?.toDouble(),
     );
   }
 }

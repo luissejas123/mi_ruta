@@ -1,18 +1,26 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
 import 'package:mi_ruta/features/user/domain/services/recharge_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_state.dart';
 
 class RechargeBloC extends Bloc<RechargeEvent, RechargeState> {
   final RechargeService _rechargeService;
+  final NotificationService _notificationService;
 
-  RechargeBloC({required RechargeService rechargeService})
-    : _rechargeService = rechargeService,
-      super(const RechargeInitial()) {
+  RechargeBloC({
+    required RechargeService rechargeService,
+    required NotificationService notificationService,
+  })  : _rechargeService = rechargeService,
+        _notificationService = notificationService,
+        super(const RechargeInitial()) {
     on<SubmitRechargeEvent>(_onSubmitRecharge);
     on<LoadRechargeHistoryEvent>(_onLoadHistory);
     on<LoadRechargeStatusEvent>(_onLoadStatus);
     on<ClearRechargeEvent>(_onClear);
+    on<LoadPendingRechargesEvent>(_onLoadPending);
+    on<ApproveRechargeEvent>(_onApprove);
+    on<RejectRechargeEvent>(_onReject);
   }
 
   Future<void> _onSubmitRecharge(
@@ -84,5 +92,56 @@ class RechargeBloC extends Bloc<RechargeEvent, RechargeState> {
     Emitter<RechargeState> emit,
   ) async {
     emit(const RechargeInitial());
+  }
+
+  Future<void> _onLoadPending(
+    LoadPendingRechargesEvent event,
+    Emitter<RechargeState> emit,
+  ) async {
+    emit(const RechargeLoading());
+    try {
+      final recharges = await _rechargeService.getAllPendingRecharges();
+      emit(PendingRechargesLoaded(recharges));
+    } catch (e) {
+      emit(RechargeError(message: 'Error al obtener recargas pendientes: $e'));
+    }
+  }
+
+  Future<void> _onApprove(
+    ApproveRechargeEvent event,
+    Emitter<RechargeState> emit,
+  ) async {
+    emit(const RechargeLoading());
+    try {
+      await _rechargeService.approveRecharge(event.rechargeId, event.userId);
+      await _notificationService.saveRechargeNotification(
+        event.userId,
+        event.amount,
+      );
+      final recharges = await _rechargeService.getAllPendingRecharges();
+      emit(const RechargeActionSuccess('Recarga aprobada y acreditada.'));
+      emit(PendingRechargesLoaded(recharges));
+    } catch (e) {
+      emit(RechargeError(message: 'Error al aprobar recarga: $e'));
+    }
+  }
+
+  Future<void> _onReject(
+    RejectRechargeEvent event,
+    Emitter<RechargeState> emit,
+  ) async {
+    emit(const RechargeLoading());
+    try {
+      await _rechargeService.rejectRecharge(event.rechargeId, event.reason);
+      await _notificationService.saveRechargeRejectedNotification(
+        event.userId,
+        event.amount,
+      );
+      final recharges = await _rechargeService.getAllPendingRecharges();
+      emit(const RechargeActionSuccess('Recarga rechazada.'));
+      emit(PendingRechargesLoaded(recharges));
+    } catch (e) {
+      emit(RechargeError(message: 'Error al rechazar recarga: $e'));
+    }
   }
 }

@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/map_styles.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
+import 'package:mi_ruta/core/utils/location_icon_painter.dart';
 import 'package:mi_ruta/core/utils/map_utils.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
 import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
@@ -40,11 +41,35 @@ class _DriverServiceMapState extends State<DriverServiceMap> {
   bool _loading = true;
   bool _locationDenied = false;
   StreamSubscription<Position>? _positionSubscription;
+  BitmapDescriptor? _locationIcon;
+  // La cámara seguía la posición en CADA actualización del GPS (cada ~5m),
+  // así que un chofer que intentaba paniar el mapa para mirar otra calle
+  // era "empujado" de vuelta a su ubicación en el siguiente tick — no
+  // dejaba navegar el mapa. Ahora el auto-seguimiento se pausa apenas el
+  // chofer arrastra el mapa con el dedo, y un botón lo vuelve a activar.
+  bool _autoFollow = true;
 
   @override
   void initState() {
     super.initState();
     _loadLocation();
+    _loadLocationIcon();
+  }
+
+  @override
+  void didUpdateWidget(DriverServiceMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.inService != widget.inService) _loadLocationIcon();
+  }
+
+  /// Círculo tipo "punto" en vez del pin genérico de Maps, verde/naranja
+  /// según en/fuera de servicio — se regenera si ese estado cambia porque
+  /// el color queda "horneado" en el bitmap, no es una propiedad del Marker.
+  Future<void> _loadLocationIcon() async {
+    final icon = await LocationIconPainter.build(
+      color: widget.inService ? Colors.green.shade600 : Colors.orange.shade700,
+    );
+    if (mounted && icon != null) setState(() => _locationIcon = icon);
   }
 
   Future<void> _loadLocation() async {
@@ -82,8 +107,18 @@ class _DriverServiceMapState extends State<DriverServiceMap> {
       // El marcador se movía solo (arriba), pero la cámara se quedaba fija
       // en la posición inicial — sin esto la app parecía no rastrear en
       // tiempo real (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 1).
-      _controller?.animateCamera(CameraUpdate.newLatLng(updated));
+      // Solo si el chofer no está paniando el mapa a mano ahora mismo.
+      if (_autoFollow) {
+        _controller?.animateCamera(CameraUpdate.newLatLng(updated));
+      }
     });
+  }
+
+  void _recenter() {
+    setState(() => _autoFollow = true);
+    if (_myLocation != null) {
+      _controller?.animateCamera(CameraUpdate.newLatLng(_myLocation!));
+    }
   }
 
   List<LatLng> _routePoints() {
@@ -146,39 +181,67 @@ class _DriverServiceMapState extends State<DriverServiceMap> {
       borderRadius: BorderRadius.circular(16),
       child: SizedBox(
         height: widget.height,
-        child: GoogleMap(
-          style: isDark ? MapStyles.dark : null,
-          initialCameraPosition: CameraPosition(target: _myLocation!, zoom: 15),
-          onMapCreated: (controller) {
-            _controller = controller;
-            if (points.length > 1) {
-              WidgetsBinding.instance.addPostFrameCallback((_) => _fitRoute());
-            }
-          },
-          myLocationEnabled: false,
-          myLocationButtonEnabled: false,
-          zoomControlsEnabled: false,
-          markers: {
-            Marker(
-              markerId: const MarkerId('mi_unidad'),
-              position: _myLocation!,
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                widget.inService ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueOrange,
-              ),
-              infoWindow: InfoWindow(
-                title: widget.inService ? 'En servicio' : 'Fuera de servicio',
-              ),
+        child: Stack(
+          children: [
+            GoogleMap(
+              style: isDark ? MapStyles.dark : null,
+              initialCameraPosition:
+                  CameraPosition(target: _myLocation!, zoom: 15),
+              onMapCreated: (controller) {
+                _controller = controller;
+                if (points.length > 1) {
+                  WidgetsBinding.instance
+                      .addPostFrameCallback((_) => _fitRoute());
+                }
+              },
+              // El chofer tocó el mapa con el dedo: dejar de seguirlo solo
+              // hasta que vuelva a tocar el botón de recentrar.
+              onCameraMoveStarted: () {
+                if (_autoFollow) setState(() => _autoFollow = false);
+              },
+              myLocationEnabled: false,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+              markers: {
+                Marker(
+                  markerId: const MarkerId('mi_unidad'),
+                  position: _myLocation!,
+                  icon: _locationIcon ??
+                      BitmapDescriptor.defaultMarkerWithHue(
+                        widget.inService
+                            ? BitmapDescriptor.hueGreen
+                            : BitmapDescriptor.hueOrange,
+                      ),
+                  anchor: const Offset(0.5, 0.5),
+                  infoWindow: InfoWindow(
+                    title:
+                        widget.inService ? 'En servicio' : 'Fuera de servicio',
+                  ),
+                ),
+              },
+              polylines: {
+                if (points.length > 1)
+                  Polyline(
+                    polylineId: const PolylineId('ruta_asignada'),
+                    points: points,
+                    color: _amarillo,
+                    width: 4,
+                  ),
+              },
             ),
-          },
-          polylines: {
-            if (points.length > 1)
-              Polyline(
-                polylineId: const PolylineId('ruta_asignada'),
-                points: points,
-                color: _amarillo,
-                width: 4,
+            if (!_autoFollow)
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: FloatingActionButton.small(
+                  heroTag: 'driver_service_map_recenter',
+                  backgroundColor: colorScheme.surface,
+                  foregroundColor: colorScheme.onSurface,
+                  onPressed: _recenter,
+                  child: const Icon(Icons.my_location),
+                ),
               ),
-          },
+          ],
         ),
       ),
     );

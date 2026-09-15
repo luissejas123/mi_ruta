@@ -22,6 +22,22 @@ class TariffService {
   }) =>
       _datasource.setTariff(routeRef: routeRef, brackets: brackets, updatedBy: updatedBy);
 
+  /// Aplica la misma tarifa a un grupo de líneas de una sola vez — un
+  /// presidente que gestiona varias líneas no tiene por qué repetir el
+  /// mismo formulario una por una si quiere la misma tarifa para todas
+  /// (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2, seguimiento QA).
+  Future<void> setTariffForLines({
+    required List<String> routeRefs,
+    required List<FareBracket> brackets,
+    required String updatedBy,
+  }) async {
+    await Future.wait(
+      routeRefs.map(
+        (ref) => setTariff(routeRef: ref, brackets: brackets, updatedBy: updatedBy),
+      ),
+    );
+  }
+
   /// Tarifa para [km] recorridos en la línea [routeRef]. Si la línea no
   /// tiene tarifa configurada todavía, usa [_defaultBrackets].
   Future<double> resolveFareForDistance(String routeRef, double km) async {

@@ -1,6 +1,6 @@
 # Deuda técnica conocida
 
-**Última actualización:** 2026-09-13 — Ira verificó los 7 candidatos huérfanos pendientes del ítem 10 y se actuó sobre su veredicto: 5 archivos borrados (2 pago QR huérfanos, `tarifas_especiales.dart`, `auth/solicitud_beneficio_page.dart`, `test_schedule_service.dart`), `RouteDataSyncService._firestoreDocToEntity` borrado tras corregir su hermano vivo, y `beneficios_page.dart` reconectado (no era huérfano, era el patrón "historial de viajes" de nuevo — se perdió en un merge) con dos fixes reales de paso (hueco de seguridad en `firestore.rules` para `benefit_requests`, posible carga infinita). Ver ítem 10. Antes: se amplió el ítem 10 con una tercera pantalla duplicada tras escribir `docs/specs/claude Documento 2 Diseño Funcional.docx` (Gula). 2026-09-12: se resolvió el ítem 3 (`claims`) y se agregaron los ítems 8 y 9, tras investigar qué escondían los warnings/infos de `flutter analyze` (Padre + Gula). Base original: 2026-08-31, revisión Homúnculo (Padre + Soberbia + Ira + Pereza) de la documentación del proyecto.
+**Última actualización:** 2026-09-15 — se agregó el ítem 12 (`getRouteByRef` perdía en silencio rutas sin el campo `active`, rompiendo "ruta asignada" del chofer). Antes: se agregó el ítem 11 ("MOVIMIENTOS" del pasajero muestra estimados de planificación, no transacciones reales; `TripPaymentService.getPaymentHistory()` existe pero está huérfano). Antes: 2026-09-13 — Ira verificó los 7 candidatos huérfanos pendientes del ítem 10 y se actuó sobre su veredicto: 5 archivos borrados (2 pago QR huérfanos, `tarifas_especiales.dart`, `auth/solicitud_beneficio_page.dart`, `test_schedule_service.dart`), `RouteDataSyncService._firestoreDocToEntity` borrado tras corregir su hermano vivo, y `beneficios_page.dart` reconectado (no era huérfano, era el patrón "historial de viajes" de nuevo — se perdió en un merge) con dos fixes reales de paso (hueco de seguridad en `firestore.rules` para `benefit_requests`, posible carga infinita). Ver ítem 10. Antes: se amplió el ítem 10 con una tercera pantalla duplicada tras escribir `docs/specs/claude Documento 2 Diseño Funcional.docx` (Gula). 2026-09-12: se resolvió el ítem 3 (`claims`) y se agregaron los ítems 8 y 9, tras investigar qué escondían los warnings/infos de `flutter analyze` (Padre + Gula). Base original: 2026-08-31, revisión Homúnculo (Padre + Soberbia + Ira + Pereza) de la documentación del proyecto.
 
 > Este documento registra problemas **conocidos y verificados**, deliberadamente sin resolver todavía. No es un backlog de features — es la lista de "esto está roto o es inconsistente, y se decidió no tocarlo en este momento". Cuando algo se arregla, se borra de aquí (o se mueve a un changelog), no se marca `[x]`.
 
@@ -109,6 +109,52 @@ Sesión anterior (2026-08-27, commit `428ce53`) encontró un archivo `env` (sin 
   - **Posible carga infinita:** `_loadHistory()` no despachaba nada si `AuthBloc` todavía no estaba en `AuthLoaded` en `initState`, dejando el `build()` pegado en "Cargando beneficios..." para siempre. Se cambió para despachar siempre (con `userId` vacío si hace falta), dejando que el BLoC resuelva a un estado terminal como ya hacía `wallet_page.dart` con el mismo patrón.
 
 **Pago QR — hallazgo suelto que sigue sin arreglar (no relacionado a los huérfanos de arriba):** dentro de la `PagoQRPage` real, el botón "subir QR desde galería" (`_pickQRFromGallery`) no decodifica el QR de la imagen elegida — pasa la ruta del archivo directo como `qrData`, que `TripPaymentService.processPayment` no puede parsear (espera `driverId|tripId|amount`). El escaneo con cámara no tiene este problema. Sigue sin tocar, fuera de alcance de esta limpieza.
+
+---
+
+## 11. "MOVIMIENTOS" del pasajero no muestra transacciones reales, muestra el historial de planificación
+
+**Encontrado 2026-09-15**, investigando un reporte de QA que sonaba a bug de dinero ("¿por qué se cobra 2.5 Bs automáticamente sin escanear el QR?") pero no lo era — verificado leyendo `TripHistoryDatasource.saveTrip` completo: solo escribe en `trip_history/{uid}/trips`, nunca toca `wallet` ni `transactions`. Cero dinero real se mueve ahí.
+
+El problema real es de UI: `WalletPage` → botón "MOVIMIENTOS" → `HistorialViajesPage`, que muestra el historial de PLANIFICACIÓN de viajes (`trip_history`, con montos *estimados* por `TariffService` o el respaldo `2.5`) — no el ledger real de la billetera (colección `transactions`, que sí registra recargas, pagos QR y avisos de bajada reales). El monto se mostraba como `"- Bs X"`, con el mismo estilo visual que un débito real, lo que genera la confusión de que se está cobrando algo. `TripPaymentService.getPaymentHistory()` ya existe (lee `transactions` filtrado por `user_id`+`transaction_type: trip_payment`) pero **ningún widget lo llama** — está huérfano.
+
+**Arreglado parcialmente 2026-09-15:** el label ahora dice `"Estimado: Bs X"` en vez de `"- Bs X"`, quitando la apariencia de débito real. **Sigue pendiente:** construir una vista real de "Movimientos" que use `getPaymentHistory()` (o una versión ampliada que también incluya recargas) — hoy un pasajero no tiene ninguna forma de ver su ledger real de transacciones dentro de la app, solo puede inferirlo del saldo actual.
+
+---
+
+## 12. `RouteDatasource` mezcla rutas con y sin filtro `active`, y una de ellas rompía en silencio "ruta asignada" del chofer — RESUELTO
+
+**Reportado 2026-09-15:** un presidente reasignó a un chofer de una línea a otra (`assigned_route_ref` correctamente actualizado en Firestore, verificado por el usuario en la consola) y la app pasó a mostrar "sin ruta asignada" — no un error, silencio total.
+
+**Causa raíz confirmada leyendo el código:** `RouteDatasource.getRouteByRef` (usado por `DriverService.getAssignedRoute`, `RutaMapaDesvioPage`, `TarifasPage`) filtraba `.where('active', isEqualTo: true)` sobre la colección `routes`. Este mismo archivo ya documentaba, en `getActiveRoutesPaginated` (línea ~230), que **muchos documentos de `routes` no tienen el campo `active` en absoluto**, y Firestore excluye de un `where(isEqualTo:)` cualquier documento donde el campo no exista (no es lo mismo que `false` — simplemente no participa en la consulta). Si la línea recién asignada era uno de esos documentos, `getRouteByRef` devolvía `null` con la ruta perfectamente asignada en Firestore — de ahí el "sin ruta asignada" sin ningún error visible.
+
+**Resuelto:** se quitó el filtro `active` de `getRouteByRef` — este método siempre resuelve un ref YA elegido explícitamente en algún flujo anterior (asignación a chofer, línea de presidente, tarifa), nunca una búsqueda/exploración donde tenga sentido excluir inactivas.
+
+**Deuda que queda (no se tocó, fuera de alcance de este fix puntual):** el resto de `RouteDatasource` sigue mezclando el mismo filtro frágil (`getAllActiveRoutes`, `getAllActiveRoutesLight`/`routes_bbox`, y otros) con el patrón correcto documentado en `getActiveRoutesPaginated`. Para los casos de *búsqueda* (mostrar qué líneas existen) el filtro es intencional y probablemente inofensivo (una ruta sin el campo simplemente no aparece en el picker, que es un fallo silencioso pero de impacto bajo). No se auditó cada uno para confirmar si hay más casos de impacto alto como este; si vuelve a aparecer un "no se pudo encontrar/asignar/mostrar tal cosa" sin error visible en algo relacionado a rutas, este archivo es el primer sospechoso.
+
+---
+
+## 13. Rutas como "polígonos cerrados" en el mapa — causa raíz en `upsertRouteByRef`, datos legados en Firestore — RESUELTO (código) / limpieza manual pendiente
+
+**Reportado 2026-09-15:** varias líneas se veían en el mapa como un polígono cerrado que corta múltiples calles (ej. Línea 111), en vez de una ruta lineal.
+
+**Causa raíz confirmada bajando la colección `routes` real (no especulando):** existían **dos lotes de documentos por línea**. Un lote viejo (mayo 2026, 140 docs con ID `gtfs_0`..`gtfs_141`, sin `direction_id` ni `description`, con polylines de hasta 11367 puntos por concatenar varios shapes GTFS sin separador de tramo — eso dibuja líneas rectas conectando el final de un shape con el inicio del siguiente, produciendo el efecto de polígono cerrado) y un lote nuevo/limpio (agosto 2026, "Cargar rutas desde GTFS" del admin, un shape por línea, ~500 puntos promedio). **115 de ~148 líneas nunca llegaron a tener su versión limpia** (incluida la 111) y **23 líneas tenían ambas versiones coexistiendo** como documentos separados con el mismo `ref`.
+
+La razón de que "Cargar rutas desde GTFS" nunca reemplazara lo viejo: `upsertRouteByRef` buscaba coincidencia por `ref` + `direction_id`, pero el GTFS parseado siempre manda un `direction_id` no nulo y ningún documento en Firestore (ni siquiera los del lote "limpio") llegó a tener ese campo escrito — Firestore no matchea un `where(isEqualTo:)` contra un documento donde el campo no existe (mismo gotcha que el punto 12). Resultado: la búsqueda de "ya existe" nunca encontraba nada, y cada corrida del botón sumaba un documento nuevo por línea en vez de reemplazar el anterior.
+
+**Resuelto (código):** `upsertRouteByRef` (`route_datasource.dart`) ahora usa **`ref` como ID fijo del documento** en vez de buscar por query — sin ambigüedad de matching, imposible que se dupliquen. Ver `FIRESTORE_COLLECTIONS_GUIDE.md` (corrección 2026-09-15).
+
+**Hecho (2026-09-15):** el usuario limpió `routes` y `routes_bbox` completas vía `firebase firestore:delete --recursive` y volvió a correr "Cargar rutas desde GTFS" — quedaron 133 documentos limpios (uno por ref, sin duplicados, Línea 111 con 571 puntos en vez de 4088). De paso se encontraron y arreglaron dos bugs más expuestos por esta recarga (ver punto 14): `RouteMigrationBboxService` nunca se llamaba desde ningún lado (routes_bbox quedaba vacía para siempre tras borrarla) y `RouteManagementBloc` crasheaba al refrescar la lista del admin (`emit` después de que el event handler ya había terminado, por un `fold` sin `await`).
+
+---
+
+## 14. `activeVehiclesByLine` del panel de presidente ignoraba `assigned_route_ref` — RESUELTO
+
+**Reportado 2026-09-15:** un chofer con `assigned_route_ref: "233"` (asignado por el presidente, correctamente sobrescrito — el campo es único, no se duplica) seguía apareciendo con su unidad activa bajo la línea **178** en "Control de rutas en vivo" — el `line_number` que quedó grabado en `vehicles/{id}` desde que registró el vehículo, mucho antes de que el presidente le asignara la 233. Un chofer, la misma unidad, dos líneas distintas mostradas en dos lugares de la app — parecía que tenía "2 rutas asignadas".
+
+**Causa raíz:** `PresidentePanelState.activeVehiclesByLine` (`presidente_panel_state.dart`) agrupaba unidades directamente por `vehicle.lineNumber`, sin pasar por la misma resolución que ya usa correctamente `DriverService.getAssignedRoute()` (prioridad: `users/{uid}.assigned_route_ref` sobre `vehicle.lineNumber`). Eran dos lugares del código resolviendo "qué línea maneja este chofer" con criterios distintos.
+
+**Resuelto:** se agregó `assignedRouteRef` a `UserEntity`/`UserModel` (leyendo el mismo campo `assigned_route_ref` que ya existía, sin inventar uno nuevo) y `activeVehiclesByLine` ahora resuelve la línea efectiva de cada unidad igual que `DriverService.getAssignedRoute()` — mismo criterio en los dos lugares.
 
 ---
 

@@ -219,6 +219,7 @@ class DriverService {
     required VehicleEntity vehicle,
     required String passengerId,
     RouteEntity? route,
+    bool routeMismatch = false,
   }) {
     return _datasource.createBoardingTrip(
       driverId: vehicle.ownerUid,
@@ -226,8 +227,14 @@ class DriverService {
       routeRef: route?.ref ?? vehicle.lineNumber,
       routeName: route?.name ?? vehicle.lineNumber,
       passengerId: passengerId,
+      routeMismatch: routeMismatch,
     );
   }
+
+  /// Busca un vehículo por placa — segunda forma de confirmar abordaje
+  /// además de escanear el QR fijo de la unidad (`ConfirmarAbordajePage`).
+  Future<VehicleEntity?> getVehicleByPlate(String plate) =>
+      _datasource.getVehicleByPlate(plate);
 
   /// Cobra la tarifa máxima de su línea a cualquier viaje de abordaje de
   /// [driverId] que lleve más de 2 horas sin que el pasajero avise que baja

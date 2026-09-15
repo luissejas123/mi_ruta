@@ -76,8 +76,11 @@ class _RatePassengerPageState extends State<RatePassengerPage> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        automaticallyImplyLeading: false,
         title: const Text('Calificar al pasajero', style: TextStyle(fontWeight: FontWeight.bold)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _skip,
+        ),
       ),
       body: SafeArea(
         child: Padding(

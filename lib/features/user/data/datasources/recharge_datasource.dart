@@ -76,6 +76,38 @@ class RecargeDatasource {
     }
   }
 
+  /// Todas las recargas pendientes de cualquier usuario, con el nombre del
+  /// solicitante resuelto — para que el tickeador las revise (docs/
+  /// PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0). Sin `orderBy` a propósito
+  /// (evita pedir un índice compuesto nuevo, mismo patrón que
+  /// `ClaimDatasource.getClaims`): se ordena en memoria.
+  Future<List<Recharge>> getAllPendingRecharges() async {
+    try {
+      final snapshot = await _firestore
+          .collection('recharges')
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      final recharges = snapshot.docs.map(_mapToRecharge).toList();
+      if (recharges.isEmpty) return recharges;
+
+      final usersSnapshot = await _firestore.collection('users').get();
+      final names = <String, String>{
+        for (final doc in usersSnapshot.docs)
+          doc.id: (doc.data()['full_name'] ?? doc.data()['fullName'] ?? '')
+              .toString(),
+      };
+
+      final enriched = recharges
+          .map((r) => r.copyWith(userName: names[r.userId]))
+          .toList();
+      enriched.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return enriched;
+    } catch (e) {
+      throw Exception('Error al obtener recargas pendientes: $e');
+    }
+  }
+
   /// Aprueba una recarga y añade el saldo a la billetera
   Future<void> approveRecharge(String rechargeId, String userId) async {
     try {

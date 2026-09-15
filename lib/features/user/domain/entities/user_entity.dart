@@ -29,6 +29,12 @@ class UserEntity extends Equatable {
   // gestiona. Vacía para cualquier cuenta que no sea presidente, o para un
   // presidente al que admin todavía no le asignó ninguna línea.
   final List<String> managedLines;
+  // `assigned_route_ref` — ref de línea que el presidente asignó al PERFIL
+  // de este chofer (RQ4-PRE). `null` si nunca se le asignó ninguna. Esta es
+  // la fuente de verdad por encima de `vehicles.line_number` (ver
+  // DriverService.getAssignedRoute) — cualquier pantalla que muestre "línea
+  // de este chofer" debe priorizar este campo, no el de su vehículo.
+  final String? assignedRouteRef;
 
   const UserEntity({
     required this.uid,
@@ -48,6 +54,7 @@ class UserEntity extends Equatable {
     this.role = 'user',
     this.roles = const ['user'],
     this.managedLines = const [],
+    this.assignedRouteRef,
   });
 
   /// True cuando hay una solicitud de chofer esperando resolución.
@@ -74,5 +81,6 @@ class UserEntity extends Equatable {
     role,
     roles,
     managedLines,
+    assignedRouteRef,
   ];
 }

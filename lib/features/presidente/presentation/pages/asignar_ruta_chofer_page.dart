@@ -48,10 +48,44 @@ class _AsignarRutaChoferPageState extends State<AsignarRutaChoferPage> {
       builder: (_) => _RoutePickerSheet(driver: driver, routes: routes),
     );
     if (picked == null || !mounted) return;
+
+    // El chofer solo puede tener una línea asignada a la vez
+    // (`assigned_route_ref` es un campo único, no una lista) — la nueva
+    // asignación reemplaza la anterior en silencio, así que si ya tenía una
+    // distinta hay que confirmar antes de pisarla.
+    final currentRef = driver.assignedRouteRef;
+    if (currentRef != null && currentRef.isNotEmpty && currentRef != picked.ref) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('¿Reemplazar línea asignada?'),
+          content: Text(
+            'Esto reemplazará la línea actual (${driver.assignedRouteRef}) '
+            'por la línea ${picked.ref}. ¿Confirmás?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Reemplazar'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
     try {
       await getIt<UserManagementService>()
           .assignRouteToDriver(driver.uid, picked.ref);
       if (!mounted) return;
+      // Recarga la lista para que `driver.assignedRouteRef` quede al día —
+      // si no, el diálogo de confirmación de la próxima reasignación a este
+      // mismo chofer (sin salir de la pantalla) mostraría la línea vieja.
+      setState(() => _future = _load());
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

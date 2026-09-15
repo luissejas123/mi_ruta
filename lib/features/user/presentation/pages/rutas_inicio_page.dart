@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/core/utils/location_icon_painter.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/data/datasources/geocoding_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/location_datasource.dart';
@@ -60,6 +61,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
 
   GoogleMapController? _mapController;
   LatLng? _userLocation;
+  BitmapDescriptor? _locationIcon;
   PlaceResult? _origin;
   PlaceResult? _destination;
 
@@ -76,6 +78,9 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
   void initState() {
     super.initState();
     _initializeData();
+    LocationIconPainter.build().then((icon) {
+      if (mounted && icon != null) setState(() => _locationIcon = icon);
+    });
   }
 
   void _initializeData() {
@@ -290,9 +295,11 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
                     Marker(
                       markerId: const MarkerId('user_location'),
                       position: _userLocation!,
-                      icon: BitmapDescriptor.defaultMarkerWithHue(
-                        BitmapDescriptor.hueAzure,
-                      ),
+                      icon: _locationIcon ??
+                          BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueAzure,
+                          ),
+                      anchor: const Offset(0.5, 0.5),
                     ),
                   },
             polylines: const <Polyline>{},

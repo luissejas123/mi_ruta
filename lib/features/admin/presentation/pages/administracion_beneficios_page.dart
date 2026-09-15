@@ -381,7 +381,10 @@ class _RequestDetails extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               for (final url in request.documentUrls)
-                SelectableText(url, style: const TextStyle(fontSize: 12)),
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: _DocumentPreview(url: url),
+                ),
             ],
             if (request.adminNotes?.isNotEmpty == true)
               _Detail('Observación administrativa', request.adminNotes!),
@@ -412,6 +415,50 @@ class _RequestDetails extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DocumentPreview extends StatelessWidget {
+  final String url;
+
+  const _DocumentPreview({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => showDialog<void>(
+        context: context,
+        builder: (_) => Dialog(
+          child: InteractiveViewer(
+            child: Image.network(
+              url,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('No se pudo cargar el documento.'),
+              ),
+            ),
+          ),
+        ),
+      ),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 180,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.black12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Image.network(
+          url,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => const Center(
+            child: Text('No se pudo cargar el documento.'),
+          ),
         ),
       ),
     );

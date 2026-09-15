@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
-import 'package:mi_ruta/features/user/presentation/pages/perfil_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/perfil_rol_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/rutas_inicio_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/wallet_page.dart';
 
@@ -18,8 +18,7 @@ void navigateBottomNav(BuildContext context, int index) {
       destination = const RutasInicioPage();
       break;
     case 3:
-      // ✅ Ahora va al perfil real
-      destination = const PerfilPage();
+      destination = const PerfilRolPage();
       break;
     default:
       return;

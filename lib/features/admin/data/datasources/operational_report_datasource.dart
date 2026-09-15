@@ -54,9 +54,18 @@ class OperationalReportDatasource {
     final consolidatedVehicles = uniqueVehicles.values;
 
     final serviceVehicleIds = <String>{};
+    for (final doc in consolidatedVehicles) {
+      final vehicle = doc.data();
+      final inService = vehicle['in_service'] ?? vehicle['inService'];
+      if (inService == true) {
+        serviceVehicleIds.add(doc.id);
+      }
+    }
+
+    // Compatibilidad con registros antiguos que no guardan in_service.
     for (final doc in consolidatedTrips) {
       final trip = doc.data();
-      final status = (trip['status'] ?? '').toString().toLowerCase();
+      final status = (trip['status'] ?? '').toString().trim().toLowerCase();
       final vehicleId = (trip['vehicle_id'] ?? trip['vehicleId'] ?? '')
           .toString();
       if ((status == 'active' || status == 'in_progress') &&
@@ -66,7 +75,7 @@ class OperationalReportDatasource {
     }
 
     int countVehicleStatus(String status) => consolidatedVehicles.where((doc) {
-      final value = (doc.data()['status'] ?? '').toString().toLowerCase();
+      final value = (doc.data()['status'] ?? '').toString().trim().toLowerCase();
       return value == status;
     }).length;
 
@@ -74,6 +83,7 @@ class OperationalReportDatasource {
       final user = doc.data();
       final role = (user['role'] ?? user['userType'] ?? '')
           .toString()
+          .trim()
           .toLowerCase();
       return roles.contains(role);
     }).length;
@@ -125,6 +135,7 @@ class OperationalReportDatasource {
       final user = doc.data();
       final role = (user['role'] ?? user['userType'] ?? '')
           .toString()
+          .trim()
           .toLowerCase();
       if (role != 'driver' && role != 'chofer' && role != 'conductor') continue;
 
@@ -132,7 +143,7 @@ class OperationalReportDatasource {
       final userRatings = ratingsByDriver[id] ?? const <num>[];
       final rating = userRatings.isEmpty
           ? (user['rating'] as num?)?.toDouble() ?? 0
-          : userRatings.fold<double>(0, (sum, value) => sum + value) /
+          : userRatings.fold<double>(0, (total, value) => total + value) /
                 userRatings.length;
       final driverTrips = tripsByDriver[id] ?? const <Map<String, dynamic>>[];
       final lines = <String>{

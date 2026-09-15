@@ -105,6 +105,18 @@ class BenefitRequestDatasource {
     }
   }
 
+  Future<List<String>> getAdministratorIds() async {
+    final snapshot = await _firestore.collection('users').get();
+    return snapshot.docs.where((doc) {
+      final data = doc.data();
+      final role = (data['role'] ?? data['userType'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+      return role == 'admin' || role == 'administrador';
+    }).map((doc) => (doc.data()['uid'] ?? doc.id).toString()).toList();
+  }
+
   Future<List<BenefitRequest>> getAllBenefitRequests() async {
     try {
       await _ensureAdministrator();

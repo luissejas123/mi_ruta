@@ -8,6 +8,7 @@ import 'package:mi_ruta/features/user/domain/services/notification_service.dart'
 import 'package:mi_ruta/features/user/presentation/bloc/notification_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/notification_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/notification_state.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/administracion_beneficios_page.dart';
 
 class NotificacionesPage extends StatelessWidget {
   const NotificacionesPage({super.key});
@@ -63,7 +64,9 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
                   ? 'Viajes'
                   : _activeCategory == 'recharge'
                       ? 'Recargas'
-                      : 'Regalos',
+                      : _activeCategory == 'gift'
+                        ? 'Regalos'
+                        : 'Solicitudes de beneficios',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
         actions: [
@@ -93,9 +96,12 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
                 tripCount: state.trips.length,
                 rechargeCount: state.recharges.length,
                 giftCount: state.gifts.length,
+                benefitCount: state.benefitRequests.length,
                 tripUnread: state.trips.where((n) => !n.isRead).length,
                 rechargeUnread: state.recharges.where((n) => !n.isRead).length,
                 giftUnread: state.gifts.where((n) => !n.isRead).length,
+                benefitUnread:
+                  state.benefitRequests.where((n) => !n.isRead).length,
                 onTap: (cat) => setState(() => _activeCategory = cat),
               );
             }
@@ -103,7 +109,9 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
                 ? state.trips
                 : _activeCategory == 'recharge'
                     ? state.recharges
-                    : state.gifts;
+                  : _activeCategory == 'gift'
+                    ? state.gifts
+                    : state.benefitRequests;
             return _NotificationList(
               items: items,
               userId: _userId,
@@ -117,17 +125,19 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
 }
 
 class _CategoryPicker extends StatelessWidget {
-  final int tripCount, rechargeCount, giftCount;
-  final int tripUnread, rechargeUnread, giftUnread;
+  final int tripCount, rechargeCount, giftCount, benefitCount;
+  final int tripUnread, rechargeUnread, giftUnread, benefitUnread;
   final void Function(String) onTap;
 
   const _CategoryPicker({
     required this.tripCount,
     required this.rechargeCount,
     required this.giftCount,
+    required this.benefitCount,
     required this.tripUnread,
     required this.rechargeUnread,
     required this.giftUnread,
+    required this.benefitUnread,
     required this.onTap,
   });
 
@@ -160,6 +170,14 @@ class _CategoryPicker extends StatelessWidget {
             count: giftCount,
             unread: giftUnread,
             onTap: () => onTap('gift'),
+          ),
+          const SizedBox(height: 16),
+          _CategoryCard(
+            icon: Icons.fact_check_outlined,
+            label: 'Solicitudes de beneficios',
+            count: benefitCount,
+            unread: benefitUnread,
+            onTap: () => onTap('benefitRequest'),
           ),
         ],
       ),
@@ -293,6 +311,8 @@ class _NotifTile extends StatelessWidget {
         return Icons.account_balance_wallet_outlined;
       case NotificationType.gift:
         return Icons.card_giftcard_outlined;
+      case NotificationType.benefitRequest:
+        return Icons.fact_check_outlined;
     }
   }
 
@@ -304,6 +324,12 @@ class _NotifTile extends StatelessWidget {
     }
     if (notif.type == NotificationType.gift) {
       _showGiftDetail(context);
+    } else if (notif.type == NotificationType.benefitRequest) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const AdministracionBeneficiosPage(),
+        ),
+      );
     }
   }
 

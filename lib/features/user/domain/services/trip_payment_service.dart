@@ -44,8 +44,13 @@ class TripPaymentService {
         throw Exception('Usuario no encontrado');
       }
 
-      final userData = userDoc.data() as Map<String, dynamic>;
-      final currentBalance = (userData['wallet_balance'] ?? 0).toDouble();
+        final userData = userDoc.data() as Map<String, dynamic>;
+        final wallet = userData['wallet'] as Map<String, dynamic>? ?? const {};
+        final currentBalance = ((wallet['current_balance'] ??
+              wallet['balance'] ??
+              userData['wallet_balance'] ??
+              0) as num)
+            .toDouble();
 
       if (currentBalance < amount) {
         throw Exception(
@@ -57,12 +62,12 @@ class TripPaymentService {
       await _firestore.runTransaction((transaction) async {
         // Descontar de billetera del usuario
         transaction.update(_firestore.collection('users').doc(userId), {
-          'wallet_balance': FieldValue.increment(-amount),
+          'wallet.current_balance': FieldValue.increment(-amount),
         });
 
         // Acreditar al chofer
         transaction.update(_firestore.collection('users').doc(driverId), {
-          'wallet_balance': FieldValue.increment(amount),
+          'wallet.current_balance': FieldValue.increment(amount),
         });
 
         // Actualizar estado del viaje

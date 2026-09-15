@@ -49,6 +49,18 @@ class OperationalReport extends Equatable {
     required this.blockedAccounts,
   });
 
+  @override
+  List<Object> get props => [
+    drivers,
+    unitsInService,
+    approvedUnits,
+    unitsUnderReview,
+    rejectedUnits,
+    registeredPassengers,
+    registeredTicketers,
+    blockedAccounts,
+  ];
+
   int get totalDrivers => drivers.length;
   List<DriverOperationalStatus> get suspendedDrivers =>
       drivers.where((driver) => driver.isSuspended).toList();

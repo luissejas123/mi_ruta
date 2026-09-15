@@ -2,17 +2,21 @@ import 'dart:io';
 import 'package:mi_ruta/features/user/data/datasources/benefit_request_datasource.dart';
 import 'package:mi_ruta/features/user/domain/entities/benefit_request.dart';
 import 'package:mi_ruta/features/user/domain/services/storage_service.dart';
+import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
 
 /// Servicio de dominio para operaciones de solicitudes de beneficio
 class BenefitRequestService {
   final BenefitRequestDatasource _datasource;
   final StorageService _storageService;
+  final NotificationService _notificationService;
 
   BenefitRequestService({
     required BenefitRequestDatasource datasource,
     required StorageService storageService,
+     required NotificationService notificationService,
   }) : _datasource = datasource,
-       _storageService = storageService;
+       _storageService = storageService,
+       _notificationService = notificationService;
 
   /// Crea una solicitud de beneficio con documentos
   /// Sube los archivos a Firebase Storage y retorna el ID de la solicitud
@@ -70,6 +74,14 @@ class BenefitRequestService {
       description: description,
       documentUrls: documentUrls,
     );
+
+    final administratorIds = await _datasource.getAdministratorIds();
+    for (final administratorId in administratorIds) {
+      await _notificationService.saveBenefitRequestNotification(
+        administratorId,
+        benefitType,
+      );
+    }
 
     return requestId;
   }

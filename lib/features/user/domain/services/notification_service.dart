@@ -35,6 +35,34 @@ class NotificationService {
     ));
   }
 
+  Future<void> saveBenefitRequestNotification(
+    String adminId,
+    String benefitType,
+  ) async {
+    await _datasource.save(AppNotification(
+      id: _id(),
+      userId: adminId,
+      type: NotificationType.benefitRequest,
+      title: 'Nueva solicitud de beneficio',
+      body: 'Hay una solicitud de ${_benefitLabel(benefitType)} pendiente de revisión.',
+      isRead: false,
+      createdAt: DateTime.now(),
+    ));
+  }
+
+  String _benefitLabel(String value) {
+    switch (value) {
+      case 'student':
+        return 'estudiante';
+      case 'university':
+        return 'universitario';
+      case 'senior':
+        return 'adulto mayor';
+      default:
+        return value;
+    }
+  }
+
   /// Saves a gift notification. Returns the discount percent assigned.
   Future<int> saveGiftNotification(String userId) async {
     final discount = _datasource.randomDiscount();

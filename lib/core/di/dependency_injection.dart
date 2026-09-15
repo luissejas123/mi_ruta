@@ -46,6 +46,8 @@ import 'package:mi_ruta/features/user/data/repositories/location_repository_impl
 import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
 import 'package:mi_ruta/features/user/domain/usecases/reverse_geocode_usecase.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/features/driver/data/datasources/driver_datasource.dart';
+import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -123,7 +125,10 @@ void setupDependencies() {
   );
 
   getIt.registerSingleton<UserRemoteDataSource>(
-    UserRemoteDataSourceImpl(firestore: getIt<FirebaseFirestore>()),
+    UserRemoteDataSourceImpl(
+      firestore: getIt<FirebaseFirestore>(),
+      firebaseAuth: getIt<FirebaseAuth>(),
+    ),
   );
 
   getIt.registerSingleton<UserRepository>(
@@ -275,6 +280,14 @@ void setupDependencies() {
     TripPaymentBLoC(tripPaymentService: getIt<TripPaymentService>()),
   );
 
+  // DRIVER FEATURE - DATA AND DOMAIN LAYERS
+  getIt.registerSingleton<DriverDatasource>(
+    DriverDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+  getIt.registerSingleton<DriverService>(
+    DriverService(datasource: getIt<DriverDatasource>()),
+  );
+
   // ============================================
   // BENEFIT REQUEST FEATURE - DATA LAYER
   // ============================================
@@ -292,6 +305,7 @@ void setupDependencies() {
     BenefitRequestService(
       datasource: getIt<BenefitRequestDatasource>(),
       storageService: getIt<StorageService>(),
+      notificationService: getIt<NotificationService>(),
     ),
   );
 

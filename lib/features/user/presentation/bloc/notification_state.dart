@@ -25,6 +25,9 @@ class NotificationLoaded extends NotificationState {
   List<AppNotification> get gifts =>
       all.where((n) => n.type == NotificationType.gift).toList();
 
+    List<AppNotification> get benefitRequests =>
+      all.where((n) => n.type == NotificationType.benefitRequest).toList();
+
   int get unreadCount => all.where((n) => !n.isRead).length;
 
   @override

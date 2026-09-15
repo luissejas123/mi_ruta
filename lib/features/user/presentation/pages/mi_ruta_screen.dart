@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/core/theme/map_styles.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
@@ -34,6 +37,7 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
   GoogleMapController? _mapController;
   int _unreadCount = 0;
   BitmapDescriptor? _locationIcon;
+  StreamSubscription<Position>? _positionSubscription;
 
   @override
   void initState() {
@@ -42,6 +46,21 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
     _loadUnreadCount();
     LocationIconPainter.build().then((icon) {
       if (mounted && icon != null) setState(() => _locationIcon = icon);
+    });
+    // El bloc es singleton (vive toda la app), así que el stream de GPS lo
+    // controla esta pantalla mientras está montada — no el bloc — para no
+    // seguir rastreando ubicación en segundo plano cuando el usuario está
+    // en otra pestaña.
+    _positionSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      ),
+    ).listen((position) {
+      if (!mounted) return;
+      context.read<MiRutaBloc>().add(
+            MiRutaLiveLocationUpdated(LatLng(position.latitude, position.longitude)),
+          );
     });
   }
 
@@ -64,6 +83,7 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
 
   @override
   void dispose() {
+    _positionSubscription?.cancel();
     _mapController?.dispose();
     super.dispose();
   }
@@ -164,6 +184,9 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
       },
       onCameraMove: (pos) {
         context.read<MiRutaBloc>().add(MiRutaCameraMoved(pos.target));
+      },
+      onCameraMoveStarted: () {
+        context.read<MiRutaBloc>().add(const MiRutaCameraMoveStarted());
       },
       onCameraIdle: () {
         context.read<MiRutaBloc>().add(const MiRutaCameraIdle());

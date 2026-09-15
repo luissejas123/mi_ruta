@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/utils/location_icon_painter.dart';
@@ -64,6 +65,11 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
   BitmapDescriptor? _locationIcon;
   PlaceResult? _origin;
   PlaceResult? _destination;
+  StreamSubscription<Position>? _positionSubscription;
+  // Igual que en el mapa del chofer (`DriverServiceMap._autoFollow`): la
+  // cámara sigue el GPS en vivo salvo que el usuario esté arrastrando el
+  // mapa a mano; "mi ubicación" la vuelve a activar.
+  bool _autoFollow = true;
 
   bool _isPinMode = false;
   _PinFor _pinFor = _PinFor.destination;
@@ -101,6 +107,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
 
   @override
   void dispose() {
+    _positionSubscription?.cancel();
     _mapController?.dispose();
     super.dispose();
   }
@@ -211,10 +218,36 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
   Future<void> _getLocation() async {
     final result = await _locationDatasource.getCurrentLocation();
     if (!mounted) return;
-    setState(() => _userLocation = result.location);
+    setState(() {
+      _userLocation = result.location;
+      _autoFollow = true;
+    });
     _mapController?.animateCamera(
       CameraUpdate.newLatLngZoom(result.location, 15),
     );
+    _startLiveTracking();
+  }
+
+  /// Mismo patrón que `DriverServiceMap._startLiveTracking`: la ubicación
+  /// inicial ya se obtuvo arriba, acá solo se agrega el stream para que el
+  /// marcador (y, si seguimos "persiguiendo", la cámara) se muevan solos
+  /// mientras la pantalla está abierta — antes había que salir y volver a
+  /// entrar para refrescar la posición.
+  void _startLiveTracking() {
+    if (_positionSubscription != null) return;
+    _positionSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      ),
+    ).listen((position) {
+      if (!mounted) return;
+      final updated = LatLng(position.latitude, position.longitude);
+      setState(() => _userLocation = updated);
+      if (_autoFollow && !_isPinMode) {
+        _mapController?.animateCamera(CameraUpdate.newLatLng(updated));
+      }
+    });
   }
 
   void _togglePinMode([_PinFor target = _PinFor.destination]) {
@@ -279,6 +312,9 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
               if (_isPinMode && !_isCameraMoving) {
                 setState(() => _isCameraMoving = true);
               }
+            },
+            onCameraMoveStarted: () {
+              if (!_isPinMode && _autoFollow) setState(() => _autoFollow = false);
             },
             onCameraIdle: () {
               if (_isPinMode) {

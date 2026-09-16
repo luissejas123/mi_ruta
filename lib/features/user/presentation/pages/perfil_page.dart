@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/convertirse_chofer_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/modo_chofer_page.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
@@ -325,6 +327,26 @@ class _PerfilPageState extends State<PerfilPage> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => const PlanificarViajePage(),
+                    ),
+                  ),
+                ),
+
+                // ── Chofer (RQ-68) ──
+                _buildSectionTitle('CHOFER'),
+                _buildMenuItem(
+                  icon: Icons.local_taxi_outlined,
+                  title: user.userType == 'driver'
+                      ? 'Modo chofer'
+                      : 'Convertirme en chofer',
+                  subtitle: user.userType == 'driver'
+                      ? 'Ya eres chofer verificado'
+                      : 'Solicita convertirte en chofer con tu vehículo',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => user.userType == 'driver'
+                          ? const ModoChoferPage()
+                          : const ConvertirseChoferPage(),
                     ),
                   ),
                 ),

@@ -82,4 +82,26 @@ class StorageService {
       throw Exception('Error al eliminar documento: $e');
     }
   }
+
+  /// Sube un documento legal de vehículo (SOAT, inspección técnica,
+  /// licencia de conducir, tarjeta de operación municipal, RUAT) para una
+  /// solicitud de chofer.
+  Future<String> uploadVehicleDocument({
+    required String plate,
+    required String documentType,
+    required File documentFile,
+  }) async {
+    try {
+      final fileName = documentFile.path.split('/').last;
+      final fileExtension = fileName.split('.').last;
+      final ref = _storage.ref().child(
+        'vehicles/$plate/${documentType}_${DateTime.now().millisecondsSinceEpoch}.$fileExtension',
+      );
+      await ref.putFile(documentFile);
+      final downloadUrl = await ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      throw Exception('Error al subir documento de vehículo: $e');
+    }
+  }
 }

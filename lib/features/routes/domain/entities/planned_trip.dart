@@ -79,6 +79,8 @@ class PlannedTrip extends Equatable {
   final List<PlannedTripLeg> legs;
   final DateTime createdAt;
   final bool isCompleted;
+  final bool isCancelled;
+  final DateTime? cancelledAt;
 
   const PlannedTrip({
     required this.id,
@@ -90,6 +92,8 @@ class PlannedTrip extends Equatable {
     required this.legs,
     required this.createdAt,
     this.isCompleted = false,
+    this.isCancelled = false,
+    this.cancelledAt,
   });
 
   List<PlannedTripLeg> get busLegs => legs.where((l) => l.isBus).toList();
@@ -105,5 +109,6 @@ class PlannedTrip extends Equatable {
   String get routesSummary => busLegs.map((l) => l.routeName).join(' + ');
 
   @override
-  List<Object?> get props => [id, userId, legs, isCompleted];
+  List<Object?> get props =>
+      [id, userId, legs, isCompleted, isCancelled, cancelledAt];
 }

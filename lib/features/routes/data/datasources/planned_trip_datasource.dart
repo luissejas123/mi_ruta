@@ -29,6 +29,26 @@ class PlannedTripDatasource {
     await _col(userId).doc(tripId).update({'is_completed': true});
   }
 
+  Future<void> markCancelled(String userId, String tripId) async {
+    await _col(userId).doc(tripId).update({
+      'is_cancelled': true,
+      'cancelled_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Cancelled plans for a user, most recently cancelled first.
+  /// Filters `is_cancelled` in memory (no orderBy in the query) to avoid
+  /// requiring a composite Firestore index, matching this project's
+  /// convention for filtered subcollection queries.
+  Future<List<PlannedTrip>> getCancelled(String userId) async {
+    final snap =
+        await _col(userId).where('is_cancelled', isEqualTo: true).get();
+    final trips = snap.docs.map((d) => _fromDoc(d, userId)).toList();
+    trips.sort((a, b) => (b.cancelledAt ?? b.createdAt)
+        .compareTo(a.cancelledAt ?? a.createdAt));
+    return trips;
+  }
+
   Future<void> delete(String userId, String tripId) async {
     await _col(userId).doc(tripId).delete();
   }
@@ -43,6 +63,8 @@ class PlannedTripDatasource {
         'legs': t.legs.map(_legToMap).toList(),
         'created_at': t.createdAt.toIso8601String(),
         'is_completed': t.isCompleted,
+        'is_cancelled': t.isCancelled,
+        'cancelled_at': t.cancelledAt?.toIso8601String(),
       };
 
   Map<String, dynamic> _legToMap(PlannedTripLeg l) => {
@@ -75,6 +97,10 @@ class PlannedTripDatasource {
       legs: rawLegs.map(_legFromMap).toList(),
       createdAt: DateTime.parse(d['created_at'] as String),
       isCompleted: d['is_completed'] as bool? ?? false,
+      isCancelled: d['is_cancelled'] as bool? ?? false,
+      cancelledAt: d['cancelled_at'] != null
+          ? DateTime.parse(d['cancelled_at'] as String)
+          : null,
     );
   }
 

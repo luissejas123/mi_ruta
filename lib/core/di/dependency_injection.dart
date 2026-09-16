@@ -21,6 +21,7 @@ import 'package:mi_ruta/features/user/data/datasources/benefit_request_datasourc
 import 'package:mi_ruta/features/user/data/repositories/user_repository_impl.dart';
 import 'package:mi_ruta/features/user/domain/repositories/user_repository.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_history_service.dart';
+import 'package:mi_ruta/features/user/domain/services/cancelled_trips_pdf_service.dart';
 import 'package:mi_ruta/features/user/domain/services/wallet_service.dart';
 import 'package:mi_ruta/features/user/domain/services/recharge_service.dart';
 import 'package:mi_ruta/features/user/domain/services/storage_service.dart';
@@ -46,6 +47,15 @@ import 'package:mi_ruta/features/user/data/repositories/location_repository_impl
 import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
 import 'package:mi_ruta/features/user/domain/usecases/reverse_geocode_usecase.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/features/driver/data/datasources/driver_datasource.dart';
+import 'package:mi_ruta/features/driver/data/datasources/driver_datasource_impl.dart';
+import 'package:mi_ruta/features/driver/data/repositories/driver_repository_impl.dart';
+import 'package:mi_ruta/features/driver/domain/repositories/driver_repository.dart';
+import 'package:mi_ruta/features/driver/domain/usecases/activate_driver_mode_usecase.dart';
+import 'package:mi_ruta/features/driver/domain/usecases/deactivate_driver_mode_usecase.dart';
+import 'package:mi_ruta/features/driver/domain/usecases/get_my_vehicle_application_usecase.dart';
+import 'package:mi_ruta/features/driver/domain/usecases/submit_vehicle_application_usecase.dart';
+import 'package:mi_ruta/features/driver/presentation/bloc/driver_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -347,6 +357,57 @@ void setupDependencies() {
     PlannedTripService(
       datasource: getIt<PlannedTripDatasource>(),
       syncService: getIt<RouteDataSyncService>(),
+    ),
+  );
+
+  getIt.registerSingleton<CancelledTripsPdfService>(
+    CancelledTripsPdfService(),
+  );
+
+  // ============================================
+  // DRIVER FEATURE (RQ-68) - DATA LAYER
+  // ============================================
+  getIt.registerSingleton<DriverDatasource>(
+    DriverDatasourceImpl(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  getIt.registerSingleton<DriverRepository>(
+    DriverRepositoryImpl(
+      datasource: getIt<DriverDatasource>(),
+      storageService: getIt<StorageService>(),
+      updateUserUseCase: getIt<UpdateUserUseCase>(),
+    ),
+  );
+
+  // ============================================
+  // DRIVER FEATURE (RQ-68) - DOMAIN LAYER (UseCases)
+  // ============================================
+  getIt.registerSingleton<GetMyVehicleApplicationUseCase>(
+    GetMyVehicleApplicationUseCase(repository: getIt<DriverRepository>()),
+  );
+
+  getIt.registerSingleton<SubmitVehicleApplicationUseCase>(
+    SubmitVehicleApplicationUseCase(repository: getIt<DriverRepository>()),
+  );
+
+  getIt.registerSingleton<ActivateDriverModeUseCase>(
+    ActivateDriverModeUseCase(repository: getIt<DriverRepository>()),
+  );
+
+  getIt.registerSingleton<DeactivateDriverModeUseCase>(
+    DeactivateDriverModeUseCase(repository: getIt<DriverRepository>()),
+  );
+
+  // ============================================
+  // DRIVER FEATURE (RQ-68) - PRESENTATION LAYER (BLoC)
+  // ============================================
+  getIt.registerSingleton<DriverBloc>(
+    DriverBloc(
+      getMyVehicleApplicationUseCase: getIt<GetMyVehicleApplicationUseCase>(),
+      submitVehicleApplicationUseCase:
+          getIt<SubmitVehicleApplicationUseCase>(),
+      activateDriverModeUseCase: getIt<ActivateDriverModeUseCase>(),
+      deactivateDriverModeUseCase: getIt<DeactivateDriverModeUseCase>(),
     ),
   );
 }

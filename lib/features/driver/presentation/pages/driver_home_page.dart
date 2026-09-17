@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/demo/demo_constants.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/features/driver/domain/entities/driver_shift.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
@@ -62,6 +63,9 @@ class _DriverHomeView extends StatelessWidget {
                   content: Text(
                       'No se pudo actualizar el estado de la unidad: ${state.toggleError}')),
             );
+          }
+          if (state is DriverVehicleLoaded && state.lastClosedShift != null) {
+            _showShiftSummaryDialog(context, state.lastClosedShift!);
           }
         },
         builder: (context, state) {
@@ -173,14 +177,8 @@ class _DriverHomeView extends StatelessWidget {
                           ? 'Visible para los pasajeros como en servicio'
                           : 'Fuera de servicio'),
                       value: vehicle.isOnDuty,
-                      onChanged: (value) {
-                        context.read<DriverVehicleBloc>().add(
-                              ToggleOnDuty(
-                                vehicleId: vehicle.vehicleId,
-                                value: value,
-                              ),
-                            );
-                      },
+                      onChanged: (value) =>
+                          _onToggleRequested(context, vehicle.vehicleId, value),
                     ),
                   ),
                 ],
@@ -203,6 +201,68 @@ class _DriverHomeView extends StatelessWidget {
         return 'En revisión';
     }
   }
+
+  /// RQ-82: apagar "en servicio" es "finalizar jornada" — pide confirmación.
+  /// Encenderla no la pide (arranca la jornada directo, como hoy).
+  Future<void> _onToggleRequested(
+      BuildContext context, String vehicleId, bool value) async {
+    if (value) {
+      context
+          .read<DriverVehicleBloc>()
+          .add(ToggleOnDuty(vehicleId: vehicleId, value: true));
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Finalizar tu jornada?'),
+        content: const Text(
+            'Se registrará el cierre de tu jornada de trabajo y la unidad quedará fuera de servicio.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: _amarillo),
+            child: const Text('Finalizar', style: TextStyle(color: Colors.black)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      context
+          .read<DriverVehicleBloc>()
+          .add(ToggleOnDuty(vehicleId: vehicleId, value: false));
+    }
+  }
+
+  void _showShiftSummaryDialog(BuildContext context, DriverShiftEntity shift) {
+    final duration = shift.elapsed;
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Jornada finalizada'),
+        content: Text(
+          'Inicio: ${_formatTime(shift.startedAt)}\n'
+          'Fin: ${_formatTime(shift.endedAt!)}\n'
+          'Duración: ${hours}h ${minutes}min',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK', style: TextStyle(color: _amarillo)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(DateTime dt) =>
+      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 }
 
 class _InfoRow extends StatelessWidget {

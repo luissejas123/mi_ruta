@@ -20,6 +20,8 @@ import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
+import 'package:mi_ruta/features/presidente/presentation/pages/presidente_home_page.dart';
+import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -203,8 +205,11 @@ class _AuthGate extends StatelessWidget {
             case 'driver':
               return const DriverHomePage();
             case 'admin':
-            case 'presidente':
               return const AdminHomePage();
+            case 'presidente':
+              return const PresidenteHomePage();
+            case 'tickeador':
+              return const TickeadorHomePage();
             default:
               return const MiRutaScreen();
           }

@@ -1,6 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/demo/demo_constants.dart';
+import 'package:mi_ruta/features/driver/domain/entities/driver_shift.dart';
 import 'package:mi_ruta/features/driver/domain/entities/vehicle_entity.dart';
+import 'package:mi_ruta/features/driver/domain/usecases/driver_shift_usecases.dart';
 import 'package:mi_ruta/features/driver/domain/usecases/vehicle_usecases.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_vehicle_event.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_vehicle_state.dart';
@@ -9,6 +11,8 @@ import 'package:mi_ruta/features/driver/presentation/bloc/driver_vehicle_state.d
 class DriverVehicleBloc extends Bloc<DriverVehicleEvent, DriverVehicleState> {
   final GetMyVehicleStreamUseCase getMyVehicleStreamUseCase;
   final SetVehicleOnDutyUseCase setVehicleOnDutyUseCase;
+  final StartDriverShiftUseCase startDriverShiftUseCase;
+  final EndDriverShiftUseCase endDriverShiftUseCase;
 
   /// TEMPORAL — unidad fija del "Modo prueba", 100% en memoria.
   VehicleEntity _demoVehicle = VehicleEntity(
@@ -30,6 +34,8 @@ class DriverVehicleBloc extends Bloc<DriverVehicleEvent, DriverVehicleState> {
   DriverVehicleBloc({
     required this.getMyVehicleStreamUseCase,
     required this.setVehicleOnDutyUseCase,
+    required this.startDriverShiftUseCase,
+    required this.endDriverShiftUseCase,
   }) : super(const DriverVehicleInitial()) {
     on<StartMyVehicleStream>(_onStartMyVehicleStream);
     on<LoadStaticDemoVehicle>(_onLoadStaticDemoVehicle);
@@ -84,7 +90,15 @@ class DriverVehicleBloc extends Bloc<DriverVehicleEvent, DriverVehicleState> {
         isOnDutyUpdatedAt: DateTime.now(),
         updatedAt: _demoVehicle.updatedAt,
       );
-      emit(DriverVehicleLoaded(vehicle: _demoVehicle));
+      final closedShift = await _applyShiftTransition(
+        vehicleId: _demoVehicle.vehicleId,
+        driverUid: _demoVehicle.ownerUid,
+        turningOn: event.value,
+      );
+      emit(DriverVehicleLoaded(
+        vehicle: _demoVehicle,
+        lastClosedShift: closedShift,
+      ));
       return;
     }
 
@@ -93,15 +107,47 @@ class DriverVehicleBloc extends Bloc<DriverVehicleEvent, DriverVehicleState> {
 
     final result =
         await setVehicleOnDutyUseCase(event.vehicleId, event.value);
-    result.fold(
+    await result.fold(
       // Mantiene la tarjeta de la unidad visible — solo avisa el error,
       // no reemplaza toda la pantalla (el switch vuelve solo a su valor
       // real porque sigue leyendo `vehicle.isOnDuty`, que no cambió).
-      (failure) => emit(DriverVehicleLoaded(
+      (failure) async => emit(DriverVehicleLoaded(
         vehicle: currentVehicle,
         toggleError: failure.message,
       )),
-      (_) {}, // el stream activo re-emitirá el estado actualizado
+      (_) async {
+        if (currentVehicle != null) {
+          final closedShift = await _applyShiftTransition(
+            vehicleId: currentVehicle.vehicleId,
+            driverUid: currentVehicle.ownerUid,
+            turningOn: event.value,
+          );
+          if (closedShift != null) {
+            emit(DriverVehicleLoaded(
+              vehicle: currentVehicle,
+              lastClosedShift: closedShift,
+            ));
+          }
+        }
+        // si turningOn==true, el stream real re-emitirá el estado con la
+        // unidad actualizada; no hace falta emitir acá.
+      },
     );
+  }
+
+  /// RQ-82: arranca o cierra el registro de jornada según corresponda.
+  /// Devuelve la jornada recién cerrada (para mostrar el resumen) o null si
+  /// lo que pasó fue un arranque.
+  Future<DriverShiftEntity?> _applyShiftTransition({
+    required String vehicleId,
+    required String driverUid,
+    required bool turningOn,
+  }) async {
+    if (turningOn) {
+      await startDriverShiftUseCase(vehicleId: vehicleId, driverUid: driverUid);
+      return null;
+    }
+    final result = await endDriverShiftUseCase(vehicleId: vehicleId);
+    return result.fold((_) => null, (shift) => shift);
   }
 }

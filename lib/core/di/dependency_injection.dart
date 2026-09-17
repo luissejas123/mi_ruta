@@ -8,6 +8,10 @@ import 'package:mi_ruta/features/auth/data/repositories/auth_repository_impl.dar
 import 'package:mi_ruta/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mi_ruta/features/auth/domain/usecases/auth_usecases.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mi_ruta/features/presidente/data/repositories/tariff_repository_impl.dart';
+import 'package:mi_ruta/features/presidente/domain/repositories/tariff_repository.dart';
+import 'package:mi_ruta/features/presidente/domain/usecases/tariff_usecases.dart';
+import 'package:mi_ruta/features/presidente/presentation/bloc/tariff_bloc.dart';
 import 'package:mi_ruta/features/user/data/datasources/user_remote_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/user_remote_datasource_impl.dart';
 import 'package:mi_ruta/features/user/data/datasources/trip_history_datasource.dart';
@@ -49,8 +53,11 @@ import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 import 'package:mi_ruta/features/driver/data/datasources/vehicle_remote_datasource.dart';
 import 'package:mi_ruta/features/driver/data/datasources/vehicle_remote_datasource_impl.dart';
 import 'package:mi_ruta/features/driver/data/repositories/vehicle_repository_impl.dart';
+import 'package:mi_ruta/features/driver/data/repositories/driver_shift_repository_impl.dart';
 import 'package:mi_ruta/features/driver/domain/repositories/vehicle_repository.dart';
+import 'package:mi_ruta/features/driver/domain/repositories/driver_shift_repository.dart';
 import 'package:mi_ruta/features/driver/domain/usecases/vehicle_usecases.dart';
+import 'package:mi_ruta/features/driver/domain/usecases/driver_shift_usecases.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_vehicle_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_active_vehicles_bloc.dart';
 
@@ -377,11 +384,25 @@ void setupDependencies() {
     GetActiveVehiclesStreamUseCase(repository: getIt<VehicleRepository>()),
   );
 
+  // DRIVER SHIFT FEATURE (RQ-82) — en memoria por ahora, ver
+  // InMemoryDriverShiftRepository (TODO firestore).
+  getIt.registerSingleton<DriverShiftRepository>(
+    InMemoryDriverShiftRepository(),
+  );
+  getIt.registerSingleton<StartDriverShiftUseCase>(
+    StartDriverShiftUseCase(repository: getIt<DriverShiftRepository>()),
+  );
+  getIt.registerSingleton<EndDriverShiftUseCase>(
+    EndDriverShiftUseCase(repository: getIt<DriverShiftRepository>()),
+  );
+
   // VEHICLE FEATURE - PRESENTATION LAYER (BLoC)
   getIt.registerFactory<DriverVehicleBloc>(
     () => DriverVehicleBloc(
       getMyVehicleStreamUseCase: getIt<GetMyVehicleStreamUseCase>(),
       setVehicleOnDutyUseCase: getIt<SetVehicleOnDutyUseCase>(),
+      startDriverShiftUseCase: getIt<StartDriverShiftUseCase>(),
+      endDriverShiftUseCase: getIt<EndDriverShiftUseCase>(),
     ),
   );
 
@@ -389,6 +410,24 @@ void setupDependencies() {
     () => AdminActiveVehiclesBloc(
       getActiveVehiclesStreamUseCase: getIt<GetActiveVehiclesStreamUseCase>(),
       getUsersByIdsUseCase: getIt<GetUsersByIdsUseCase>(),
+    ),
+  );
+
+  // ============================================
+  // TARIFF FEATURE (RQ-121) — en memoria por ahora, ver
+  // InMemoryTariffRepository (TODO firestore).
+  // ============================================
+  getIt.registerSingleton<TariffRepository>(InMemoryTariffRepository());
+  getIt.registerSingleton<GetTariffUseCase>(
+    GetTariffUseCase(repository: getIt<TariffRepository>()),
+  );
+  getIt.registerSingleton<SaveTariffUseCase>(
+    SaveTariffUseCase(repository: getIt<TariffRepository>()),
+  );
+  getIt.registerFactory<TariffBloc>(
+    () => TariffBloc(
+      getTariffUseCase: getIt<GetTariffUseCase>(),
+      saveTariffUseCase: getIt<SaveTariffUseCase>(),
     ),
   );
 

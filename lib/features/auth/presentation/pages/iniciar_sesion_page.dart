@@ -8,6 +8,8 @@ import 'package:mi_ruta/features/auth/presentation/pages/insertar_correo_page.da
 import 'package:mi_ruta/features/auth/presentation/pages/register_page.dart';
 import 'package:mi_ruta/features/auth/presentation/widgets/boton_amarillo.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
+import 'package:mi_ruta/features/presidente/presentation/pages/presidente_home_page.dart';
+import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_home_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
 
 class IniciarSesionPage extends StatelessWidget {
@@ -16,7 +18,9 @@ class IniciarSesionPage extends StatelessWidget {
   void _onAuthLoaded(BuildContext context, AuthLoaded state) {
     final Widget destination = switch (state.user.role) {
       'driver' => const DriverHomePage(),
-      'admin' || 'presidente' => const AdminHomePage(),
+      'admin' => const AdminHomePage(),
+      'presidente' => const PresidenteHomePage(),
+      'tickeador' => const TickeadorHomePage(),
       _ => const MiRutaScreen(),
     };
     Navigator.of(context).pushAndRemoveUntil(
@@ -132,6 +136,14 @@ class _ModoPruebaSection extends StatelessWidget {
             OutlinedButton(
               onPressed: () => _entrar(context, 'admin'),
               child: const Text('Admin'),
+            ),
+            OutlinedButton(
+              onPressed: () => _entrar(context, 'presidente'),
+              child: const Text('Presidente'),
+            ),
+            OutlinedButton(
+              onPressed: () => _entrar(context, 'tickeador'),
+              child: const Text('Tickeador'),
             ),
           ],
         ),

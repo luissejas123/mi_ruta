@@ -1,9 +1,187 @@
 rules_version = '2';
 
+// ─────────────────────────────────────────────────────────────────────────
+// RQ-103 — Reglas por rol. Reemplaza el `allow read, write: if true`
+// original (cualquiera, sin login, podía leer/escribir TODA la base).
+//
+// NO DESPLEGADO TODAVIA. Para aplicar:
+//   1. Instalar Firebase CLI (`npm install -g firebase-tools`), `firebase login`.
+//   2. `firebase deploy --only firestore:rules` desde la raíz del repo.
+// Antes de desplegar a producción: probar con el emulador
+// (`firebase emulators:start --only firestore`) — estas reglas se
+// escribieron sin poder correr el emulador en este entorno, así que
+// revisar con cuidado cada flujo real (login, pago QR, planificar viaje,
+// beneficios, recargas) contra el emulador antes de aplicarlas en vivo.
+//
+// Nota: la app también tiene guardas del lado cliente (ver comentarios
+// "defensa en profundidad" en el código Dart) pero esas NO son seguridad
+// real — cualquiera con la API key del proyecto puede saltarse la app por
+// completo y hablarle a Firestore directo con el SDK. Estas reglas son la
+// única protección real.
+// ─────────────────────────────────────────────────────────────────────────
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function myRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function hasRole(roles) {
+      return isSignedIn() && myRole() in roles;
+    }
+
+    function isStaff() {
+      return hasRole(['admin', 'presidente']);
+    }
+
+    // ── users: cada quien lee/crea su propio perfil; el campo `role` solo
+    // lo puede cambiar staff (evita que un usuario se auto-asigne admin).
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow update: if isSignedIn() && (
+        (request.auth.uid == uid &&
+          request.resource.data.role == resource.data.role) ||
+        isStaff()
+      );
+      allow delete: if isStaff();
+    }
+
+    // ── routes / routes_bbox: datos públicos de rutas de transporte
+    // (necesarios incluso antes de iniciar sesión, para el mapa). Solo
+    // staff escribe — hoy se cargan por script/consola, no desde la app.
+    match /routes/{routeId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+    match /routes_bbox/{routeId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // ── planned_trips/{uid}/trips: cada usuario, sus propios planes.
+    match /planned_trips/{uid}/trips/{tripId} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ── notifications/{uid}/items: cada usuario, sus propias notificaciones.
+    match /notifications/{uid}/items/{itemId} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ── trip_history/{uid}/trips: cada usuario, su propio historial.
+    match /trip_history/{uid}/trips/{tripId} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ── benefit_requests: el usuario crea/lee las suyas; solo staff
+    // aprueba/rechaza (cambia `status`).
+    match /benefit_requests/{requestId} {
+      allow read: if isSignedIn() &&
+        (resource.data.user_id == request.auth.uid || isStaff());
+      allow create: if isSignedIn() &&
+        request.resource.data.user_id == request.auth.uid;
+      allow update: if isStaff();
+      allow delete: if isStaff();
+    }
+
+    // ── recharges: el usuario crea/lee las suyas; solo staff
+    // aprueba/rechaza.
+    match /recharges/{rechargeId} {
+      allow read: if isSignedIn() &&
+        (resource.data.user_id == request.auth.uid || isStaff());
+      allow create: if isSignedIn() &&
+        request.resource.data.user_id == request.auth.uid;
+      allow update: if isStaff();
+      allow delete: if isStaff();
+    }
+
+    // ── transactions: cada usuario lee/crea las suyas. El campo `status`
+    // de una transacción espejo de beneficio lo actualiza staff (junto con
+    // el approve/reject de benefit_requests, ver
+    // BenefitRequestDatasource._syncMirroredTransactionStatus).
+    match /transactions/{txId} {
+      allow read: if isSignedIn() &&
+        (resource.data.user_id == request.auth.uid || isStaff());
+      allow create: if isSignedIn() &&
+        request.resource.data.user_id == request.auth.uid;
+      allow update: if isStaff();
+      allow delete: if isStaff();
+    }
+
+    // ── config: configuración pública de la app (QR de recarga, metadata
+    // de rutas). Solo staff escribe.
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // ── trips: viaje de conductor. Lectura abierta a autenticados (se
+    // consulta por trip_id al escanear el QR del bus, sin relación previa
+    // con el pasajero). Escritura abierta a autenticados porque el pago QR
+    // (TripPaymentService) actualiza el estado de pago desde CUALQUIER
+    // pasajero que escanee ese viaje — no hay forma de acotarlo por
+    // ownership sin rediseñar ese flujo. Riesgo conocido: un usuario
+    // autenticado podría en teoría marcar un viaje como pagado sin pagar;
+    // mismo riesgo que existía sin reglas, pero ahora requiere estar
+    // autenticado al menos.
+    match /trips/{tripId} {
+      allow read: if isSignedIn();
+      allow create: if isStaff();
+      allow update: if isSignedIn();
+      allow delete: if isStaff();
+    }
+
+    // ── vehicles: el chofer dueño-operador administra la suya; staff
+    // administra cualquiera (alta/asignación).
+    match /vehicles/{vehicleId} {
+      allow read: if isSignedIn();
+      allow create: if isStaff();
+      allow update: if isSignedIn() &&
+        (resource.data.owner_uid == request.auth.uid || isStaff());
+      allow delete: if isStaff();
+    }
+
+    // ── tariffs/{route_ref}: RQ-121. Colección nueva, aún sin datos
+    // reales (el panel de presidente hoy usa un repositorio en memoria,
+    // ver TariffRepository). Solo presidente/admin la escriben; lectura
+    // abierta a autenticados (el costo de un viaje debe poder calcularse
+    // para cualquier pasajero).
+    match /tariffs/{routeRef} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    // ── station_logs: RQ-97 (tickeador). Colección documentada con datos
+    // demo pero sin datasource en código todavía (ver
+    // BenefitRequestDatasource y demo_constants.dart para el estado del
+    // modo prueba). Cuando exista el datasource real: el tickeador crea
+    // logs, staff los lee/administra.
+    match /station_logs/{logId} {
+      allow read: if isStaff();
+      allow create: if hasRole(['tickeador', 'admin', 'presidente']);
+      allow update, delete: if isStaff();
+    }
+
+    // ── ratings / claims: sin datasource en código todavía. Reglas
+    // conservadoras por si se implementan: el autor crea, staff administra.
+    match /ratings/{ratingId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.reviewer_uid == request.auth.uid;
+      allow update, delete: if isStaff();
+    }
+    match /claims/{claimId} {
+      allow read: if isSignedIn() &&
+        (resource.data.reporter_id == request.auth.uid || isStaff());
+      allow create: if isSignedIn() &&
+        request.resource.data.reporter_id == request.auth.uid;
+      allow update, delete: if isStaff();
     }
   }
 }

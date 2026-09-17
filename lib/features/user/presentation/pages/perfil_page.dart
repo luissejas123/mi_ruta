@@ -13,6 +13,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/editar_perfil_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/mi_codigo_qr_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/notificaciones_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/planificar_viaje_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
@@ -357,6 +358,22 @@ class _PerfilPageState extends State<PerfilPage> {
                   title: 'Acceder a beneficios',
                   subtitle: 'Estudiante, Universitario, Adulto mayor',
                   onTap: () => navigateBottomNav(context, 1),
+                ),
+                _buildMenuItem(
+                  icon: Icons.qr_code_2,
+                  title: 'Mi código QR',
+                  subtitle: 'Para que el tickeador valide tu abordaje',
+                  onTap: () {
+                    final authState = context.read<AuthBloc>().state;
+                    if (authState is! AuthLoaded) return;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            MiCodigoQrPage(uid: authState.user.uid),
+                      ),
+                    );
+                  },
                 ),
 
                 // ── Apariencia ──

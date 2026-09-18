@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/admin/data/datasources/operational_report_datasource.dart';
 import 'package:mi_ruta/features/admin/domain/entities/operational_report.dart';
 import 'package:mi_ruta/features/admin/domain/services/operational_report_service.dart';
+import 'package:mi_ruta/features/admin/domain/services/operational_report_export_service.dart';
 
 class ReportesOperativosPage extends StatefulWidget {
   const ReportesOperativosPage({super.key});
@@ -13,7 +14,9 @@ class ReportesOperativosPage extends StatefulWidget {
 
 class _ReportesOperativosPageState extends State<ReportesOperativosPage> {
   late final OperationalReportService _service;
+  final _exportService = OperationalReportExportService();
   late Future<OperationalReport> _report;
+  bool _isExporting = false;
 
   @override
   void initState() {
@@ -29,6 +32,30 @@ class _ReportesOperativosPageState extends State<ReportesOperativosPage> {
   Future<void> _refresh() async {
     setState(() => _report = _service.getReport());
     await _report;
+  }
+
+  Future<void> _export(OperationalReport report, {required bool excel}) async {
+    if (_isExporting) return;
+    setState(() => _isExporting = true);
+    try {
+      final file = excel
+          ? await _exportService.saveExcel(report)
+          : await _exportService.savePdf(report);
+      await _exportService.share(
+        file,
+        subject: excel ? 'Reporte operativo Excel' : 'Reporte operativo PDF',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo exportar el reporte'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
   }
 
   @override
@@ -84,6 +111,30 @@ class _ReportesOperativosPageState extends State<ReportesOperativosPage> {
                       value: report.featuredDrivers.length,
                       color: const Color(0xFFE2F7EF),
                       valueColor: Colors.green.shade700,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _isExporting
+                            ? null
+                            : () => _export(report, excel: false),
+                        icon: const Icon(Icons.picture_as_pdf_outlined),
+                        label: const Text('Exportar PDF'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _isExporting
+                            ? null
+                            : () => _export(report, excel: true),
+                        icon: const Icon(Icons.table_view_outlined),
+                        label: const Text('Exportar Excel'),
+                      ),
                     ),
                   ],
                 ),

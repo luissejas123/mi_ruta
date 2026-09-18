@@ -22,6 +22,8 @@ class TripSegment {
 /// Servicio de dominio: calcula la parada de abordaje, la de bajada y el
 /// segmento de tránsito de una ruta GTFS dado un origen y un destino.
 class TripSegmentService {
+  static const _busStopPenalty = 0.00000005;
+
   /// Calcula el [TripSegment] óptimo para viajar de [origin] a [destination]
   /// usando [route].
   ///
@@ -45,22 +47,34 @@ class TripSegmentService {
       final n = seg.length;
       final step = n > 500 ? 3 : 1;
 
-      for (int i = 0; i < n; i += step) {
-        final walkDistOrig = _fastDistSq(seg[i], origin);
-        if (walkDistOrig > 0.003) continue; // aprox 5km en grados^2
+      // El costo se separa en una parte de abordaje y otra de bajada:
+      // origin(i) - penalty*i + destination(j) + penalty*j.
+      // Mantener el mejor i anterior permite obtener exactamente el mismo
+      // mínimo en O(n), en lugar de probar todas las parejas en O(n²).
+      var bestBoardCost = double.infinity;
+      var candidateBoard = -1;
+      var nextBoard = 0;
+      for (int j = 1; j < n; j += step) {
+        while (nextBoard < j) {
+          final walkDistOrig = _fastDistSq(seg[nextBoard], origin);
+          if (walkDistOrig <= 0.003) {
+            final boardCost = walkDistOrig - (_busStopPenalty * nextBoard);
+            if (boardCost < bestBoardCost) {
+              bestBoardCost = boardCost;
+              candidateBoard = nextBoard;
+            }
+          }
+          nextBoard += step;
+        }
 
-        for (int j = i + 1; j < n; j += step) {
-          // j > i SIEMPRE: el destino debe estar después del origen en el polyline
-          // Esto garantiza que el trazado avanza en la dirección del recorrido
-          final walkDistDest = _fastDistSq(seg[j], destination);
-
-          // Penalización suave por distancia en bus
-          final busStops = j - i;
-          final cost = walkDistOrig + walkDistDest + (busStops * 0.00000005);
-
+        if (candidateBoard != -1) {
+          final cost =
+              bestBoardCost +
+              _fastDistSq(seg[j], destination) +
+              (_busStopPenalty * j);
           if (cost < bestCost) {
             bestCost = cost;
-            bestBoard = i;
+            bestBoard = candidateBoard;
             bestAlight = j;
             bestSeg = seg;
           }

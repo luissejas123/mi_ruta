@@ -17,6 +17,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
+import 'package:mi_ruta/features/user/domain/services/recharge_service.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
@@ -91,14 +92,20 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
         final photosStatus = await Permission.photos.request();
         final storageStatus = await Permission.storage.request();
         if (!photosStatus.isGranted && !storageStatus.isGranted) {
-          _showSnackBar('Permiso denegado para guardar imágenes', isError: true);
+          _showSnackBar(
+            'Permiso denegado para guardar imágenes',
+            isError: true,
+          );
           setState(() => _isDownloading = false);
           return;
         }
       } else {
         final status = await Permission.photos.request();
         if (!status.isGranted) {
-          _showSnackBar('Permiso denegado para guardar imágenes', isError: true);
+          _showSnackBar(
+            'Permiso denegado para guardar imágenes',
+            isError: true,
+          );
           setState(() => _isDownloading = false);
           return;
         }
@@ -167,8 +174,9 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
 
   void _submitRecharge() {
     final amount = double.tryParse(_amountController.text);
-    if (amount == null || amount <= 0) {
-      _showSnackBar('Ingresa un monto válido', isError: true);
+    final amountError = RechargeService.validateAmount(amount);
+    if (amountError != null) {
+      _showSnackBar(amountError, isError: true);
       return;
     }
     if (_selectedImage == null) {
@@ -179,7 +187,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
     context.read<RechargeBloC>().add(
       SubmitRechargeEvent(
         userId: _userId,
-        amount: amount,
+        amount: amount!,
         proofImageFile: _selectedImage!,
       ),
     );
@@ -190,8 +198,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
       SnackBar(
         content: Text(message),
         duration: Duration(seconds: isError ? 4 : 3),
-        backgroundColor:
-            isError ? Colors.red.shade700 : Colors.green.shade700,
+        backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
       ),
     );
   }
@@ -249,9 +256,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
                 errorBuilder: (context, error, stack) => const SizedBox(
                   width: 200,
                   height: 200,
-                  child: Center(
-                    child: Icon(Icons.error_outline, size: 48),
-                  ),
+                  child: Center(child: Icon(Icons.error_outline, size: 48)),
                 ),
               ),
             )
@@ -326,10 +331,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 13),
-            ),
+            child: Text(text, style: const TextStyle(fontSize: 13)),
           ),
         ),
       ],
@@ -365,12 +367,8 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
         decoration: InputDecoration(
           hintText: '0.00',
           prefixText: 'Bs. ',
-          prefixStyle: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          prefixStyle: const TextStyle(fontWeight: FontWeight.bold),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: _amarillo, width: 2),
@@ -431,8 +429,11 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
-                          Icon(Icons.check_circle,
-                              color: Colors.green.shade600, size: 18),
+                          Icon(
+                            Icons.check_circle,
+                            color: Colors.green.shade600,
+                            size: 18,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -464,8 +465,11 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
                   padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Column(
                     children: [
-                      Icon(Icons.cloud_upload_outlined,
-                          size: 32, color: Colors.grey.shade600),
+                      Icon(
+                        Icons.cloud_upload_outlined,
+                        size: 32,
+                        color: Colors.grey.shade600,
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         'Toca para subir comprobante',
@@ -532,9 +536,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
         backgroundColor: _amarillo,
         disabledBackgroundColor: Colors.grey.shade300,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       child: isLoading
           ? const SizedBox(
@@ -574,8 +576,10 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
         setState(() => _isProcessing = false);
         if (state is RechargeSubmitted) {
           context.read<WalletBloc>().add(LoadWalletEvent(_userId));
-          getIt<NotificationService>()
-              .saveRechargeNotification(_userId, state.amount);
+          getIt<NotificationService>().saveRechargeNotification(
+            _userId,
+            state.amount,
+          );
           setState(() {
             _comprobanteEnviado = true;
             _amountController.clear();

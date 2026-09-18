@@ -9,7 +9,7 @@ class DriverDatasource {
   final FirebaseFirestore _firestore;
 
   DriverDatasource({required FirebaseFirestore firestore})
-      : _firestore = firestore;
+    : _firestore = firestore;
 
   VehicleEntity _vehicleFromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
@@ -179,7 +179,8 @@ class DriverDatasource {
     if (vehicleInspectionUrl != null) {
       legal['vehicle_inspection_url'] = vehicleInspectionUrl;
     }
-    if (driverLicenseUrl != null) legal['driver_license_url'] = driverLicenseUrl;
+    if (driverLicenseUrl != null)
+      legal['driver_license_url'] = driverLicenseUrl;
     if (municipalOperationCardUrl != null) {
       legal['municipal_operation_card_url'] = municipalOperationCardUrl;
     }
@@ -220,7 +221,10 @@ class DriverDatasource {
   }
 
   /// Historial de viajes generados por el chofer (RQ-67), más recientes primero.
-  Future<List<DriverTripEntity>> getDriverTrips(String driverId, {int limit = 50}) async {
+  Future<List<DriverTripEntity>> getDriverTrips(
+    String driverId, {
+    int limit = 50,
+  }) async {
     final snap = await _firestore
         .collection('trips')
         .where('driver_id', isEqualTo: driverId)
@@ -282,8 +286,50 @@ class DriverDatasource {
     }, SetOptions(merge: true));
   }
 
+  /// Confirma y marca un pago en una única transacción para evitar que el
+  /// mismo viaje sea validado simultáneamente por dos tickeadores.
+  Future<DriverTripEntity> verifyPaidTrip({
+    required String tripId,
+    required String expectedDriverId,
+    required double expectedAmount,
+    required String tickeadorUid,
+  }) async {
+    final tripRef = _firestore.collection('trips').doc(tripId);
+
+    return _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(tripRef);
+      if (!snapshot.exists) {
+        throw StateError('Viaje no encontrado');
+      }
+
+      final trip = _tripFromDoc(snapshot);
+      if (trip.driverId != expectedDriverId) {
+        throw StateError('El chofer del QR no coincide con el viaje');
+      }
+      if (!trip.isPaid) {
+        throw StateError('El pago todavía no fue realizado');
+      }
+      if (trip.paymentAmount == null ||
+          (trip.paymentAmount! - expectedAmount).abs() > 0.01) {
+        throw StateError('El monto del QR no coincide con el pago registrado');
+      }
+      if (trip.verifiedBy != null && trip.verifiedBy!.isNotEmpty) {
+        throw StateError('Este pago ya fue verificado');
+      }
+
+      transaction.update(tripRef, {
+        'verified_by': tickeadorUid,
+        'verified_at': FieldValue.serverTimestamp(),
+      });
+      return trip;
+    });
+  }
+
   /// Historial de validaciones de un tickeador (RQ-79).
-  Future<List<DriverTripEntity>> getTripsVerifiedBy(String tickeadorUid, {int limit = 50}) async {
+  Future<List<DriverTripEntity>> getTripsVerifiedBy(
+    String tickeadorUid, {
+    int limit = 50,
+  }) async {
     final snap = await _firestore
         .collection('trips')
         .where('verified_by', isEqualTo: tickeadorUid)
@@ -295,8 +341,10 @@ class DriverDatasource {
 
   /// Unidades actualmente en servicio (RQ-75, panel de administración).
   Future<List<VehicleEntity>> getActiveVehicles() async {
-    final snap =
-        await _firestore.collection('vehicles').where('is_on_duty', isEqualTo: true).get();
+    final snap = await _firestore
+        .collection('vehicles')
+        .where('is_on_duty', isEqualTo: true)
+        .get();
     return snap.docs.map(_vehicleFromDoc).toList();
   }
 

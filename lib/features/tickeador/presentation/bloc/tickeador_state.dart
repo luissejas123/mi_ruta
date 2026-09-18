@@ -89,7 +89,7 @@ class VerificationHistoryLoaded extends TickeadorState {
 /// QR válido.
 class QrValidated extends TickeadorState {
   final String message;
-  final dynamic tripData;
+  final Map<String, dynamic> tripData;
 
   const QrValidated({required this.message, required this.tripData});
 

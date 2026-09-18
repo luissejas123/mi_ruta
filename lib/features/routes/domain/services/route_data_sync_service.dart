@@ -31,6 +31,8 @@ class RouteDataSyncService {
   Timer? _updatedMessageTimer;
   Future<void>? _initializationFuture;
   Future<void>? _versionCheckFuture;
+  bool _isInitialized = false;
+  final Map<String, _CachedRoute> _routeCache = {};
 
   /// Estado observable para informar una actualización real de rutas.
   ValueListenable<RouteSyncStatus> get syncStatus => _syncStatus;
@@ -51,12 +53,15 @@ class RouteDataSyncService {
   /// - Si SQLite está vacío O no tiene polylines: parsea GTFS y puebla la BD.
   /// - Luego verifica si hay una versión más nueva en Firestore (en background).
   Future<void> ensureDataReady() {
+    if (_isInitialized) return Future.value();
     final pendingInitialization = _initializationFuture;
     if (pendingInitialization != null) return pendingInitialization;
 
-    final initialization = _ensureDataReady().whenComplete(() {
-      _initializationFuture = null;
-    });
+    final initialization = _ensureDataReady()
+        .then((_) => _isInitialized = true)
+        .whenComplete(() {
+          _initializationFuture = null;
+        });
     _initializationFuture = initialization;
     return initialization;
   }
@@ -156,6 +161,7 @@ class RouteDataSyncService {
     );
 
     await _localDb.upsertRoutes(routes);
+    _routeCache.clear();
     await _localDb.setConfig(_keyVersion, 'gtfs_seed');
     print('✅ ${routes.length} rutas sembradas desde GTFS en SQLite');
   }
@@ -237,6 +243,7 @@ class RouteDataSyncService {
 
     // Upsert solo bbox — NO toca polyline_json de rutas ya cargadas por GTFS
     await _localDb.upsertBboxOnly(rows.cast<Map<String, dynamic>>());
+    _routeCache.clear();
     await _localDb.setConfig(_keyVersion, version);
     final withPoly = await _localDb.countRoutesWithPolyline();
     print(
@@ -260,6 +267,19 @@ class RouteDataSyncService {
 
   RouteEntity _rowToEntity(Map<String, dynamic> row) {
     final polylineJson = row['polyline_json'] as String?;
+    final id = row['id'] as String;
+    final signature = Object.hash(
+      polylineJson,
+      row['name'],
+      row['ref'],
+      row['direction_id'],
+      row['color'],
+    );
+    final cached = _routeCache[id];
+    if (cached != null && cached.signature == signature) {
+      return cached.route;
+    }
+
     List<Map<String, double>>? polyline;
     if (polylineJson != null) {
       final raw = jsonDecode(polylineJson) as List;
@@ -273,8 +293,8 @@ class RouteDataSyncService {
           .toList();
     }
 
-    return RouteEntity(
-      id: row['id'] as String,
+    final route = RouteEntity(
+      id: id,
       name: row['name'] as String? ?? '',
       ref: row['ref'] as String? ?? '',
       color: row['color'] as String?,
@@ -285,6 +305,8 @@ class RouteDataSyncService {
       lngMin: row['lng_min'] as double?,
       lngMax: row['lng_max'] as double?,
     );
+    _routeCache[id] = _CachedRoute(signature, route);
+    return route;
   }
 
   RouteEntity _firestoreDocToEntity(DocumentSnapshot doc) {
@@ -333,3 +355,10 @@ class RouteDataSyncService {
 }
 
 enum RouteSyncStatus { idle, syncing, updated }
+
+class _CachedRoute {
+  final int signature;
+  final RouteEntity route;
+
+  const _CachedRoute(this.signature, this.route);
+}

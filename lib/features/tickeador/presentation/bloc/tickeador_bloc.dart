@@ -1,10 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/tickeador/domain/services/tickeador_service.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_event.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_state.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 
 /// BLoC de la feature Tickeador.
 ///
@@ -93,7 +90,9 @@ class TickeadorBloc extends Bloc<TickeadorEvent, TickeadorState> {
         stationName: event.stationName,
         vehicle: event.vehicle,
       );
-      emit(const StationLogSuccess(message: 'Llegada registrada correctamente'));
+      emit(
+        const StationLogSuccess(message: 'Llegada registrada correctamente'),
+      );
       // Refrescar la actividad reciente
       emit(const TickeadorLoading());
       final logs = await _service.getActividadReciente(event.tickeadorId);
@@ -126,12 +125,12 @@ class TickeadorBloc extends Bloc<TickeadorEvent, TickeadorState> {
   ) async {
     emit(const TickeadorLoading());
     try {
-      final result = await _service.validateTripQR(event.qrCode);
+      final result = await _service.validateTripQR(
+        qrCode: event.qrCode,
+        tickeadorUid: event.tickeadorUid,
+      );
       if (result['valid'] == true) {
-        emit(QrValidated(
-          message: 'Viaje válido',
-          tripData: result,
-        ));
+        emit(QrValidated(message: 'Viaje válido', tripData: result));
       } else {
         emit(QrInvalid(message: result['error'] ?? 'Código QR inválido'));
       }

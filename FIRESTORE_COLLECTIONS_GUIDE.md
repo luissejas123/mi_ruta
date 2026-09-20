@@ -190,9 +190,13 @@ Los campos `discount_percent`, `business_name`, `is_used`, `valid_until` solo ex
   "origin_name": "Mi ubicación",
   "destination_name": "UMSS",
   "elapsed_seconds": 1140,
-  "date": "2026-06-29T10:00:00Z"
+  "date": "2026-06-29T10:00:00Z",
+  "fare_paid": 2.5,
+  "route_refs": ["106"]
 }
 ```
+
+**`route_refs`** (agregado 2026-09-20): `ref`(s) GTFS estable(s) de la(s) ruta(s) del viaje — `route_name` es solo texto de display, no sirve como llave de filtrado. Un viaje con trasbordo (`PlannedTrip` con varios `busLegs`) guarda todos los refs. Entradas guardadas antes de este campo lo tienen vacío (`[]`). Usado por la consulta admin "Pasajeros transportados" (`TransportedPassengersDatasource`), que hace una **collection-group query** sobre `trips` filtrando `route_refs` (array-contains) + `date` (rango) — requiere el índice compuesto `COLLECTION_GROUP` declarado en `firestore.indexes.json`. Ojo: el id de colección `trips` lo comparte esta subcolección con la colección top-level `trips` (cobro chofer↔pasajero, esquema completamente distinto) — una collection-group query por `route_refs` no las mezcla porque esos documentos no tienen ese campo.
 
 ---
 

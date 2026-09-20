@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/core/theme/map_styles.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
+import 'package:mi_ruta/core/utils/location_icon_painter.dart';
 
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
@@ -32,12 +36,40 @@ class MiRutaScreen extends StatefulWidget {
 class _MiRutaScreenState extends State<MiRutaScreen> {
   GoogleMapController? _mapController;
   int _unreadCount = 0;
+  BitmapDescriptor? _locationIcon;
+  StreamSubscription<Position>? _positionSubscription;
 
   @override
   void initState() {
     super.initState();
     context.read<MiRutaBloc>().add(const MiRutaLocationRequested());
     _loadUnreadCount();
+    LocationIconPainter.build().then((icon) {
+      if (mounted && icon != null) setState(() => _locationIcon = icon);
+    });
+    // El bloc es singleton (vive toda la app), así que el stream de GPS lo
+    // controla esta pantalla mientras está montada — no el bloc — para no
+    // seguir rastreando ubicación en segundo plano cuando el usuario está
+    // en otra pestaña.
+    _positionSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      ),
+    ).listen(
+      (position) {
+        if (!mounted) return;
+        context.read<MiRutaBloc>().add(
+              MiRutaLiveLocationUpdated(LatLng(position.latitude, position.longitude)),
+            );
+      },
+      // Sin esto, negar el permiso de ubicación (o tenerlo revocado) deja
+      // una excepción sin capturar flotando en el stream — no tumba la
+      // pantalla, pero sí queda como error no manejado de la app.
+      onError: (Object error) {
+        debugPrint('[MiRutaScreen] Error en el stream de ubicación: $error');
+      },
+    );
   }
 
   Future<void> _loadUnreadCount() async {
@@ -59,6 +91,7 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
 
   @override
   void dispose() {
+    _positionSubscription?.cancel();
     _mapController?.dispose();
     super.dispose();
   }
@@ -122,9 +155,12 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
         Marker(
           markerId: const MarkerId('mi_ubicacion'),
           position: state.myLocationLatLng!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueAzure,
-          ),
+          // Círculo tipo "punto azul" en vez del pin genérico de Maps —
+          // mismo ícono que ya usa la navegación en vivo (LocationIconPainter),
+          // con fallback al pin mientras se termina de dibujar.
+          icon: _locationIcon ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          anchor: const Offset(0.5, 0.5),
           infoWindow: const InfoWindow(title: 'Mi ubicación'),
         ),
       if (state.destinationLatLng != null)
@@ -157,6 +193,9 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
       onCameraMove: (pos) {
         context.read<MiRutaBloc>().add(MiRutaCameraMoved(pos.target));
       },
+      onCameraMoveStarted: () {
+        context.read<MiRutaBloc>().add(const MiRutaCameraMoveStarted());
+      },
       onCameraIdle: () {
         context.read<MiRutaBloc>().add(const MiRutaCameraIdle());
       },
@@ -173,7 +212,17 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
       listenWhen: (previous, current) =>
           previous.cameraTriggerCount != current.cameraTriggerCount,
       listener: (context, state) {
-        if (state.cameraUpdateLocation != null && _mapController != null) {
+        // `initState` re-pide la ubicación cada vez que se recrea esta
+        // pantalla (pasa siempre que volvés a "Inicio" desde el bottom
+        // nav). Como el bloc es singleton y ya tenía una ubicación previa,
+        // el mapa aparece interactivo al toque — y si esa nueva ubicación
+        // llega mientras el usuario ya está arrastrando el pin para marcar
+        // un punto, este auto-jump se lo sacaba de las manos a mitad de
+        // camino. En modo pin, el único que debe mover la cámara es el
+        // propio arrastre del usuario.
+        if (state.cameraUpdateLocation != null &&
+            _mapController != null &&
+            !state.isPinMode) {
           _mapController!.animateCamera(
             CameraUpdate.newLatLngZoom(state.cameraUpdateLocation!, 15),
           );
@@ -216,6 +265,7 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
                             child: MapPinConfirmPanel(
                               isCameraMoving: state.isCameraMoving,
                               address: state.pinAddress,
+                              confirmButtonText: 'Confirmar destino',
                               onCancel: _togglePinMode,
                               onConfirm: (state.isCameraMoving ||
                                       state.pinAddress == null)

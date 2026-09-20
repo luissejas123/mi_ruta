@@ -11,6 +11,7 @@ import 'package:mi_ruta/features/routes/domain/services/gtfs_schedule_service.da
 import 'package:mi_ruta/features/routes/domain/services/planned_trip_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_entity_converter.dart';
+import 'package:mi_ruta/features/routes/domain/services/tariff_service.dart';
 import 'package:mi_ruta/features/user/domain/entities/osm_route.dart';
 import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
@@ -32,6 +33,7 @@ class PlanDetallePage extends StatefulWidget {
 class _PlanDetallePageState extends State<PlanDetallePage> {
   int _currentLeg = 0;
   bool _isLoading = false;
+  bool _isCancelling = false;
   final List<bool> _completedLegs = [];
 
   // Real polyline points per leg loaded from GTFS (null = not loaded yet)
@@ -227,7 +229,7 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       // Determine originName: first bus leg uses trip origin, rest use Transbordo
       final isBusLegFirst = busIdx == 0;
 
-      await Navigator.push(
+      final boarded = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
           builder: (_) => RutaLineaPage(
@@ -240,6 +242,7 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       );
 
       if (!mounted) return;
+      if (boarded != true) return;
       setState(() {
         // Mark this bus leg and any preceding walking legs as completed
         _completedLegs[legIndex] = true;
@@ -276,13 +279,23 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
     if (authState is! AuthLoaded) return;
     final userId = authState.user.uid;
 
+    double farePaid;
+    try {
+      farePaid = await getIt<TariffService>().resolvePlannedTripFare(widget.trip);
+    } catch (_) {
+      // Sin conexión u otro error al resolver tarifas reales: el respaldo
+      // plano es mejor que bloquear el cierre del viaje por esto.
+      farePaid = widget.trip.totalCostBs;
+    }
+
     await getIt<TripHistoryService>().saveTrip(
       userId: userId,
       routeName: widget.trip.routesSummary,
       originName: widget.trip.originName,
       destinationName: widget.trip.destinationName,
       elapsed: Duration(minutes: widget.trip.totalMinutes),
-      farePaid: widget.trip.totalCostBs,
+      farePaid: farePaid,
+      routeRefs: widget.trip.busLegs.map((l) => l.routeRef).toList(),
     );
 
     final notifService = getIt<NotificationService>();
@@ -300,7 +313,12 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       }
     }
 
-    await getIt<PlannedTripService>().markCompleted(userId, widget.trip.id);
+    // Same as cancellation: a trip reached via "Elegir" (never "Guardar"d)
+    // has no Firestore doc yet — save first so markCompleted has one to
+    // update instead of throwing NOT_FOUND.
+    final plannedTripService = getIt<PlannedTripService>();
+    await plannedTripService.save(widget.trip);
+    await plannedTripService.markCompleted(userId, widget.trip.id);
 
     if (mounted) {
       showDialog(
@@ -316,13 +334,65 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
                 Navigator.of(context).pop();
                 Navigator.of(context).pop();
               },
-              child: const Text(
-                'OK',
-                style: TextStyle(color: Color(0xFFFFC12F)),
-              ),
+              child: const Text('OK'),
             ),
           ],
         ),
+      );
+    }
+  }
+
+  Future<void> _cancelTrip() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancelar viaje'),
+        content: const Text(
+          '¿Estás seguro que deseas cancelar este viaje? '
+          'Pasará a tu historial de viajes cancelados.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Volver'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
+            child: const Text(
+              'Sí, cancelar',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isCancelling = true);
+    try {
+      final service = getIt<PlannedTripService>();
+      // Trips reached via "Elegir" (without "Guardar" first) were never
+      // persisted, so there's no Firestore doc yet to mark cancelled.
+      // Saving first (idempotent — a no-op overwrite for already-saved
+      // trips) guarantees the doc exists before we update it.
+      await service.save(widget.trip);
+      await service.cancel(widget.userId, widget.trip.id);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Viaje cancelado'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isCancelling = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo cancelar el viaje: $e')),
       );
     }
   }
@@ -403,6 +473,20 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
           'Detalle del plan',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Cancelar viaje',
+            icon: _isCancelling
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.red),
+                  )
+                : const Icon(Icons.close, color: Colors.red),
+            onPressed: _isCancelling ? null : _cancelTrip,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -519,14 +603,14 @@ class _InfoChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: const Color(0xFFFFC12F)),
+          Icon(icon, size: 13, color: Colors.black),
           const SizedBox(width: 4),
           Text(
             label,
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: Color(0xFFFFC12F),
+              color: Colors.black,
             ),
           ),
         ],
@@ -604,7 +688,15 @@ class _UpcomingDeparturesCard extends StatelessWidget {
               ),
             )
           else
-            ...departures.map((d) => _DepartureRow(departure: d)),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 160),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: departures.length,
+                itemBuilder: (context, i) =>
+                    _DepartureRow(departure: departures[i]),
+              ),
+            ),
         ],
       ),
     );
@@ -638,7 +730,7 @@ class _DepartureRow extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFFFFC12F),
+                color: Colors.black,
               ),
             ),
           ),

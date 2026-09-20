@@ -5,7 +5,7 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/pages/register_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recuperar_acceso_page.dart';
-import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
+import 'package:mi_ruta/core/navigation/home_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_textfield.dart';
 
 class InsertarCorreoPage extends StatefulWidget {
@@ -66,7 +66,7 @@ class _InsertarCorreoPageState extends State<InsertarCorreoPage> {
         if (state is AuthLoaded) {
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (_) => const MiRutaScreen()),
+            MaterialPageRoute(builder: (_) => homeScreenForRole(state.user)),
             (_) => false,
           );
         }
@@ -84,13 +84,24 @@ class _InsertarCorreoPageState extends State<InsertarCorreoPage> {
         final isLoading = state is AuthLoading;
 
         return Scaffold(
+          // Se llega acá empujando desde IniciarSesionPage (predecesor
+          // real) — antes no tenía ningún botón de regreso.
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+          extendBodyBehindAppBar: true,
           body: SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 20),
                   const Text(
                     'MiRuta',
                     style: TextStyle(

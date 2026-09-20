@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:mi_ruta/features/user/domain/entities/driver_request_entity.dart';
 
 /// Entidad de Usuario - Modelo de Negocio Puro (sin dependencias de Firestore)
 class UserEntity extends Equatable {
@@ -14,9 +15,26 @@ class UserEntity extends Equatable {
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
-  // Acceso libre a los 5 perfiles para pruebas de QA (ver
-  // super_admin_config.dart) — activado/desactivado desde el panel de Admin.
-  final bool qaAccess;
+  final List<String> activeBenefits;
+  // Solicitud para ser chofer (`driver_request` en users/{uid}). `null` cuando
+  // la cuenta nunca solicitó. El `role` no cambia hasta la aprobación.
+  final DriverRequestEntity? driverRequest;
+  // Rol "activo" por defecto (mismo campo que `AuthEntity.role`). Ver `roles`
+  // para el conjunto completo — una cuenta puede tener varios a la vez.
+  final String role;
+  // Todos los roles simultáneos de la cuenta (siempre incluye 'user'). Ver
+  // RoleHierarchy para las combinaciones válidas.
+  final List<String> roles;
+  // `presidente_info.managed_lines` — refs de línea que este presidente
+  // gestiona. Vacía para cualquier cuenta que no sea presidente, o para un
+  // presidente al que admin todavía no le asignó ninguna línea.
+  final List<String> managedLines;
+  // `assigned_route_ref` — ref de línea que el presidente asignó al PERFIL
+  // de este chofer (RQ4-PRE). `null` si nunca se le asignó ninguna. Esta es
+  // la fuente de verdad por encima de `vehicles.line_number` (ver
+  // DriverService.getAssignedRoute) — cualquier pantalla que muestre "línea
+  // de este chofer" debe priorizar este campo, no el de su vehículo.
+  final String? assignedRouteRef;
 
   const UserEntity({
     required this.uid,
@@ -31,23 +49,38 @@ class UserEntity extends Equatable {
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
-    this.qaAccess = false,
+    this.activeBenefits = const [],
+    this.driverRequest,
+    this.role = 'user',
+    this.roles = const ['user'],
+    this.managedLines = const [],
+    this.assignedRouteRef,
   });
 
+  /// True cuando hay una solicitud de chofer esperando resolución.
+  bool get hasPendingDriverRequest => driverRequest?.isPending ?? false;
+
+  bool get isAdmin => roles.contains('admin');
+
   @override
-  List<Object> get props => [
-        uid,
-        fullName,
-        email,
-        phoneNumber,
-        userType,
-        profileImageUrl,
-        rating,
-        reviewsCount,
-        walletBalance,
-        isActive,
-        createdAt,
-        updatedAt,
-        qaAccess,
-      ];
+  List<Object?> get props => [
+    uid,
+    fullName,
+    email,
+    phoneNumber,
+    userType,
+    profileImageUrl,
+    rating,
+    reviewsCount,
+    walletBalance,
+    isActive,
+    createdAt,
+    updatedAt,
+    activeBenefits,
+    driverRequest,
+    role,
+    roles,
+    managedLines,
+    assignedRouteRef,
+  ];
 }

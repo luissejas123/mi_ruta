@@ -1,3 +1,4 @@
+import 'package:mi_ruta/features/user/domain/entities/driver_request_entity.dart';
 import 'package:mi_ruta/features/user/domain/entities/user_entity.dart';
 
 /// Modelo de Usuario - Capa de Data con Serialización JSON
@@ -15,33 +16,59 @@ class UserModel extends UserEntity {
     required super.isActive,
     required super.createdAt,
     required super.updatedAt,
-    super.qaAccess,
+    super.activeBenefits,
+    super.driverRequest,
+    super.role,
+    super.roles,
+    super.managedLines,
+    super.assignedRouteRef,
   });
 
   /// Convertir JSON de Firestore a UserModel
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    final legacyRole = (json['role'] ?? json['userType']) as String? ?? 'user';
+    // `roles` es nuevo (Sprint 4): un doc que todavia no lo tiene solo
+    // conoce su rol legado. No hace falta migrar los docs existentes.
+    final rawRoles = json['roles'];
+    final roles = rawRoles is List
+        ? rawRoles.map((r) => r.toString()).toList()
+        : <String>[legacyRole];
     return UserModel(
       uid: json['uid'] as String? ?? '',
       fullName: (json['full_name'] ?? json['fullName']) as String? ?? '',
       email: json['email'] as String? ?? '',
-      phoneNumber: (json['phone_number'] ?? json['phoneNumber']) as String? ?? '',
+      phoneNumber:
+          (json['phone_number'] ?? json['phoneNumber']) as String? ?? '',
       userType: (json['role'] ?? json['userType']) as String? ?? 'passenger',
-      profileImageUrl: (json['profile_picture_url'] ?? json['profileImageUrl']) as String? ?? '',
+      profileImageUrl:
+          (json['profile_picture_url'] ?? json['profileImageUrl']) as String? ??
+          '',
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
       reviewsCount: json['reviewsCount'] as int? ?? 0,
-      walletBalance: (json['wallet']?['current_balance'] ?? json['wallet']?['balance'] as num?)?.toDouble() ?? 0.0,
+      walletBalance:
+          (json['wallet']?['current_balance'] ??
+                  json['wallet']?['balance'] as num?)
+              ?.toDouble() ??
+          0.0,
       isActive: json['isActive'] as bool? ?? true,
-      qaAccess: json['qa_access'] as bool? ?? false,
+      driverRequest: DriverRequestEntity.fromJson(json['driver_request']),
+      role: legacyRole,
+      roles: roles,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : json['createdAt'] != null
-              ? DateTime.parse(json['createdAt'] as String)
-              : DateTime.now(),
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
           : json['updatedAt'] != null
-              ? DateTime.parse(json['updatedAt'] as String)
-              : DateTime.now(),
+          ? DateTime.parse(json['updatedAt'] as String)
+          : DateTime.now(),
+      activeBenefits: List<String>.from(json['active_benefits'] ?? const []),
+      managedLines: List<String>.from(
+        (json['presidente_info'] as Map?)?['managed_lines'] ?? const [],
+      ),
+      assignedRouteRef: json['assigned_route_ref'] as String?,
     );
   }
 
@@ -56,13 +83,11 @@ class UserModel extends UserEntity {
       'profile_picture_url': profileImageUrl,
       'rating': rating,
       'reviewsCount': reviewsCount,
-      'wallet': {
-        'current_balance': walletBalance,
-      },
+      'wallet': {'current_balance': walletBalance},
       'isActive': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
-      'qa_access': qaAccess,
+      'active_benefits': activeBenefits,
     };
   }
 }

@@ -13,8 +13,8 @@ class PlannedTripService {
   PlannedTripService({
     required PlannedTripDatasource datasource,
     required RouteDataSyncService syncService,
-  })  : _datasource = datasource,
-        _syncService = syncService;
+  }) : _datasource = datasource,
+       _syncService = syncService;
 
   Future<List<PlannedTrip>> searchOptions({
     required String userId,
@@ -22,6 +22,7 @@ class PlannedTripService {
     required LatLng destination,
     required String originName,
     required String destinationName,
+    required DateTime scheduledAt,
   }) async {
     await _syncService.ensureDataReady();
 
@@ -32,11 +33,17 @@ class PlannedTripService {
 
     final results = await Future.wait([
       _syncService.getRoutesNearPoint(
-          latitude: origin.latitude, longitude: origin.longitude),
+        latitude: origin.latitude,
+        longitude: origin.longitude,
+      ),
       _syncService.getRoutesNearPoint(
-          latitude: destination.latitude, longitude: destination.longitude),
+        latitude: destination.latitude,
+        longitude: destination.longitude,
+      ),
       _syncService.getRoutesNearPoint(
-          latitude: midpoint.latitude, longitude: midpoint.longitude),
+        latitude: midpoint.latitude,
+        longitude: midpoint.longitude,
+      ),
     ]);
 
     final originRoutes = _toOsmRoutes(results[0]);
@@ -54,16 +61,29 @@ class PlannedTripService {
       midRoutes: midRoutes,
       originName: originName,
       destName: destinationName,
+      scheduledAt: scheduledAt,
     );
   }
 
   Future<void> save(PlannedTrip trip) => _datasource.save(trip);
 
-  Future<List<PlannedTrip>> getMyPlans(String userId) =>
-      _datasource.getAll(userId);
+  /// Saved plans excluding cancelled ones — those live in
+  /// [getCancelledTrips] / the "Cancelados" history instead.
+  Future<List<PlannedTrip>> getMyPlans(String userId) async {
+    final all = await _datasource.getAll(userId);
+    return all.where((t) => !t.isCancelled).toList();
+  }
 
   Future<void> markCompleted(String userId, String tripId) =>
       _datasource.markCompleted(userId, tripId);
+
+  /// Cancels a scheduled trip: keeps the record (for the cancelled-trips
+  /// history / PDF export) instead of hard-deleting it like [delete] does.
+  Future<void> cancel(String userId, String tripId) =>
+      _datasource.markCancelled(userId, tripId);
+
+  Future<List<PlannedTrip>> getCancelledTrips(String userId) =>
+      _datasource.getCancelled(userId);
 
   Future<void> delete(String userId, String tripId) =>
       _datasource.delete(userId, tripId);

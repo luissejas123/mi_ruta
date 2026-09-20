@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,14 +14,16 @@ import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dar
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
 class PagoQRPage extends StatelessWidget {
-  const PagoQRPage({super.key});
+  final WidgetBuilder? homeBuilder;
+  const PagoQRPage({super.key, this.homeBuilder});
 
   @override
-  Widget build(BuildContext context) => const _PagoQRView();
+  Widget build(BuildContext context) => _PagoQRView(homeBuilder: homeBuilder);
 }
 
 class _PagoQRView extends StatefulWidget {
-  const _PagoQRView();
+  final WidgetBuilder? homeBuilder;
+  const _PagoQRView({this.homeBuilder});
 
   @override
   State<_PagoQRView> createState() => _PagoQRViewState();
@@ -34,12 +37,26 @@ class _PagoQRViewState extends State<_PagoQRView> {
   File? _selectedQRImage;
   final ImagePicker _picker = ImagePicker();
 
+  @override
+  void initState() {
+    super.initState();
+    // TripPaymentBLoC es un singleton de app (getIt) — sin este reset, un
+    // error/éxito de una visita anterior a esta pantalla se queda pegado y
+    // se vuelve a mostrar de inmediato al reabrirla, aunque el usuario nunca
+    // haya vuelto a tocar nada acá.
+    context.read<TripPaymentBLoC>().add(const ClearPaymentEvent());
+  }
+
   String? _getUserId() {
     final authState = context.read<AuthBloc>().state;
     return authState is AuthLoaded ? authState.user.uid : null;
   }
 
-  void _onNavTap(int index) => navigateBottomNav(context, index);
+  void _onNavTap(int index) => navigateBottomNav(
+        context, 
+        index,
+        homeBuilder: widget.homeBuilder,
+      );
 
   Future<void> _scanQr() async {
     final userId = _getUserId();
@@ -63,7 +80,8 @@ class _PagoQRViewState extends State<_PagoQRView> {
     try {
       final picked = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 100,
+        imageQuality: 80,
+        maxWidth: 1280,
       );
       if (picked == null) return;
 
@@ -125,15 +143,17 @@ class _PagoQRViewState extends State<_PagoQRView> {
   void _showSuccess(TripPaymentSuccess state) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(state.message),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            Text('¡Pago de Bs. ${state.amount.toStringAsFixed(2)} exitoso!'),
+          ],
+        ),
         backgroundColor: Colors.green.shade700,
       ),
     );
-    final navigator = Navigator.of(context);
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      navigator.pop();
-    });
+    // Ya no hacemos pop automático para que el usuario pueda ver el recibo.
   }
 
   Widget _buildSuccessMessage(TripPaymentSuccess state) => Container(

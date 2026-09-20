@@ -58,6 +58,7 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
       final picked = await _picker.pickImage(
         source: source,
         imageQuality: 80,
+        maxWidth: 1280,
       );
       if (picked != null) {
         setState(() => _selectedImage = File(picked.path));

@@ -53,6 +53,17 @@ class GetCurrentUserEvent extends AuthEvent {
   const GetCurrentUserEvent();
 }
 
+/// TEMPORAL — modo prueba: login sin credenciales reales, con Firebase Auth
+/// anónimo + Firestore reales. [role] = 'user' | 'driver' | 'admin'.
+class LoginAsDemoEvent extends AuthEvent {
+  final String role;
+
+  const LoginAsDemoEvent({required this.role});
+
+  @override
+  List<Object?> get props => [role];
+}
+
 class ResetPasswordEvent extends AuthEvent {
   final String email;
 

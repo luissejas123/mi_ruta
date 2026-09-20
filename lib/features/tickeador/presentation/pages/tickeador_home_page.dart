@@ -1,297 +1,270 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
-import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
-import 'package:mi_ruta/features/driver/domain/entities/driver_trip_entity.dart';
-import 'package:mi_ruta/features/tickeador/domain/services/tickeador_service.dart';
+import 'package:mi_ruta/features/tickeador/domain/entities/vehicle_entity.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_bloc.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_event.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_state.dart';
+import 'package:mi_ruta/features/tickeador/presentation/pages/revision_recargas_page.dart';
+import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_actividad_section.dart';
+import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_mode_switch_section.dart';
+import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_station_section.dart';
+import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_vehicle_search_section.dart';
 import 'package:mi_ruta/features/user/presentation/pages/qr_scanner_page.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' show confirmLogout;
 
-const _amarillo = Color(0xFFFFC12F);
-
-class TickeadorHomePage extends StatelessWidget {
+/// Pantalla principal del Modo Tickeador (RQ-78).
+///
+/// ETAPA 2: operación real con Firestore:
+/// - Lee tickeador_info (estación asignada)
+/// - Busca vehículo por placa
+/// - Marca salida / llegada (station_logs)
+/// - Muestra actividad reciente
+///
+/// El armado visual de cada bloque vive en su propio archivo dentro de esta
+/// misma carpeta (tickeador_mode_switch_section.dart, tickeador_station_
+/// section.dart, tickeador_vehicle_search_section.dart +
+/// tickeador_vehicle_info_card.dart, tickeador_actividad_section.dart +
+/// tickeador_actividad_item.dart, tickeador_section_title.dart) — esta clase
+/// solo mantiene el estado y la lógica (carga inicial, búsqueda, marcar
+/// salida/llegada, escáner QR) y compone esas secciones en `build()`.
+class TickeadorHomePage extends StatefulWidget {
   const TickeadorHomePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final authState = context.read<AuthBloc>().state;
-    final uid = authState is AuthLoaded ? authState.user.uid : '';
-    final fullName = authState is AuthLoaded ? authState.user.fullName : '';
-
-    return BlocProvider(
-      create: (_) => TickeadorBloc(service: getIt<TickeadorService>())
-        ..add(LoadVerificationHistory(uid)),
-      child: _TickeadorHomeView(uid: uid, fullName: fullName),
-    );
-  }
+  State<TickeadorHomePage> createState() => _TickeadorHomePageState();
 }
 
-class _TickeadorHomeView extends StatelessWidget {
-  final String uid;
-  final String fullName;
+class _TickeadorHomePageState extends State<TickeadorHomePage> {
+  final _placaController = TextEditingController();
+  late final TickeadorBloc _tickeadorBloc;
 
-  const _TickeadorHomeView({required this.uid, required this.fullName});
+  String? _uid;
+  String? _stationName;
+  VehicleEntity? _selectedVehicle;
 
-  void _cerrarSesion(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text('¿Estás seguro que deseas cerrar sesión?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              context.read<AuthBloc>().add(const LogoutEvent());
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const IniciarSesionPage()),
-                (route) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
-            child: const Text('Cerrar sesión', style: TextStyle(color: Colors.white)),
-          ),
-        ],
+  @override
+  void initState() {
+    super.initState();
+    _tickeadorBloc = getIt<TickeadorBloc>();
+    _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    _placaController.dispose();
+    super.dispose();
+  }
+
+  void _mostrarQRScanner() async {
+    final qrCode = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => const QRScannerPage(),
+      ),
+    );
+
+    if (qrCode != null && qrCode.isNotEmpty) {
+      // Dispara la validación del QR
+      _tickeadorBloc.add(ValidateTripQr(qrCode: qrCode));
+    }
+  }
+
+  void _loadInitialData() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthLoaded) {
+      _uid = authState.user.uid;
+      _tickeadorBloc.add(CargarTickeadorEvent(uid: _uid!));
+      _tickeadorBloc.add(CargarActividadEvent(tickeadorId: _uid!));
+    }
+  }
+
+  void _buscarVehiculo() {
+    final placa = _placaController.text.trim();
+    if (placa.isEmpty) {
+      _showSnack('Ingresa una placa para buscar', isError: true);
+      return;
+    }
+    _tickeadorBloc.add(BuscarVehiculoEvent(placa: placa));
+  }
+
+  void _marcarSalida() {
+    if (_uid == null) {
+      _showSnack('Usuario sin UID. No se puede realizar la operación.',
+          isError: true);
+      return;
+    }
+    if (_stationName == null || _stationName!.isEmpty) {
+      _showSnack('El tickeador no tiene estación asignada. No se puede registrar.',
+          isError: true);
+      return;
+    }
+    if (_selectedVehicle == null) {
+      _showSnack('Primero busca un vehículo por placa.', isError: true);
+      return;
+    }
+    _tickeadorBloc.add(
+      MarcarSalidaEvent(
+        tickeadorId: _uid!,
+        stationName: _stationName!,
+        vehicle: _selectedVehicle!,
       ),
     );
   }
 
-  Future<void> _scan(BuildContext context) async {
-    final result = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(builder: (_) => const QRScannerPage(title: 'Validar ticket')),
-    );
-    if (result != null && result.isNotEmpty && context.mounted) {
-      context.read<TickeadorBloc>().add(ValidateTripQr(result, uid));
+  void _marcarLlegada() {
+    if (_uid == null) {
+      _showSnack('Usuario sin UID. No se puede realizar la operación.',
+          isError: true);
+      return;
     }
+    if (_stationName == null || _stationName!.isEmpty) {
+      _showSnack('El tickeador no tiene estación asignada. No se puede registrar.',
+          isError: true);
+      return;
+    }
+    if (_selectedVehicle == null) {
+      _showSnack('Primero busca un vehículo por placa.', isError: true);
+      return;
+    }
+    _tickeadorBloc.add(
+      MarcarLlegadaEvent(
+        tickeadorId: _uid!,
+        stationName: _stationName!,
+        vehicle: _selectedVehicle!,
+      ),
+    );
+  }
+
+  void _showSnack(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = context.watch<ThemeCubit>().state;
+
     return Scaffold(
       appBar: AppBar(
-        centerTitle: true,
         automaticallyImplyLeading: false,
+        centerTitle: true,
         title: const Text(
           'Modo Tickeador',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
         ),
         actions: [
           const SwitchProfileButton(),
           IconButton(
+            icon: const Icon(Icons.receipt_long_outlined),
+            tooltip: 'Revisar recargas pendientes',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RevisionRecargasPage()),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            tooltip: 'Escanear código QR',
+            onPressed: _mostrarQRScanner,
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Cerrar sesión',
-            onPressed: () => _cerrarSesion(context),
+            onPressed: () => confirmLogout(context),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Hola, ${fullName.isNotEmpty ? fullName : 'tickeador'} 👋',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-            BlocConsumer<TickeadorBloc, TickeadorState>(
-              listenWhen: (previous, current) => current is TickeadorError,
-              listener: (context, state) {
-                if (state is TickeadorError) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(state.message), backgroundColor: Colors.red.shade700),
-                  );
-                }
-              },
-              builder: (context, state) {
-                final isValidating = state is TickeadorLoaded && state.isValidating;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton.icon(
-                        onPressed: isValidating ? null : () => _scan(context),
-                        icon: isValidating
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                              )
-                            : const Icon(Icons.qr_code_scanner, color: Colors.black),
-                        label: const Text(
-                          'Escanear ticket de pasajero',
-                          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _amarillo,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                    if (state is TickeadorLoaded && state.lastValidatedTrip != null) ...[
-                      const SizedBox(height: 16),
-                      _ValidationResultCard(trip: state.lastValidatedTrip!),
-                    ],
-                    if (state is TickeadorLoaded && state.lastValidationError != null) ...[
-                      const SizedBox(height: 16),
-                      _ValidationErrorCard(message: state.lastValidationError!),
-                    ],
-                    const SizedBox(height: 24),
-                    const Text('Historial de validaciones',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    const SizedBox(height: 12),
-                    if (state is TickeadorLoading)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: CircularProgressIndicator(color: _amarillo),
-                        ),
-                      )
-                    else if (state is TickeadorLoaded)
-                      state.history.isEmpty
-                          ? Text(
-                              'Todavía no validaste ningún ticket.',
-                              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                            )
-                          : Column(
-                              children: state.history.map((t) => _HistoryTile(trip: t)).toList(),
-                            ),
-                  ],
-                );
-              },
-            ),
-          ],
+      body: BlocProvider.value(
+        value: _tickeadorBloc,
+        child: BlocConsumer<TickeadorBloc, TickeadorState>(
+          listener: (context, state) {
+            if (state is TickeadorLoaded) {
+              _stationName = state.tickeador?.assignedStation;
+            }
+            if (state is VehicleFound) {
+              _selectedVehicle = state.vehicle;
+            }
+            if (state is VehicleNotFound) {
+              _selectedVehicle = null;
+              _showSnack('Vehículo no encontrado', isError: true);
+            }
+            if (state is StationLogSuccess) {
+              _showSnack(state.message);
+            }
+            if (state is TickeadorError) {
+              _showSnack(state.message, isError: true);
+            }
+          },
+          builder: (context, state) {
+            final isBusy = state is TickeadorLoading;
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const TickeadorModeSwitchSection(),
+                  TickeadorStationSection(
+                    stationName: _stationName,
+                    isDarkMode: isDarkMode,
+                  ),
+                  TickeadorVehicleSearchSection(
+                    controller: _placaController,
+                    isBusy: isBusy,
+                    isDarkMode: isDarkMode,
+                    foundVehicle: state is VehicleFound ? state.vehicle : null,
+                    notFound: state is VehicleNotFound,
+                    hasSelectedVehicle: _selectedVehicle != null,
+                    onBuscar: _buscarVehiculo,
+                    onMarcarSalida: _marcarSalida,
+                    onMarcarLlegada: _marcarLlegada,
+                  ),
+                  TickeadorActividadSection(
+                    logs: state is ActividadLoaded ? state.logs : const [],
+                    isDarkMode: isDarkMode,
+                    isBusy: isBusy,
+                    onVerHistorial: () {
+                      if (_uid != null) {
+                        _tickeadorBloc.add(
+                          CargarActividadEvent(tickeadorId: _uid!),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
       bottomNavigationBar: CustomBottomNav(
-        currentIndex: 0,
-        onTap: (index) => navigateBottomNav(
-          context,
-          index,
-          homeBuilder: (_) => const TickeadorHomePage(),
-        ),
-      ),
-    );
-  }
-}
-
-class _ValidationResultCard extends StatelessWidget {
-  final DriverTripEntity trip;
-
-  const _ValidationResultCard({required this.trip});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.green.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.check_circle, color: Colors.green, size: 32),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Pago verificado', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(
-                  '${trip.routeName.isNotEmpty ? trip.routeName : trip.routeRef} · '
-                  'Bs. ${(trip.paymentAmount ?? trip.baseFare).toStringAsFixed(2)}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ValidationErrorCard extends StatelessWidget {
-  final String message;
-
-  const _ValidationErrorCard({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.cancel, color: Colors.red, size: 32),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('No verificado', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(message, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HistoryTile extends StatelessWidget {
-  final DriverTripEntity trip;
-
-  const _HistoryTile({required this.trip});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              trip.routeName.isNotEmpty ? trip.routeName : trip.routeRef,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Text(
-            'Bs. ${(trip.paymentAmount ?? trip.baseFare).toStringAsFixed(2)}',
-            style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withValues(alpha: 0.7)),
-          ),
-        ],
+        currentIndex: 0, // Tickeador is the first tab (index 0)
+        // Sin Billetera ni Rutas (Figma "Modo Tickeador", node 3896-5285):
+        // el tickeador no tiene ninguna de las dos — antes el bottom nav
+        // compartido las mostraba igual y llevaban a las pantallas del
+        // pasajero por error.
+        tabs: const [0, 3],
+        onTap: (index) {
+          navigateBottomNav(
+            context,
+            index,
+            homeBuilder: (_) => const TickeadorHomePage(),
+          );
+        },
       ),
     );
   }

@@ -3,16 +3,27 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
-import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
 import 'package:mi_ruta/features/presidente/presentation/pages/presidente_panel_page.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_home_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' show confirmLogout;
 
 const _amarillo = Color(0xFFFFC12F);
+
+Color _profileColorForLabel(String label) {
+  final normalized = label.toLowerCase();
+  if (normalized.contains('pasajero')) return const Color(0xFFFFC12F);
+  if (normalized.contains('chofer')) return const Color(0xFF8D5E3B);
+  if (normalized.contains('dirigente') || normalized.contains('presidente')) {
+    return const Color(0xFFEF6C00);
+  }
+  if (normalized.contains('administrador')) return const Color(0xFF7C4DFF);
+  if (normalized.contains('tickeador')) return const Color(0xFF7C4DFF);
+  return _amarillo;
+}
 
 /// Selector de perfiles para la cuenta super-admin: navega a cada home ya
 /// existente, sin lógica de negocio nueva — solo decide a qué pantalla ir.
@@ -42,31 +53,6 @@ class SuperAdminSwitcherPage extends StatelessWidget {
     );
   }
 
-  void _cerrarSesion(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text('¿Estás seguro que deseas cerrar sesión?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              context.read<AuthBloc>().add(const LogoutEvent());
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const IniciarSesionPage()),
-                (route) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
-            child: const Text('Cerrar sesión', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -81,7 +67,7 @@ class SuperAdminSwitcherPage extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Cerrar sesión',
-            onPressed: () => _cerrarSesion(context),
+            onPressed: () => confirmLogout(context),
           ),
         ],
       ),
@@ -151,6 +137,7 @@ class _ProfileTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final accentColor = _profileColorForLabel(label);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -162,10 +149,11 @@ class _ProfileTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: accentColor.withValues(alpha: 0.45), width: 1.2),
           ),
           child: Row(
             children: [
-              Icon(icon, color: colorScheme.onSurface, size: 26),
+              Icon(icon, color: accentColor, size: 26),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
@@ -177,7 +165,7 @@ class _ProfileTile extends StatelessWidget {
                   ),
                 ),
               ),
-              Icon(Icons.arrow_forward_ios, color: colorScheme.onSurface.withValues(alpha: 0.5), size: 16),
+              Icon(Icons.arrow_forward_ios, color: accentColor.withValues(alpha: 0.7), size: 16),
             ],
           ),
         ),

@@ -148,31 +148,161 @@ class GtfsDatasource {
     return result;
   }
 
-  /// Lee stops.txt del GTFS
-  Future<List<Map<String, String>>> parseStops() async {
-    final csv = await rootBundle.loadString('$_base/stops.txt');
-    return _parseCSV(csv);
+  /// Parsea stops.txt y devuelve lista de maps listos para SQLite.
+  /// Cada map tiene: id, name, lat, lng, route_refs (JSON de List<String>).
+  Future<List<Map<String, dynamic>>> parseStopsForLocalDb() async {
+    print('📂 Parseando paradas GTFS desde assets...');
+    try {
+      final stopsCsv = await rootBundle.loadString('$_base/stops.txt');
+      // stops.txt trae campos citados con comas dentro (ej. nombres de
+      // avenidas con coma), a diferencia de routes/trips/shapes — usa un
+      // parser que respeta comillas en vez de _parseCSV (split naive).
+      final rows = _parseQuotedCSV(stopsCsv);
+      // `stop_desc` trae route_id internos de GTFS ("23(0-1-108-...)"), no
+      // el ref/línea real (route_short_name) — sin esta traducción, un
+      // chofer de una línea vería paradas de otra sin ningún error visible
+      // (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 1).
+      final routeIdToRef = await _loadRouteIdToRefMap();
+
+      final result = <Map<String, dynamic>>[];
+      for (final row in rows) {
+        final id = row['stop_id'] ?? '';
+        final name = row['stop_name'] ?? '';
+        final lat = double.tryParse(row['stop_lat'] ?? '');
+        final lng = double.tryParse(row['stop_lon'] ?? '');
+        if (id.isEmpty || name.isEmpty || lat == null || lng == null) {
+          continue;
+        }
+
+        result.add({
+          'id': id,
+          'name': name,
+          'lat': lat,
+          'lng': lng,
+          'route_refs': jsonEncode(_parseStopDescRefs(row['stop_desc'], routeIdToRef)),
+        });
+      }
+
+      print('✅ ${result.length} paradas parseadas desde stops.txt');
+      return result;
+    } catch (e, st) {
+      print('❌ Error parseando paradas GTFS: $e\n$st');
+      return [];
+    }
   }
 
-  /// Lee stop_times.txt del GTFS
+  /// `route_id` (GTFS interno) → `route_short_name` (ref de línea real).
+  /// Mismo archivo que ya parsea `_parseGtfsSync` para `routeMeta`, pero acá
+  /// se necesita por separado porque `parseStopsForLocalDb` no comparte
+  /// estado con `parseRoutesForLocalDb`.
+  Future<Map<String, String>> _loadRouteIdToRefMap() async {
+    final routesCsv = await rootBundle.loadString('$_base/routes.txt');
+    final routesRows = _parseCSV(routesCsv);
+    final map = <String, String>{};
+    for (final row in routesRows) {
+      final id = row['route_id'] ?? '';
+      final ref = row['route_short_name'] ?? '';
+      if (id.isEmpty || ref.isEmpty) continue;
+      map[id] = ref;
+    }
+    return map;
+  }
+
+  /// Extrae los refs de línea reales de un `stop_desc` con formato
+  /// "23(0-1-108-...)" — los números entre paréntesis son `route_id` de
+  /// GTFS, se traducen contra [routeIdToRef] antes de devolverlos. Un
+  /// `route_id` sin traducción conocida se descarta (no se guarda el ID
+  /// crudo como si fuera un ref real).
+  List<String> _parseStopDescRefs(String? desc, Map<String, String> routeIdToRef) {
+    if (desc == null) return [];
+    final match = RegExp(r'\(([^)]*)\)').firstMatch(desc);
+    if (match == null) return [];
+    final inner = match.group(1) ?? '';
+    if (inner.isEmpty) return [];
+    return inner
+        .split('-')
+        .where((r) => r.isNotEmpty)
+        .map((routeId) => routeIdToRef[routeId])
+        .whereType<String>()
+        .toSet()
+        .toList();
+  }
+
+  /// Parsea CSV respetando campos citados con comas dentro (RFC4180 simple).
+  List<Map<String, String>> _parseQuotedCSV(String csvContent) {
+    final lines = const LineSplitter().convert(csvContent);
+    if (lines.isEmpty) return [];
+
+    final headers = _splitCsvLine(lines[0]).map((h) => h.trim()).toList();
+    final rows = <Map<String, String>>[];
+
+    for (int i = 1; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (line.isEmpty) continue;
+
+      final values = _splitCsvLine(line);
+      final row = <String, String>{};
+      for (int j = 0; j < headers.length && j < values.length; j++) {
+        row[headers[j]] = values[j].trim();
+      }
+      rows.add(row);
+    }
+
+    return rows;
+  }
+
+  /// Divide una linea CSV por comas, ignorando comas dentro de campos
+  /// citados con comillas dobles (ej. "Av. X, esq. Y").
+  List<String> _splitCsvLine(String line) {
+    final values = <String>[];
+    final buffer = StringBuffer();
+    bool inQuotes = false;
+
+    for (int i = 0; i < line.length; i++) {
+      final char = line[i];
+      if (char == '"') {
+        inQuotes = !inQuotes;
+      } else if (char == ',' && !inQuotes) {
+        values.add(buffer.toString());
+        buffer.clear();
+      } else {
+        buffer.write(char);
+      }
+    }
+    values.add(buffer.toString());
+    return values;
+  }
+
+  // ── Horarios GTFS (usados por GtfsScheduleService) ──────────────────────
+  // Devuelven las filas "crudas" del CSV (claves = columnas GTFS), sin
+  // transformar a formato SQLite — a diferencia de parseRoutesForLocalDb/
+  // parseStopsForLocalDb, que sí preparan datos para insertar en la BD local.
+
+  /// Filas crudas de `stops.txt` (stop_id, stop_name, stop_lat, stop_lon...).
+  Future<List<Map<String, String>>> parseStops() async {
+    final csv = await rootBundle.loadString('$_base/stops.txt');
+    return _parseQuotedCSV(csv);
+  }
+
+  /// Filas crudas de `stop_times.txt` (trip_id, stop_id, arrival_time...).
   Future<List<Map<String, String>>> parseStopTimes() async {
     final csv = await rootBundle.loadString('$_base/stop_times.txt');
     return _parseCSV(csv);
   }
-  
-  /// Lee trips.txt del GTFS
+
+  /// Filas crudas de `trips.txt` (trip_id, route_id, service_id...).
   Future<List<Map<String, String>>> parseTrips() async {
     final csv = await rootBundle.loadString('$_base/trips.txt');
     return _parseCSV(csv);
   }
 
-  /// Lee frequencies.txt del GTFS
+  /// Filas crudas de `frequencies.txt` (trip_id, start_time, end_time, headway_secs).
   Future<List<Map<String, String>>> parseFrequencies() async {
     final csv = await rootBundle.loadString('$_base/frequencies.txt');
     return _parseCSV(csv);
   }
 
-  /// Lee calendar.txt del GTFS
+  /// Filas crudas de `calendar.txt` (service_id, monday..sunday).
   Future<List<Map<String, String>>> parseCalendar() async {
     final csv = await rootBundle.loadString('$_base/calendar.txt');
     return _parseCSV(csv);

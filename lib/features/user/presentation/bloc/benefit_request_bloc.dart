@@ -12,6 +12,9 @@ class BenefitRequestBLoC
       super(const BenefitRequestInitial()) {
     on<SubmitBenefitRequestEvent>(_onSubmitBenefitRequest);
     on<LoadBenefitHistoryEvent>(_onLoadHistory);
+    on<RenewBenefitRequestEvent>(_onRenewBenefitRequest);
+    on<CancelBenefitRequestEvent>(_onCancelBenefitRequest);
+    on<DownloadBenefitDocumentEvent>(_onDownloadDocument);
     on<ClearBenefitRequestEvent>(_onClear);
   }
 
@@ -55,6 +58,83 @@ class BenefitRequestBLoC
       emit(BenefitHistoryLoaded(requests));
     } catch (e) {
       emit(BenefitRequestError(message: 'Error al obtener historial: $e'));
+    }
+  }
+
+  Future<void> _onRenewBenefitRequest(
+    RenewBenefitRequestEvent event,
+    Emitter<BenefitRequestState> emit,
+  ) async {
+    emit(const BenefitRequestLoading());
+
+    try {
+      await _benefitRequestService.renewBenefitRequest(event.requestId);
+      final requests = await _benefitRequestService.getBenefitRequestHistory(
+        event.userId,
+      );
+      emit(
+        BenefitRequestUpdated(
+          message: 'Beneficio renovado y enviado nuevamente a revisión.',
+        ),
+      );
+      emit(BenefitHistoryLoaded(requests));
+    } catch (e) {
+      emit(BenefitRequestError(message: 'Error al renovar beneficio: $e'));
+    }
+  }
+
+  Future<void> _onCancelBenefitRequest(
+    CancelBenefitRequestEvent event,
+    Emitter<BenefitRequestState> emit,
+  ) async {
+    emit(const BenefitRequestLoading());
+
+    try {
+      await _benefitRequestService.cancelBenefitRequest(event.requestId);
+      final requests = await _benefitRequestService.getBenefitRequestHistory(
+        event.userId,
+      );
+      emit(
+        BenefitRequestUpdated(
+          message: 'Solicitud de beneficio cancelada correctamente.',
+        ),
+      );
+      emit(BenefitHistoryLoaded(requests));
+    } catch (e) {
+      emit(BenefitRequestError(message: 'Error al cancelar beneficio: $e'));
+    }
+  }
+
+  Future<void> _onDownloadDocument(
+    DownloadBenefitDocumentEvent event,
+    Emitter<BenefitRequestState> emit,
+  ) async {
+    emit(const BenefitRequestLoading());
+
+    try {
+      final request = await _benefitRequestService.getBenefitRequest(
+        event.requestId,
+      );
+      if (request == null) {
+        throw Exception('No se encontró la solicitud de beneficio');
+      }
+
+      final file = await _benefitRequestService.downloadBenefitCertificatePdf(
+        request,
+      );
+      emit(
+        BenefitDocumentDownloaded(
+          filePath: file.path,
+          message: 'Comprobante PDF descargado correctamente en ${file.path}',
+        ),
+      );
+
+      final requests = await _benefitRequestService.getBenefitRequestHistory(
+        event.userId,
+      );
+      emit(BenefitHistoryLoaded(requests));
+    } catch (e) {
+      emit(BenefitRequestError(message: 'Error al descargar comprobante: $e'));
     }
   }
 

@@ -44,3 +44,41 @@ class LoadRechargeStatusEvent extends RechargeEvent {
 class ClearRechargeEvent extends RechargeEvent {
   const ClearRechargeEvent();
 }
+
+/// Carga todas las recargas pendientes de cualquier usuario — pantalla de
+/// revisión del tickeador (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0).
+class LoadPendingRechargesEvent extends RechargeEvent {
+  const LoadPendingRechargesEvent();
+}
+
+class ApproveRechargeEvent extends RechargeEvent {
+  final String rechargeId;
+  final String userId;
+  final double amount;
+
+  const ApproveRechargeEvent({
+    required this.rechargeId,
+    required this.userId,
+    required this.amount,
+  });
+
+  @override
+  List<Object?> get props => [rechargeId, userId, amount];
+}
+
+class RejectRechargeEvent extends RechargeEvent {
+  final String rechargeId;
+  final String userId;
+  final double amount;
+  final String reason;
+
+  const RejectRechargeEvent({
+    required this.rechargeId,
+    required this.userId,
+    required this.amount,
+    required this.reason,
+  });
+
+  @override
+  List<Object?> get props => [rechargeId, userId, amount, reason];
+}

@@ -81,3 +81,19 @@ class TransactionHistoryLoaded extends WalletState {
   @override
   List<Object?> get props => [transactions, wallet];
 }
+
+/// Ganancias del chofer cargadas (transacciones trip_payment_received)
+class DriverEarningsLoaded extends WalletState {
+  final double total;
+  final List<Map<String, dynamic>> transactions;
+  final Wallet? wallet;
+
+  const DriverEarningsLoaded({
+    required this.total,
+    this.transactions = const [],
+    this.wallet,
+  });
+
+  @override
+  List<Object?> get props => [total, transactions, wallet];
+}

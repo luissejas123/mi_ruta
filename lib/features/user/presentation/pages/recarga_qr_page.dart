@@ -1,8 +1,8 @@
 // ignore_for_file: use_build_context_synchronously
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -13,8 +13,6 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_state.dart';
-import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
-import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
@@ -31,12 +29,17 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
   static const _navIndexWallet = 1;
   static const _amarillo = Color(0xFFFFC12F);
   static const _maxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
+  // Tope de monto por recarga — antes solo se validaba `amount > 0`, sin
+  // límite superior, lo que dejaba corromper el saldo mostrado con un
+  // monto absurdo (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0).
+  static const _maxRechargeAmount = 5000.0;
 
   late String _userId;
   File? _selectedImage;
   final _amountController = TextEditingController();
   bool _isProcessing = false;
   bool _comprobanteEnviado = false;
+  double? _lastRechargeAmount;
   bool _isDownloading = false;
   String? _qrUrl;
   bool _loadingQR = true;
@@ -132,19 +135,33 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
 
   Future<void> _pickImage() async {
     try {
-      final pickedFile = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 90,
-      );
+      final pickedFile = await _pickImageWithRetry();
       if (pickedFile == null) return;
 
       final file = File(pickedFile.path);
       final fileName = pickedFile.name.toLowerCase();
-      final extension = fileName.split('.').last;
+      final extension = fileName.contains('.') ? fileName.split('.').last : '';
 
-      if (!['jpg', 'jpeg', 'png'].contains(extension)) {
-        _showSnackBar('Solo se permiten archivos JPG o PNG', isError: true);
-        return;
+      final isJpgName = ['jpg', 'jpeg'].contains(extension);
+      final isPngName = extension == 'png';
+
+      if (!isJpgName && !isPngName) {
+        // El nombre puede llegar sin extensión según el dispositivo/plataforma.
+        // Validar el contenido real del archivo (magic bytes) antes de rechazar.
+        final bytes = await file.readAsBytes();
+        final isJpegMagic = bytes.length > 3 &&
+            bytes[0] == 0xFF &&
+            bytes[1] == 0xD8 &&
+            bytes[2] == 0xFF;
+        final isPngMagic = bytes.length > 8 &&
+            bytes[0] == 0x89 &&
+            bytes[1] == 0x50 &&
+            bytes[2] == 0x4E &&
+            bytes[3] == 0x47;
+        if (!isJpegMagic && !isPngMagic) {
+          _showSnackBar('Solo se permiten archivos JPG o PNG', isError: true);
+          return;
+        }
       }
 
       final fileSize = await file.length();
@@ -165,10 +182,54 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
     }
   }
 
+  /// Abre el selector de galería. En Android algunos dispositivos/álbumes
+  /// fallan al leer los metadatos completos de la imagen
+  /// (PlatformException metadata_fetch_failed, _Namespace) aunque sea un JPG normal:
+  /// se reintenta sin solicitar metadatos.
+  Future<XFile?> _pickImageWithRetry() async {
+    final picker = ImagePicker();
+    try {
+      return await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1280,
+      );
+    } on PlatformException catch (e) {
+      if (e.code == 'metadata_fetch_failed' || e.code == 'no_activity') {
+        return await picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 80,
+          maxWidth: 1280,
+          requestFullMetadata: false,
+        );
+      }
+      rethrow;
+    } catch (e) {
+      // Captura el error "_Namespace" que ocurre en algunos dispositivos Android
+      // cuando hay problemas al parsear metadatos XML de imágenes
+      if (e.toString().contains('_Namespace') || e.toString().contains('metadata')) {
+        return await picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 80,
+          maxWidth: 1280,
+          requestFullMetadata: false,
+        );
+      }
+      rethrow;
+    }
+  }
+
   void _submitRecharge() {
     final amount = double.tryParse(_amountController.text);
     if (amount == null || amount <= 0) {
       _showSnackBar('Ingresa un monto válido', isError: true);
+      return;
+    }
+    if (amount > _maxRechargeAmount) {
+      _showSnackBar(
+        'El monto máximo por recarga es Bs. ${_maxRechargeAmount.toStringAsFixed(2)}',
+        isError: true,
+      );
       return;
     }
     if (_selectedImage == null) {
@@ -347,7 +408,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
       _buildStep('1', 'Descarga o escanea el QR con tu app bancaria'),
       _buildStep('2', 'Realiza la transferencia del monto deseado'),
       _buildStep('3', 'Ingresa el monto y sube el comprobante'),
-      _buildStep('4', 'Tu solicitud pasará a revisión en 24 horas hábiles'),
+      _buildStep('4', 'Un tickeador revisará tu comprobante antes de acreditar el saldo'),
     ],
   );
 
@@ -362,12 +423,17 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
       TextField(
         controller: _amountController,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^\d{0,7}(\.\d{0,2})?$')),
+        ],
+        maxLength: 8,
         decoration: InputDecoration(
           hintText: '0.00',
           prefixText: 'Bs. ',
           prefixStyle: const TextStyle(
             fontWeight: FontWeight.bold,
           ),
+          counterText: '',
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -486,23 +552,23 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Colors.blue.shade50,
+      color: Colors.orange.shade50,
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: Colors.blue.shade300, width: 1.5),
+      border: Border.all(color: Colors.orange.shade300, width: 1.5),
     ),
     child: Column(
       children: [
         Row(
           children: [
-            Icon(Icons.info_outline, color: Colors.blue.shade700, size: 24),
+            Icon(Icons.hourglass_top, color: Colors.orange.shade800, size: 24),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Comprobante enviado',
+                'Comprobante en revisión',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: Colors.blue.shade700,
+                  color: Colors.orange.shade900,
                 ),
               ),
             ),
@@ -510,12 +576,16 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Tu comprobante ha sido recibido y pasará a revisión. '
-          'Verificaremos tus datos y actualizaremos tu saldo '
-          'en un plazo de 24 horas hábiles.',
+          _lastRechargeAmount != null
+              ? 'Recibimos tu comprobante por Bs. '
+                    '${_lastRechargeAmount!.toStringAsFixed(2)}. '
+                    'Un tickeador lo verificará antes de acreditar el saldo '
+                    'a tu billetera — no está disponible todavía.'
+              : 'Recibimos tu comprobante. Un tickeador lo verificará antes '
+                    'de acreditar el saldo a tu billetera.',
           style: TextStyle(
             fontSize: 13,
-            color: Colors.blue.shade700,
+            color: Colors.orange.shade900,
             height: 1.4,
           ),
         ),
@@ -573,11 +643,14 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
       listener: (context, state) {
         setState(() => _isProcessing = false);
         if (state is RechargeSubmitted) {
-          context.read<WalletBloc>().add(LoadWalletEvent(_userId));
+          // No se recarga el WalletBloc acá — todavía no hay saldo nuevo que
+          // reflejar, la recarga queda pendiente hasta que el tickeador la
+          // verifique (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0).
           getIt<NotificationService>()
-              .saveRechargeNotification(_userId, state.amount);
+              .saveRechargeSubmittedNotification(_userId, state.amount);
           setState(() {
             _comprobanteEnviado = true;
+            _lastRechargeAmount = state.amount;
             _amountController.clear();
             _selectedImage = null;
           });

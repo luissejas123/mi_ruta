@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mi_ruta/core/utils/firestore_date.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
 
 class RouteDatasource {
@@ -53,6 +54,102 @@ class RouteDatasource {
     } catch (e) {
       throw Exception('Error al obtener rutas: $e');
     }
+  }
+
+  /// Versión ligera de getAllRoutes()/getAllActiveRoutes(): lee `routes_bbox`
+  /// (solo metadatos: name/ref/color/bbox/active, SIN polyline ni stops) en
+  /// vez de `routes` completo. Usar en cualquier pantalla que solo necesite
+  /// listar nombre/ref (ej. gestión de rutas, panel de presidente, asignación
+  /// de tickeador) — cargar el polyline completo de ~280 rutas solo para
+  /// mostrar texto es lo que causaba el crash de "Gestión de rutas" (OOM).
+  Future<List<RouteEntity>> getAllRoutesLight() async {
+    try {
+      final snapshot = await _firestore.collection('routes_bbox').get();
+      final routes = snapshot.docs.map(_mapBboxToRouteEntity).toList();
+      routes.sort((a, b) => a.name.compareTo(b.name));
+      return routes;
+    } catch (e) {
+      throw Exception('Error al obtener rutas (ligero): $e');
+    }
+  }
+
+  /// Igual que [getAllRoutesLight] pero solo rutas activas.
+  Future<List<RouteEntity>> getAllActiveRoutesLight() async {
+    try {
+      final snapshot = await _firestore
+          .collection('routes_bbox')
+          .where('active', isEqualTo: true)
+          .get();
+      final routes = snapshot.docs.map(_mapBboxToRouteEntity).toList();
+      routes.sort((a, b) => a.name.compareTo(b.name));
+      return routes;
+    } catch (e) {
+      throw Exception('Error al obtener rutas activas (ligero): $e');
+    }
+  }
+
+  RouteEntity _mapBboxToRouteEntity(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return RouteEntity(
+      id: doc.id,
+      name: data['name'] ?? '',
+      ref: data['ref'] ?? '',
+      color: data['color'],
+      active: data['active'] ?? true,
+      directionId: data['direction_id'] as String?,
+      latMin: (data['lat_min'] as num?)?.toDouble(),
+      latMax: (data['lat_max'] as num?)?.toDouble(),
+      lngMin: (data['lng_min'] as num?)?.toDouble(),
+      lngMax: (data['lng_max'] as num?)?.toDouble(),
+    );
+  }
+
+  /// Crea la ruta si no existe una con este `ref`, o la actualiza si ya
+  /// existe. A diferencia de [createRoute] (siempre `.add()`), esto es
+  /// idempotente — pensado para "Cargar rutas desde GTFS", que antes
+  /// duplicaba las ~280 rutas completas cada vez que se presionaba el botón.
+  ///
+  /// El documento usa `ref` como ID fijo (no un ID de query-then-branch por
+  /// ref+direction_id como antes): el GTFS parseado siempre trae un
+  /// `direction_id` no nulo por línea (una entrada por sentido), pero ningún
+  /// documento legado en Firestore llegó a tener ese campo escrito — y
+  /// `.where('direction_id', isEqualTo: directionId)` NO matchea documentos
+  /// donde el campo simplemente no existe (mismo gotcha de Firestore que
+  /// [getActiveRoutesPaginated]). Eso hacía que la búsqueda de "ya existe"
+  /// nunca encontrara nada y cada corrida de "Cargar rutas desde GTFS"
+  /// agregara un documento nuevo por línea en vez de reemplazar el viejo
+  /// (confirmado en Firestore: refs con 2-4 documentos duplicados). Con un
+  /// ID fijo = ref no hace falta query para decidir si ya existe, así que el
+  /// bug de matching desaparece por completo. Ambos sentidos de una misma
+  /// línea comparten un solo documento — igual que ya lo consume el resto
+  /// de la app (`getRouteByRef`/`getRouteById` siempre devuelven un único
+  /// documento por ref).
+  Future<void> upsertRouteByRef({
+    required String name,
+    required String ref,
+    String? directionId,
+    String? color,
+    List<Map<String, double>>? stops,
+    List<Map<String, double>>? polyline,
+    String? description,
+  }) async {
+    final docRef = _firestore.collection('routes').doc(ref);
+    final existing = await docRef.get();
+
+    final data = {
+      'name': name,
+      'ref': ref,
+      'direction_id': directionId,
+      'color': color,
+      'stops': stops ?? [],
+      'polyline': polyline ?? [],
+      'description': description,
+      'active': true,
+      'updated_at': FieldValue.serverTimestamp(),
+      if (!existing.exists) 'created_at': FieldValue.serverTimestamp(),
+    };
+
+    await docRef.set(data, SetOptions(merge: true));
   }
 
   /// Obtiene rutas activas para migración (en lotes para evitar OOM)
@@ -235,13 +332,21 @@ class RouteDatasource {
     }
   }
 
-  /// Obtiene una ruta por número de referencia
+  /// Obtiene una ruta por número de referencia.
+  ///
+  /// Sin filtro 'active': este método resuelve un ref YA elegido en algún
+  /// momento (ruta asignada a un chofer, línea de un presidente, etc.) — no
+  /// es una búsqueda/exploración donde tenga sentido excluir inactivas. Con
+  /// el filtro, cualquier documento de `routes` sin el campo `active`
+  /// (Firestore no lo incluye en un `where(isEqualTo:)`, ver
+  /// `getActiveRoutesPaginated` arriba) desaparecía en silencio — el chofer
+  /// perdía su "ruta asignada" en pantalla aunque `assigned_route_ref`
+  /// siguiera correcto en Firestore, sin ningún error visible.
   Future<RouteEntity?> getRouteByRef(String ref) async {
     try {
       final snapshot = await _firestore
           .collection('routes')
           .where('ref', isEqualTo: ref)
-          .where('active', isEqualTo: true)
           .limit(1)
           .get();
 
@@ -446,9 +551,10 @@ class RouteDatasource {
       stops: stops,
       polyline: polyline,
       description: data['description'],
-      createdAt: (data['created_at'] as Timestamp?)?.toDate(),
-      updatedAt: (data['updated_at'] as Timestamp?)?.toDate(),
+      createdAt: parseFirestoreDate(data['created_at']),
+      updatedAt: parseFirestoreDate(data['updated_at']),
       active: data['active'] ?? true,
+      directionId: data['direction_id'] as String?,
       latMin: (data['lat_min'] as num?)?.toDouble(),
       latMax: (data['lat_max'] as num?)?.toDouble(),
       lngMin: (data['lng_min'] as num?)?.toDouble(),

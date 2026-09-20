@@ -121,6 +121,18 @@ class _RegisterPageState extends State<RegisterPage> {
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           return Scaffold(
+            // Se llega acá empujando desde IniciarSesionPage/
+            // InsertarCorreoPage (predecesor real) — antes no tenía ningún
+            // botón de regreso.
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            extendBodyBehindAppBar: true,
             body: SafeArea(
               child: Center(
                 child: SingleChildScrollView(
@@ -131,7 +143,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 4),
                       const Text(
                         'MiRuta',
                         style: TextStyle(

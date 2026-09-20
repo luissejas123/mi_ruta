@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
@@ -43,12 +44,23 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
     return s is AuthLoaded ? s.user.uid : '';
   }
 
+  /// El chofer no ve viajes/recargas/regalos del pasajero: sus
+  /// notificaciones son alertas operativas de la vía (mantenimiento,
+  /// bloqueos, avisos de parada) — un feed plano, sin el selector de
+  /// categorías ni sus preferencias.
+  bool get _isDriver {
+    final s = context.read<AuthBloc>().state;
+    return s is AuthLoaded && s.user.role == 'driver';
+  }
+
   void _markAllRead() {
     context.read<NotificationBloc>().add(MarkAllNotificationsRead(_userId));
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isDriver) return _buildDriverView(context);
+
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
@@ -144,8 +156,48 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
               }
               return const SizedBox.shrink();
             },
-          );          
+          );
         }
+      ),
+    );
+  }
+
+  Widget _buildDriverView(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text(
+          'Alertas operativas',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _markAllRead,
+            child: const Text(
+              'Marcar leídas',
+              style: TextStyle(color: Color(0xFFFFC12F), fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+      body: BlocBuilder<NotificationBloc, NotificationState>(
+        builder: (context, state) {
+          if (state is NotificationLoading) {
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFFFFC12F)),
+            );
+          }
+          if (state is NotificationError) {
+            return Center(child: Text(state.message));
+          }
+          if (state is NotificationLoaded) {
+            final operational = state.all
+                .where((n) => n.type == NotificationType.operational)
+                .toList();
+            return _NotificationList(items: operational, userId: _userId);
+          }
+          return const SizedBox.shrink();
+        },
       ),
     );
   }
@@ -392,6 +444,7 @@ class _NotifTile extends StatelessWidget {
   const _NotifTile({required this.notif, required this.userId});
 
   IconData get _icon {
+    if (notif.relatedTripId != null) return Icons.qr_code_scanner;
     switch (notif.type) {
       case NotificationType.trip:
         return Icons.directions_bus_outlined;
@@ -412,6 +465,8 @@ class _NotifTile extends StatelessWidget {
     }
     if (notif.type == NotificationType.gift) {
       _showGiftDetail(context);
+    } else if (notif.relatedTripId != null) {
+      _showQrDetail(context);
     }
   }
 
@@ -425,6 +480,17 @@ class _NotifTile extends StatelessWidget {
         value: context.read<NotificationBloc>(),
         child: _GiftDetail(notif: notif, userId: userId),
       ),
+    );
+  }
+
+  void _showQrDetail(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _QrDetailSheet(driverId: userId, notif: notif),
     );
   }
 
@@ -519,7 +585,8 @@ class _NotifTile extends StatelessWidget {
                 ],
               ),
             ),
-            if (notif.type == NotificationType.gift)
+            if (notif.type == NotificationType.gift ||
+                notif.relatedTripId != null)
               Icon(
                 Icons.arrow_forward_ios,
                 size: 14,
@@ -552,6 +619,96 @@ class _NotifTile extends StatelessWidget {
       'dic',
     ];
     return '${d.day} ${months[d.month - 1]}';
+  }
+}
+
+/// QR de cobro para "aviso de bajada" con monto editable. Arranca con el
+/// monto calculado por distancia (`notif.relatedAmount`) pero el chofer
+/// puede cambiarlo antes de mostrarlo — mismo `tripId` de siempre, el pago
+/// se cobra por lo que diga el QR en el momento de escanearlo, no por lo
+/// que calculó la app del pasajero.
+class _QrDetailSheet extends StatefulWidget {
+  final String driverId;
+  final AppNotification notif;
+
+  const _QrDetailSheet({required this.driverId, required this.notif});
+
+  @override
+  State<_QrDetailSheet> createState() => _QrDetailSheetState();
+}
+
+class _QrDetailSheetState extends State<_QrDetailSheet> {
+  late final TextEditingController _amountCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountCtrl = TextEditingController(
+      text: widget.notif.relatedAmount?.toStringAsFixed(2) ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final amount = double.tryParse(_amountCtrl.text.trim().replaceAll(',', '.'));
+    final qrData = amount != null && amount > 0
+        ? '${widget.driverId}|${widget.notif.relatedTripId}|$amount'
+        : null;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'QR de cobro',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _amountCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: 'Monto a cobrar (Bs.)',
+              isDense: true,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: qrData != null
+                ? QrImageView(data: qrData, size: 200)
+                : const SizedBox(
+                    width: 200,
+                    height: 200,
+                    child: Center(child: Text('Ingresa un monto válido')),
+                  ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'El pasajero escanea este código para pagar.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
   }
 }
 

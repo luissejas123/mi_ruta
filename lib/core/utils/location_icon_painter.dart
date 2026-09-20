@@ -3,12 +3,17 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-/// Dibuja el icono de posición GPS del usuario usando canvas.
+/// Dibuja el icono de posición GPS del usuario usando canvas — mismo
+/// círculo tipo "punto azul" en todos los mapas con ubicación en tiempo
+/// real de cualquier perfil (pasajero, chofer, etc.), en vez del pin
+/// genérico de Maps. [color] permite mantener un significado ya existente
+/// (ej. verde/naranja para "en servicio"/"fuera de servicio" del chofer)
+/// sin volver a la forma de pin.
 /// Devuelve un [BitmapDescriptor] listo para usar como marcador en Google Maps.
 class LocationIconPainter {
   LocationIconPainter._();
 
-  static Future<BitmapDescriptor?> build() async {
+  static Future<BitmapDescriptor?> build({Color color = const Color(0xFF1565C0)}) async {
     const double size = 56;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
@@ -17,13 +22,13 @@ class LocationIconPainter {
     canvas.drawCircle(
       const Offset(size / 2, size / 2),
       size / 2,
-      Paint()..color = const Color(0x401565C0),
+      Paint()..color = color.withValues(alpha: 0.25),
     );
     // Círculo principal
     canvas.drawCircle(
       const Offset(size / 2, size / 2),
       size * 0.37,
-      Paint()..color = const Color(0xFF1565C0),
+      Paint()..color = color,
     );
     // Borde blanco
     canvas.drawCircle(

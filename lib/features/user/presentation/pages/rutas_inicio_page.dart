@@ -2,12 +2,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/core/utils/location_icon_painter.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/data/datasources/geocoding_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/location_datasource.dart';
-import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 import 'package:mi_ruta/features/user/domain/services/route_finder_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/route_search_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/route_search_event.dart';
@@ -57,13 +58,18 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
 
   final _locationDatasource = LocationDatasource();
   final _geocodingDatasource = GeocodingDatasource();
-  late final RouteDataSyncService _syncService =
-      getIt<RouteDataSyncService>();
+  late final RouteDataSyncService _syncService = getIt<RouteDataSyncService>();
 
   GoogleMapController? _mapController;
   LatLng? _userLocation;
+  BitmapDescriptor? _locationIcon;
   PlaceResult? _origin;
   PlaceResult? _destination;
+  StreamSubscription<Position>? _positionSubscription;
+  // Igual que en el mapa del chofer (`DriverServiceMap._autoFollow`): la
+  // cámara sigue el GPS en vivo salvo que el usuario esté arrastrando el
+  // mapa a mano; "mi ubicación" la vuelve a activar.
+  bool _autoFollow = true;
 
   bool _isPinMode = false;
   _PinFor _pinFor = _PinFor.destination;
@@ -78,6 +84,9 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
   void initState() {
     super.initState();
     _initializeData();
+    LocationIconPainter.build().then((icon) {
+      if (mounted && icon != null) setState(() => _locationIcon = icon);
+    });
   }
 
   void _initializeData() {
@@ -98,6 +107,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
 
   @override
   void dispose() {
+    _positionSubscription?.cancel();
     _mapController?.dispose();
     super.dispose();
   }
@@ -117,10 +127,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
 
     if (mounted) {
       context.read<RouteSearchBloc>().add(
-        SearchRoutesRequested(
-          origin: originLatLng,
-          destination: _destination!,
-        ),
+        SearchRoutesRequested(origin: originLatLng, destination: _destination!),
       );
     }
   }
@@ -211,10 +218,36 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
   Future<void> _getLocation() async {
     final result = await _locationDatasource.getCurrentLocation();
     if (!mounted) return;
-    setState(() => _userLocation = result.location);
+    setState(() {
+      _userLocation = result.location;
+      _autoFollow = true;
+    });
     _mapController?.animateCamera(
       CameraUpdate.newLatLngZoom(result.location, 15),
     );
+    _startLiveTracking();
+  }
+
+  /// Mismo patrón que `DriverServiceMap._startLiveTracking`: la ubicación
+  /// inicial ya se obtuvo arriba, acá solo se agrega el stream para que el
+  /// marcador (y, si seguimos "persiguiendo", la cámara) se muevan solos
+  /// mientras la pantalla está abierta — antes había que salir y volver a
+  /// entrar para refrescar la posición.
+  void _startLiveTracking() {
+    if (_positionSubscription != null) return;
+    _positionSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      ),
+    ).listen((position) {
+      if (!mounted) return;
+      final updated = LatLng(position.latitude, position.longitude);
+      setState(() => _userLocation = updated);
+      if (_autoFollow && !_isPinMode) {
+        _mapController?.animateCamera(CameraUpdate.newLatLng(updated));
+      }
+    });
   }
 
   void _togglePinMode([_PinFor target = _PinFor.destination]) {
@@ -233,8 +266,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
 
   Future<void> _reverseGeocode() async {
     if (_cameraCenter == null) return;
-    final address =
-        await _geocodingDatasource.reverseGeocode(_cameraCenter!);
+    final address = await _geocodingDatasource.reverseGeocode(_cameraCenter!);
     if (!mounted) return;
     setState(() => _pinAddress = address ?? 'Dirección no disponible');
   }
@@ -273,14 +305,16 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
             ),
             onMapCreated: (controller) {
               _mapController = controller;
-              _cameraCenter =
-                  _userLocation ?? LocationDatasource.defaultCenter;
+              _cameraCenter = _userLocation ?? LocationDatasource.defaultCenter;
             },
             onCameraMove: (pos) {
               _cameraCenter = pos.target;
               if (_isPinMode && !_isCameraMoving) {
                 setState(() => _isCameraMoving = true);
               }
+            },
+            onCameraMoveStarted: () {
+              if (!_isPinMode && _autoFollow) setState(() => _autoFollow = false);
             },
             onCameraIdle: () {
               if (_isPinMode) {
@@ -297,9 +331,11 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
                     Marker(
                       markerId: const MarkerId('user_location'),
                       position: _userLocation!,
-                      icon: BitmapDescriptor.defaultMarkerWithHue(
-                        BitmapDescriptor.hueAzure,
-                      ),
+                      icon: _locationIcon ??
+                          BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueAzure,
+                          ),
+                      anchor: const Offset(0.5, 0.5),
                     ),
                   },
             polylines: const <Polyline>{},
@@ -314,8 +350,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
               onOriginTap: _onOriginTap,
               onDestinationTap: _onDestinationTap,
               onOriginPinTap: () => _togglePinMode(_PinFor.origin),
-              onDestinationPinTap: () =>
-                  _togglePinMode(_PinFor.destination),
+              onDestinationPinTap: () => _togglePinMode(_PinFor.destination),
               onSearchTap: _findRoutes,
             ),
           ),
@@ -380,6 +415,9 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
               child: MapPinConfirmPanel(
                 isCameraMoving: _isCameraMoving,
                 address: _pinAddress,
+                confirmButtonText: _pinFor == _PinFor.origin
+                    ? 'Confirmar origen'
+                    : 'Confirmar destino',
                 onCancel: () => setState(() {
                   _isPinMode = false;
                   _pinAddress = null;

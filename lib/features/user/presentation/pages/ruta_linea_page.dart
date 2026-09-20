@@ -8,6 +8,7 @@ import 'package:mi_ruta/features/user/domain/services/trip_route_map_builder_ser
 import 'package:mi_ruta/features/user/presentation/bloc/trip_line_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_line_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_line_state.dart';
+import 'package:mi_ruta/features/user/presentation/pages/confirmar_abordaje_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/ruta_navegacion_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
@@ -71,14 +72,29 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
   // ✅ Colores consistentes
   static const _amarillo = Color(0xFFFFC12F);
 
-  void _navigateToNavegacion({
+  Future<void> _navigateToNavegacion({
     required LatLng boardingStop,
     required LatLng alightingStop,
     required List<LatLng> transitSegment,
     required List<LatLng> walkStartPoints,
     required List<LatLng> walkEndPoints,
-  }) {
-    Navigator.push(
+  }) async {
+    // Confirmar abordaje real (escanear QR de la unidad o escribir su
+    // placa) es obligatorio antes de navegar — elegir la línea ya no cuenta
+    // por sí solo como "ya estoy en el vehículo" (Bloque 2, paso 3,
+    // rediseño 2026-09-14).
+    final boardingResult = await Navigator.push<BoardingConfirmationResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ConfirmarAbordajePage(
+          plannedRouteRef: widget.route.ref,
+          plannedRouteName: widget.route.displayName,
+        ),
+      ),
+    );
+    if (boardingResult == null || !mounted) return;
+
+    final boarded = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => RutaNavegacionPage(
@@ -91,9 +107,17 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
           transitSegment: transitSegment,
           walkStartPoints: walkStartPoints,
           walkEndPoints: walkEndPoints,
+          initialBoardingTripId: boardingResult.tripId,
+          initialBoardingDriverId: boardingResult.driverId,
+          initialBoardingRouteRef: boardingResult.routeRef,
         ),
       ),
     );
+
+    if (!mounted) return;
+    if (boarded == true) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   PreferredSizeWidget _buildAppBar() => AppBar(
@@ -106,9 +130,7 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
 
   Widget _buildLoadingScaffold() => Scaffold(
     appBar: _buildAppBar(),
-    body: const Center(
-      child: CircularProgressIndicator(color: _amarillo),
-    ),
+    body: const Center(child: CircularProgressIndicator(color: _amarillo)),
   );
 
   Widget _buildSummary({
@@ -140,36 +162,30 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
     required List<LatLng> transitSegment,
     required List<LatLng> walkStartPoints,
     required List<LatLng> walkEndPoints,
-  }) =>
-      SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: () => _navigateToNavegacion(
-            boardingStop: boardingStop,
-            alightingStop: alightingStop,
-            transitSegment: transitSegment,
-            walkStartPoints: walkStartPoints,
-            walkEndPoints: walkEndPoints,
-          ),
-          style: ElevatedButton.styleFrom(
-            // ✅ Color amarillo consistente
-            backgroundColor: _amarillo,
-            foregroundColor: Colors.black,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-          child: const Text(
-            'Abordar línea',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      );
+  }) => SizedBox(
+    width: double.infinity,
+    child: ElevatedButton(
+      onPressed: () => _navigateToNavegacion(
+        boardingStop: boardingStop,
+        alightingStop: alightingStop,
+        transitSegment: transitSegment,
+        walkStartPoints: walkStartPoints,
+        walkEndPoints: walkEndPoints,
+      ),
+      style: ElevatedButton.styleFrom(
+        // ✅ Color amarillo consistente
+        backgroundColor: _amarillo,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      child: const Text(
+        'Abordar línea',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -186,16 +202,9 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 60,
-                    color: Colors.red,
-                  ),
+                  const Icon(Icons.error_outline, size: 60, color: Colors.red),
                   const SizedBox(height: 16),
-                  Text(
-                    state.message,
-                    textAlign: TextAlign.center,
-                  ),
+                  Text(state.message, textAlign: TextAlign.center),
                 ],
               ),
             ),
@@ -227,7 +236,7 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
           return Scaffold(
             appBar: _buildAppBar(),
             body: SafeArea(
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
                   vertical: 16,
@@ -245,7 +254,7 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
                       boardingStop: state.tripSegment.boardingStop,
                       alightingStop: state.tripSegment.alightingStop,
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 16),
                     _buildBoardButton(
                       boardingStop: state.tripSegment.boardingStop,
                       alightingStop: state.tripSegment.alightingStop,

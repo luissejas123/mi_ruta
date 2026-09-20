@@ -202,9 +202,16 @@ local_override.properties
 *.bak
 *.tmp
 
+# Archivos de bloqueo temporal de Microsoft Office (se crean solos al abrir
+# un .xlsx/.docx/.pptx, no son parte del documento — ver docs/AsyncDaily)
+~$*
+
 # Node modules (for web development)
 node_modules/
 npm-debug.log
 
 # Claude Code MCP configuration (local dev tool, not part of project)
 .mcp.json
+
+# Reflexión personal, no es material de equipo/sprint
+Retrospective Personal.md

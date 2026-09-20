@@ -1,43 +1,89 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:mi_ruta/core/local_db/route_local_database.dart';
 import 'package:mi_ruta/core/utils/distance_utils.dart';
 
 import '../../data/datasources/gtfs_datasource.dart';
 
 class GtfsScheduleService {
   final GtfsDatasource datasource;
+  final RouteLocalDatabase localDb;
 
-  GtfsScheduleService(this.datasource);
+  GtfsScheduleService(this.datasource, this.localDb);
 
   /// Resuelve la parada GTFS más cercana a [point].
   /// Retorna un map con `stop_id` y `stop_name`, o null si no hay paradas.
+  ///
+  /// Usa `stops_meta` (SQLite, ya sembrado por `RouteDataSyncService`) en vez
+  /// de re-parsear `stops.txt` desde assets en cada llamada. Si la tabla aún
+  /// no tiene datos (dispositivo no actualizado / seed todavía corriendo),
+  /// cae al parseo directo como respaldo.
   Future<Map<String, String>?> resolveNearestStop(LatLng point) async {
     try {
-      final stops = await datasource.parseStops();
-
-      Map<String, String>? nearest;
-      double? bestDistance;
-
-      for (final stop in stops) {
-        final lat = double.tryParse(stop['stop_lat'] ?? '');
-        final lon = double.tryParse(stop['stop_lon'] ?? '');
-
-        if (lat == null || lon == null) continue;
-
-        final distance = DistanceUtils.metersApprox(point, LatLng(lat, lon));
-
-        if (nearest == null || distance < bestDistance!) {
-          nearest = {
-            'stop_id': stop['stop_id'] ?? '',
-            'stop_name': stop['stop_name'] ?? '',
-          };
-          bestDistance = distance;
-        }
-      }
-
-      return nearest;
+      final nearestFromDb = await _resolveNearestStopFromLocalDb(point);
+      if (nearestFromDb != null) return nearestFromDb;
+      return _resolveNearestStopFromAssets(point);
     } catch (_) {
       return null;
     }
+  }
+
+  Future<Map<String, String>?> _resolveNearestStopFromLocalDb(
+    LatLng point,
+  ) async {
+    // ~0.05° ~ 5.5 km en Cochabamba — suficiente para encontrar la parada
+    // más cercana sin escanear toda la tabla.
+    final rows = await localDb.getStopsNearPoint(
+      point.latitude,
+      point.longitude,
+      radiusDeg: 0.05,
+    );
+    if (rows.isEmpty) return null;
+
+    Map<String, String>? nearest;
+    double? bestDistance;
+    for (final row in rows) {
+      final lat = row['lat'] as double?;
+      final lng = row['lng'] as double?;
+      if (lat == null || lng == null) continue;
+
+      final distance = DistanceUtils.metersApprox(point, LatLng(lat, lng));
+      if (nearest == null || distance < bestDistance!) {
+        nearest = {
+          'stop_id': row['id'] as String? ?? '',
+          'stop_name': row['name'] as String? ?? '',
+        };
+        bestDistance = distance;
+      }
+    }
+    return nearest;
+  }
+
+  Future<Map<String, String>?> _resolveNearestStopFromAssets(
+    LatLng point,
+  ) async {
+    final stops = await datasource.parseStops();
+
+    Map<String, String>? nearest;
+    double? bestDistance;
+
+    for (final stop in stops) {
+      final lat = double.tryParse(stop['stop_lat'] ?? '');
+      final lon = double.tryParse(stop['stop_lon'] ?? '');
+
+      if (lat == null || lon == null) continue;
+
+      final distance = DistanceUtils.metersApprox(point, LatLng(lat, lon));
+
+      if (nearest == null || distance < bestDistance!) {
+        nearest = {
+          'stop_id': stop['stop_id'] ?? '',
+          'stop_name': stop['stop_name'] ?? '',
+        };
+        bestDistance = distance;
+      }
+    }
+
+    return nearest;
   }
 
   Future<List<Map<String, dynamic>>> getUpcomingDepartures({

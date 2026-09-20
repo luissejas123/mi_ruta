@@ -1,15 +1,19 @@
 import 'dart:convert';
 
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+
+import 'package:mi_ruta/core/utils/distance_utils.dart';
 
 /// Base de datos SQLite local para rutas.
 /// Almacena metadatos + bbox + polylines para búsqueda offline instantánea.
 class RouteLocalDatabase {
   static const _dbName = 'mi_ruta_routes.db';
-  static const _dbVersion = 3; // Increment to rebuild with polyline_json
+  static const _dbVersion = 4; // v4: agrega tabla stops_meta
   static const _tableRoutes = 'routes_meta';
   static const _tableConfig = 'app_config';
+  static const _tableStops = 'stops_meta';
 
   Database? _db;
 
@@ -33,6 +37,8 @@ class RouteLocalDatabase {
         await db.execute('DROP TABLE IF EXISTS $_tableRoutes');
         await db.execute('DROP TABLE IF EXISTS $_tableConfig');
         await _createTables(db);
+        // stops_meta es nueva en v4: no dropear (no existia antes, y
+        // _createTables ya usa CREATE TABLE IF NOT EXISTS para ella).
       },
     );
   }
@@ -57,6 +63,17 @@ class RouteLocalDatabase {
       CREATE TABLE $_tableConfig (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
+      )
+    ''');
+    // IF NOT EXISTS: en onUpgrade no se dropea (a diferencia de routes_meta/config)
+    // para no perder cache de rutas en instalaciones que solo suman esta tabla.
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $_tableStops (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        lat REAL NOT NULL,
+        lng REAL NOT NULL,
+        route_refs TEXT
       )
     ''');
   }
@@ -134,6 +151,55 @@ class RouteLocalDatabase {
     );
   }
 
+  /// Rutas cuya polilínea pasa dentro de [radiusMeters] del punto
+  /// [lat],[lng] — "qué trufis pasan cerca de mí". No usa `stops_meta`
+  /// (no hay paradas reales sembradas hoy, ver `countStops`): en su lugar
+  /// mide la intersección ruta↔radio contra las polylines GTFS ya
+  /// sincronizadas. Pre-filtra por bbox (barato, mismo patrón que
+  /// [getRoutesInBbox]) antes de decodificar polyline_json y medir la
+  /// distancia real segmento a segmento. Devuelve las filas de
+  /// `routes_meta` que califican, más una clave `distance_meters`,
+  /// ordenadas de más cerca a más lejos.
+  Future<List<Map<String, dynamic>>> getRoutesNearPoint(
+    double lat,
+    double lng, {
+    required double radiusMeters,
+  }) async {
+    final radiusDeg = radiusMeters / 111000;
+    final db = await _database;
+    final candidates = await db.query(
+      _tableRoutes,
+      where: 'polyline_json IS NOT NULL AND '
+          'lat_min <= ? AND lat_max >= ? AND lng_min <= ? AND lng_max >= ?',
+      whereArgs: [
+        lat + radiusDeg,
+        lat - radiusDeg,
+        lng + radiusDeg,
+        lng - radiusDeg,
+      ],
+    );
+
+    final origin = LatLng(lat, lng);
+    final results = <Map<String, dynamic>>[];
+    for (final row in candidates) {
+      final polylineJson = row['polyline_json'] as String?;
+      if (polylineJson == null) continue;
+      final points = (jsonDecode(polylineJson) as List)
+          .map((p) => LatLng(
+                (p['lat'] as num).toDouble(),
+                (p['lng'] as num).toDouble(),
+              ))
+          .toList();
+      final distance = DistanceUtils.distanceToPolylineMeters(origin, points);
+      if (distance <= radiusMeters) {
+        results.add({...row, 'distance_meters': distance});
+      }
+    }
+    results.sort((a, b) =>
+        (a['distance_meters'] as double).compareTo(b['distance_meters'] as double));
+    return results;
+  }
+
   /// Guarda la polyline de una ruta en caché para uso offline.
   Future<void> cachePolyline(
     String routeId,
@@ -177,6 +243,78 @@ class RouteLocalDatabase {
     return {
       for (final r in rows) r['id'] as String: r['polyline_json'] as String,
     };
+  }
+
+  /// Metadatos ligeros de todas las rutas sincronizadas, SIN polyline_json.
+  /// Usar para listados (ej. panel Presidente) que no necesitan dibujar el mapa —
+  /// evita cargar las polylines completas en memoria.
+  Future<List<Map<String, dynamic>>> getAllRoutesMeta() async {
+    final db = await _database;
+    return db.query(
+      _tableRoutes,
+      columns: ['id', 'name', 'ref', 'color', 'direction_id'],
+      orderBy: 'name ASC',
+    );
+  }
+
+  // ── Paradas (stops) ───────────────────────────────────────────────────
+
+  /// Inserta o reemplaza paradas en batch.
+  Future<void> upsertStops(List<Map<String, dynamic>> stops) async {
+    final db = await _database;
+    final batch = db.batch();
+    for (final stop in stops) {
+      batch.insert(
+        _tableStops,
+        stop,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Numero de paradas almacenadas.
+  Future<int> countStops() async {
+    final db = await _database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as cnt FROM $_tableStops',
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  /// Paradas dentro de un rango cuadrado alrededor del punto dado.
+  /// radiusDeg ~ 0.01 -> ~1.1 km en Cochabamba (lat ~-17°).
+  Future<List<Map<String, dynamic>>> getStopsNearPoint(
+    double lat,
+    double lng, {
+    double radiusDeg = 0.01,
+  }) async {
+    final db = await _database;
+    return db.query(
+      _tableStops,
+      where: 'lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?',
+      whereArgs: [
+        lat - radiusDeg,
+        lat + radiusDeg,
+        lng - radiusDeg,
+        lng + radiusDeg,
+      ],
+    );
+  }
+
+  /// Obtiene metadatos de rutas por su ref (para enriquecer refs de parada
+  /// con el nombre real de la linea, cuando exista en routes_meta).
+  Future<List<Map<String, dynamic>>> getRoutesByRefs(List<String> refs) async {
+    if (refs.isEmpty) return [];
+    final db = await _database;
+    final placeholders = List.filled(refs.length, '?').join(',');
+    return db.query(
+      _tableRoutes,
+      distinct: true,
+      columns: ['name', 'ref'],
+      where: 'ref IN ($placeholders)',
+      whereArgs: refs,
+    );
   }
 
   /// Elimina todas las rutas (antes de re-sincronizar).

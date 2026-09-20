@@ -5,9 +5,9 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
-import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/pago_qr_page.dart';
-import 'package:mi_ruta/features/user/presentation/pages/historial_beneficios_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recarga_saldo_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/balance_card.dart';
@@ -59,11 +59,13 @@ class _WalletPageState extends State<WalletPage> {
     navigateBottomNav(context, index, homeBuilder: widget.homeBuilder);
   }
 
-  void _navigateToRecargaSaldo() {
-    Navigator.push(
+  void _navigateToRecargaSaldo() async {
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const RecargaSaldoPage()),
     );
+    if (!mounted) return;
+    _loadWalletData();
   }
 
   void _navigateToMovimientos() {
@@ -73,11 +75,13 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  void _navigateToPagoQR() {
-    Navigator.push(
+  void _navigateToPagoQR() async {
+    await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const PagoQRPage()),
+      MaterialPageRoute(builder: (_) => PagoQRPage(homeBuilder: widget.homeBuilder)),
     );
+    if (!mounted) return;
+    _loadWalletData();
   }
 
   void _navigateToSolicitudBeneficio() {
@@ -87,10 +91,10 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  void _navigateToHistorialBeneficios() {
+  void _navigateToMisSolicitudesBeneficio() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const HistorialBeneficiosPage()),
+      MaterialPageRoute(builder: (_) => const BeneficiosPage()),
     );
   }
 
@@ -163,15 +167,15 @@ class _WalletPageState extends State<WalletPage> {
         ),
         const SizedBox(height: 12),
         _ActionButton(
-          label: 'HISTORIAL DE BENEFICIOS',
+          label: 'MIS SOLICITUDES DE BENEFICIO',
           icon: Icons.history,
-          onPressed: _navigateToHistorialBeneficios,
+          onPressed: _navigateToMisSolicitudesBeneficio,
         ),
       ],
     );
   }
 
-  Widget _buildMainContent(dynamic wallet) {
+  Widget _buildMainContent(dynamic wallet, WalletState state) {
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -182,6 +186,10 @@ class _WalletPageState extends State<WalletPage> {
               balance: wallet.currentBalance,
               currency: wallet.currency,
             ),
+            // Las ganancias del chofer ya no viven en la billetera del
+            // pasajero — tienen su propia billetera (DriverWalletPage,
+            // botón MOVIMIENTOS → GananciasChoferPage). Esta pantalla es
+            // exclusivamente la del pasajero.
             const SizedBox(height: 32),
             const Text(
               'Acciones',
@@ -234,14 +242,14 @@ class _WalletPageState extends State<WalletPage> {
           final wallet = state is WalletLoaded
               ? state.wallet
               : state is TransactionHistoryLoaded
-                  ? state.wallet
-                  : null;
+              ? state.wallet
+              : null;
 
           if (wallet == null) {
             return const Center(child: Text('No hay datos de billetera'));
           }
 
-          return _buildMainContent(wallet);
+          return _buildMainContent(wallet, state);
         },
       ),
       bottomNavigationBar: CustomBottomNav(

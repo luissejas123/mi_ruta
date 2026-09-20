@@ -14,16 +14,33 @@ class NavigationStarted extends NavigationEvent {
   final LatLng boardingStop;
   final LatLng alightingStop;
   final LatLng destination;
+  // Abordaje ya confirmado antes de llegar acá (ConfirmarAbordajePage,
+  // Bloque 2 paso 3, rediseño 2026-09-14) — si vienen puestos, "Aviso de
+  // bajada" queda disponible desde el inicio, sin esperar ninguna fase.
+  final String? initialBoardingTripId;
+  final String? initialBoardingDriverId;
+  final String? initialBoardingRouteRef;
 
   const NavigationStarted({
     required this.origin,
     required this.boardingStop,
     required this.alightingStop,
     required this.destination,
+    this.initialBoardingTripId,
+    this.initialBoardingDriverId,
+    this.initialBoardingRouteRef,
   });
 
   @override
-  List<Object?> get props => [origin, boardingStop, alightingStop, destination];
+  List<Object?> get props => [
+    origin,
+    boardingStop,
+    alightingStop,
+    destination,
+    initialBoardingTripId,
+    initialBoardingDriverId,
+    initialBoardingRouteRef,
+  ];
 }
 
 /// Actualiza la posición actual del usuario
@@ -64,4 +81,14 @@ class NavigationStopped extends NavigationEvent {
 /// Tick periódico del temporizador de viaje
 class TimerTick extends NavigationEvent {
   const TimerTick();
+}
+
+/// Se cobró la tarifa por distancia tras el "aviso de bajada".
+class FareCharged extends NavigationEvent {
+  final double amount;
+
+  const FareCharged(this.amount);
+
+  @override
+  List<Object?> get props => [amount];
 }

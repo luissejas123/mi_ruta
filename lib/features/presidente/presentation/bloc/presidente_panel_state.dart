@@ -31,11 +31,11 @@ class PresidentePanelLoaded extends PresidentePanelState {
   });
 
   int get approvedVehicles =>
-      allVehicles.where((v) => v.status == VehicleStatus.approved).length;
+      allVehicles.where((v) => v.status == 'approved').length;
   int get pendingVehicles =>
-      allVehicles.where((v) => v.status == VehicleStatus.pendingReview).length;
+      allVehicles.where((v) => v.status == 'pending_review').length;
   int get rejectedVehicles =>
-      allVehicles.where((v) => v.status == VehicleStatus.rejected).length;
+      allVehicles.where((v) => v.status == 'rejected').length;
 
   int get totalDrivers => allUsers.where((u) => u.userType == 'driver').length;
   int get totalPassengers => allUsers.where((u) => u.userType == 'passenger').length;
@@ -43,10 +43,22 @@ class PresidentePanelLoaded extends PresidentePanelState {
   int get blockedUsers => allUsers.where((u) => !u.isActive).length;
 
   /// Unidades activas agrupadas por línea (control de rutas en vivo, RQ-76).
+  ///
+  /// Prioriza `users/{owner}.assigned_route_ref` sobre `vehicle.lineNumber`
+  /// — mismo criterio que ya usa `DriverService.getAssignedRoute` para
+  /// resolver "qué línea maneja este chofer". Sin esto, un chofer al que el
+  /// presidente le reasigna de línea seguía contando bajo la línea vieja de
+  /// su vehículo (la que puso al registrarlo), y esa línea vieja seguía
+  /// apareciendo con unidades activas aunque el chofer ya no la maneje —
+  /// una misma unidad "asignada" a dos líneas distintas en la UI.
   Map<String, int> get activeVehiclesByLine {
+    final usersByUid = {for (final u in allUsers) u.uid: u};
     final map = <String, int>{};
     for (final v in activeVehicles) {
-      final line = v.lineNumber.isNotEmpty ? v.lineNumber : 'Sin línea';
+      final assignedRef = usersByUid[v.ownerUid]?.assignedRouteRef;
+      final line = (assignedRef != null && assignedRef.isNotEmpty)
+          ? assignedRef
+          : (v.lineNumber.isNotEmpty ? v.lineNumber : 'Sin línea');
       map[line] = (map[line] ?? 0) + 1;
     }
     return map;

@@ -61,8 +61,12 @@ class RouteSearchBloc extends Bloc<RouteSearchEvent, RouteSearchState> {
 
       // Unir sin duplicados por ID
       final allById = <String, dynamic>{};
-      for (final r in nearOriginRows) allById[r.id] = r;
-      for (final r in nearDestRows) allById.putIfAbsent(r.id, () => r);
+      for (final r in nearOriginRows) {
+        allById[r.id] = r;
+      }
+      for (final r in nearDestRows) {
+        allById.putIfAbsent(r.id, () => r);
+      }
       final nearbyRoutes = allById.values.toList();
 
       if (nearbyRoutes.isEmpty) {

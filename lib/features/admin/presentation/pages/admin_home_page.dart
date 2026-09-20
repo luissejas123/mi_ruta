@@ -1,265 +1,362 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
-import 'package:mi_ruta/features/admin/domain/services/admin_service.dart';
-import 'package:mi_ruta/features/admin/presentation/bloc/admin_dashboard_bloc.dart';
-import 'package:mi_ruta/features/admin/presentation/bloc/admin_dashboard_event.dart';
-import 'package:mi_ruta/features/admin/presentation/bloc/admin_dashboard_state.dart';
+import 'package:mi_ruta/features/admin/domain/entities/admin_permissions.dart';
+import 'package:mi_ruta/features/admin/domain/services/admin_access_service.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/route_management_bloc.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/actualizar_qr_recarga_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/asignar_lineas_presidente_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/administracion_beneficios_page.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/user_management_bloc.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/admin_bottom_navigation_bar.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/admin_privileges_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/admin_route_management_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/user_management_page.dart';
-import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
-import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
+import 'package:mi_ruta/features/auth/presentation/widgets/change_password_dialog.dart';
+import 'package:mi_ruta/features/user/presentation/pages/perfil_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
-
-const _amarillo = Color(0xFFFFC12F);
+import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' show confirmLogout;
 
 class AdminHomePage extends StatelessWidget {
   const AdminHomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final authState = context.read<AuthBloc>().state;
-    final fullName = authState is AuthLoaded ? authState.user.fullName : '';
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        if (authState is! AuthLoaded) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final user = authState.user;
 
-    return BlocProvider(
-      create: (_) => AdminDashboardBloc(service: getIt<AdminService>())
-        ..add(const LoadActiveVehicles()),
-      child: _AdminHomeView(fullName: fullName),
-    );
-  }
-}
-
-class _AdminHomeView extends StatelessWidget {
-  final String fullName;
-
-  const _AdminHomeView({required this.fullName});
-
-  void _cerrarSesion(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text('¿Estás seguro que deseas cerrar sesión?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              context.read<AuthBloc>().add(const LogoutEvent());
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const IniciarSesionPage()),
-                (route) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
-            child: const Text('Cerrar sesión', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        automaticallyImplyLeading: false,
-        title: const Text(
-          'Panel de administración',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-        ),
-        actions: [
-          const SwitchProfileButton(),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar sesión',
-            onPressed: () => _cerrarSesion(context),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Hola, ${fullName.isNotEmpty ? fullName : 'administrador'} 👋',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-            _UserManagementCard(),
-            const SizedBox(height: 16),
-            const _ActiveVehiclesCard(),
-            const SizedBox(height: 16),
-            const _PrivilegesCard(),
-          ],
-        ),
-      ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: 0,
-        onTap: (index) => navigateBottomNav(
-          context,
-          index,
-          homeBuilder: (_) => const AdminHomePage(),
-        ),
-      ),
-    );
-  }
-}
-
-class _UserManagementCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const UserManagementPage()),
-      ),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: _amarillo,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Row(
-          children: [
-            Icon(Icons.manage_accounts_outlined, color: Colors.black, size: 28),
-            SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                'Gestión de usuarios',
-                style: TextStyle(color: Colors.black, fontSize: 15, fontWeight: FontWeight.bold),
+        return Scaffold(
+          // Sin `leading` forzado: esta es la pantalla raíz del admin
+          // (home_router la usa directo tras login), así que no hay nada
+          // que retroceder — Flutter no muestra flecha si no hay nada que
+          // popear, igual que el resto de las pantallas raíz de la app.
+          appBar: AppBar(
+            title: const Text('Perfil Administrativo'),
+            centerTitle: true,
+            actions: [
+              IconButton(
+                tooltip: 'Cerrar sesión',
+                icon: const Icon(Icons.logout),
+                onPressed: () => confirmLogout(context),
               ),
-            ),
-            Icon(Icons.arrow_forward_ios, color: Colors.black54, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ActiveVehiclesCard extends StatelessWidget {
-  const _ActiveVehiclesCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.directions_bus_filled_outlined,
-                  size: 18, color: colorScheme.onSurface.withValues(alpha: 0.7)),
-              const SizedBox(width: 8),
-              const Text('Unidades activas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             ],
           ),
-          const SizedBox(height: 14),
-          BlocBuilder<AdminDashboardBloc, AdminDashboardState>(
-            builder: (context, state) {
-              if (state is AdminDashboardLoading) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Center(child: CircularProgressIndicator(color: _amarillo)),
-                );
-              }
-              if (state is AdminDashboardError) {
-                return Text(state.message, style: TextStyle(fontSize: 12, color: Colors.red.shade400));
-              }
-              if (state is AdminDashboardLoaded) {
-                if (state.activeVehicles.isEmpty) {
-                  return Text(
-                    'Ninguna unidad está en servicio en este momento.',
-                    style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6)),
-                  );
-                }
-                return Column(
-                  children: state.activeVehicles
-                      .map(
-                        (v) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 5),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${v.brand} ${v.model} · Placa ${v.vehicleId}'.trim(),
-                                  style: const TextStyle(fontSize: 13),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              Text(
-                                'Línea ${v.lineNumber}',
-                                style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6)),
-                              ),
-                            ],
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: const Color(0xFFFFC12F),
+                        child: Text(
+                          user.fullName.isNotEmpty
+                              ? user.fullName[0].toUpperCase()
+                              : 'A',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
                           ),
                         ),
-                      )
-                      .toList(),
-                );
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user.fullName.isNotEmpty
+                                  ? user.fullName
+                                  : 'Administrador',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Text(
+                                  'Administrador',
+                                  style: TextStyle(
+                                    color: Colors.black54,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                if (user.isSuperAdmin) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFC12F),
+                                      borderRadius: BorderRadius.circular(84),
+                                    ),
+                                    child: const Text(
+                                      'SUPERADMIN',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Menú',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 12),
+                  if (AdminAccessService.canAccessOperation(user, AdminOperation.manageUsers))
+                    _MenuCard(
+                      icon: Icons.people_outline,
+                      title: 'Gestión de usuarios',
+                      subtitle: 'Listar, buscar y promover usuarios',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BlocProvider.value(
+                              value: getIt<UserManagementBloc>(),
+                              child: const UserManagementPage(),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  if (AdminAccessService.canAccessOperation(user, AdminOperation.manageUsers))
+                    _MenuCard(
+                      icon: Icons.groups_outlined,
+                      title: 'Asignar línea a presidente',
+                      subtitle: 'Qué línea(s) gestiona cada dirigente',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AsignarLineasPresidentePage(),
+                          ),
+                        );
+                      },
+                    ),
+                  if (AdminAccessService.canAccessOperation(user, AdminOperation.manageUsers))
+                    _MenuCard(
+                      icon: Icons.qr_code_2,
+                      title: 'QR de recarga',
+                      subtitle: 'Actualizar el QR que ven los pasajeros al recargar saldo',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ActualizarQrRecargaPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  if (AdminAccessService.canAccessOperation(
+                    user,
+                    AdminOperation.managePermissions,
+                  ))
+                    _MenuCard(
+                      icon: Icons.admin_panel_settings_outlined,
+                      title: 'Gestión de privilegios',
+                      subtitle: 'Activar o desactivar permisos de admins',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BlocProvider.value(
+                              value: getIt<AdminPrivilegesBloc>(),
+                              child: const AdminPrivilegesPage(),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  if (AdminAccessService.canAccessOperation(
+                    user,
+                    AdminOperation.manageRoutes,
+                  ))
+                    _MenuCard(
+                      icon: Icons.route_outlined,
+                      title: 'Gestión de rutas',
+                      subtitle: 'Cargar, editar y eliminar rutas',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BlocProvider.value(
+                              value: getIt<RouteManagementBloc>(),
+                              child: const AdminRouteManagementPage(),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  if (AdminAccessService.canAccessOperation(user, AdminOperation.manageUsers))
+                    _MenuCard(
+                      icon: Icons.volunteer_activism_outlined,
+                      title: 'Administración de beneficios',
+                      subtitle: 'Aprobar o rechazar solicitudes de tarifa',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AdministracionBeneficiosPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  if (AdminAccessService.getAvailableOperations(user).isEmpty)
+                    const _NoPermissionsCard(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Seguridad',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 12),
+                  _MenuCard(
+                    icon: Icons.lock_outline,
+                    title: 'Cambiar contraseña',
+                    subtitle: 'Actualiza tu contraseña de acceso',
+                    onTap: () => showChangePasswordDialog(context),
+                  ),
+                  const SizedBox(height: 8),
+                  _MenuCard(
+                    icon: Icons.logout,
+                    title: 'Cerrar sesión',
+                    subtitle: 'Salir de tu cuenta administrativa',
+                    onTap: () => confirmLogout(context),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Sin Billetera (el admin no tiene): tabs 0/2/3 en vez de las 4.
+          // "Rutas" (índice 2) no es la del pasajero — es Gestión de rutas,
+          // permiso-gateada — por eso no se delega a `navigateBottomNav`.
+          bottomNavigationBar: CustomBottomNav(
+            currentIndex: 0,
+            tabs: const [0, 2, 3],
+            onTap: (index) {
+              switch (index) {
+                case 0:
+                  break; // ya estamos en Inicio
+                case 2:
+                  if (!user.canManageRoutes) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No tienes permiso para gestionar rutas'),
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BlocProvider.value(
+                        value: getIt<RouteManagementBloc>(),
+                        child: const AdminRouteManagementPage(),
+                      ),
+                    ),
+                  );
+                  break;
+                case 3:
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          PerfilPage(homeBuilder: (_) => const AdminHomePage()),
+                    ),
+                  );
+                  break;
               }
-              return const SizedBox.shrink();
             },
           ),
-        ],
+        );
+      },
+    );
+  }
+}
+
+class _MenuCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _MenuCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: const BoxDecoration(
+            color: Color(0xFFFFC12F),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: Colors.black),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
       ),
     );
   }
 }
 
-class _PrivilegesCard extends StatelessWidget {
-  const _PrivilegesCard();
+class _NoPermissionsCard extends StatelessWidget {
+  const _NoPermissionsCard();
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.verified_user_outlined,
-                  size: 18, color: colorScheme.onSurface.withValues(alpha: 0.7)),
-              const SizedBox(width: 8),
-              const Text('Mis privilegios', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Rol: Administrador\n'
-            '• Aprobar o bloquear cualquier cuenta (pasajero, chofer, tickeador)\n'
-            '• Ver unidades en servicio en tiempo real\n'
-            '• La creación de nuevas cuentas de administrador se gestiona manualmente '
-            'desde la consola de Firebase.',
-            style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.7), height: 1.5),
-          ),
-        ],
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text(
+          'No tienes privilegios asignados. Contacta a un administrador.',
+          style: TextStyle(color: Colors.black54),
+        ),
       ),
     );
   }

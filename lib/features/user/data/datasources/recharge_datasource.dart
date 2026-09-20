@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mi_ruta/core/utils/firestore_date.dart';
 import 'package:mi_ruta/features/user/domain/entities/recharge.dart';
 
 class RecargeDatasource {
@@ -75,6 +76,38 @@ class RecargeDatasource {
     }
   }
 
+  /// Todas las recargas pendientes de cualquier usuario, con el nombre del
+  /// solicitante resuelto — para que el tickeador las revise (docs/
+  /// PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0). Sin `orderBy` a propósito
+  /// (evita pedir un índice compuesto nuevo, mismo patrón que
+  /// `ClaimDatasource.getClaims`): se ordena en memoria.
+  Future<List<Recharge>> getAllPendingRecharges() async {
+    try {
+      final snapshot = await _firestore
+          .collection('recharges')
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      final recharges = snapshot.docs.map(_mapToRecharge).toList();
+      if (recharges.isEmpty) return recharges;
+
+      final usersSnapshot = await _firestore.collection('users').get();
+      final names = <String, String>{
+        for (final doc in usersSnapshot.docs)
+          doc.id: (doc.data()['full_name'] ?? doc.data()['fullName'] ?? '')
+              .toString(),
+      };
+
+      final enriched = recharges
+          .map((r) => r.copyWith(userName: names[r.userId]))
+          .toList();
+      enriched.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return enriched;
+    } catch (e) {
+      throw Exception('Error al obtener recargas pendientes: $e');
+    }
+  }
+
   /// Aprueba una recarga y añade el saldo a la billetera
   Future<void> approveRecharge(String rechargeId, String userId) async {
     try {
@@ -87,7 +120,7 @@ class RecargeDatasource {
         throw Exception('Recarga no encontrada');
       }
 
-      final amount = rechargeDoc['amount'] as double;
+      final amount = (rechargeDoc['amount'] as num).toDouble();
 
       // IMPORTANTE: Obtener el documento del usuario ANTES de la transacción
       // Firestore requiere todas las lecturas antes de las escrituras
@@ -98,8 +131,24 @@ class RecargeDatasource {
         throw Exception('Usuario/Billetera no encontrada');
       }
 
+      // La colección users tiene docs snake_case (wallet.current_balance) y
+      // camelCase (wallet.balance) coexistiendo. Leer ambas claves y mantener
+      // sincronizada la que el documento ya use.
+      final walletData =
+          (userSnapshot['wallet'] as Map<String, dynamic>?) ?? {};
       final currentBalance =
-          (userSnapshot['wallet']['current_balance'] ?? 0.0) as double;
+          ((walletData['current_balance'] ?? walletData['balance'] ?? 0.0)
+                  as num)
+              .toDouble();
+      final newBalance = currentBalance + amount;
+
+      final walletUpdates = <String, dynamic>{
+        'wallet.current_balance': newBalance,
+        'wallet.updated_at': FieldValue.serverTimestamp(),
+      };
+      if (walletData.containsKey('balance')) {
+        walletUpdates['wallet.balance'] = newBalance;
+      }
 
       // Obtener transacciones asociadas ANTES de la transacción
       final transactionQuery = await _firestore
@@ -117,10 +166,7 @@ class RecargeDatasource {
         });
 
         // ACTUALIZAR: Saldo del usuario
-        transaction.update(userDocRef, {
-          'wallet.current_balance': currentBalance + amount,
-          'wallet.updated_at': FieldValue.serverTimestamp(),
-        });
+        transaction.update(userDocRef, walletUpdates);
 
         // ACTUALIZAR: Transacción asociada
         if (transactionQuery.docs.isNotEmpty) {
@@ -185,8 +231,8 @@ class RecargeDatasource {
       currency: data['currency'] ?? 'Bs',
       status: data['status'] ?? 'pending',
       proofImageUrl: data['proof_image_url'],
-      createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      verifiedAt: (data['verified_at'] as Timestamp?)?.toDate(),
+      createdAt: parseFirestoreDate(data['created_at']) ?? DateTime.now(),
+      verifiedAt: parseFirestoreDate(data['verified_at']),
     );
   }
 }

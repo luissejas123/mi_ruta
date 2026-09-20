@@ -1,71 +1,90 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:mi_ruta/features/admin/domain/services/user_management_service.dart';
+import 'package:mi_ruta/features/admin/domain/usecases/admin_usecases.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/user_management_event.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/user_management_state.dart';
 
-/// Compartido por la pantalla de aprobación de choferes y el panel de
-/// administración/presidencia — misma lógica, distinto filtro de rol.
-class UserManagementBloc extends Bloc<UserManagementEvent, UserManagementState> {
-  final UserManagementService _service;
+class UserManagementBloc
+    extends Bloc<UserManagementEvent, UserManagementState> {
+  final GetAdminUsersUseCase getUsersUseCase;
+  final UpdateUserRoleUseCase updateUserRoleUseCase;
 
-  UserManagementBloc({required UserManagementService service})
-      : _service = service,
-        super(const UserManagementLoading()) {
-    on<LoadManagedUsers>(_onLoad);
-    on<SetManagedUserActiveState>(_onSetActive);
-    on<SetManagedUserQaAccess>(_onSetQaAccess);
+  UserManagementBloc({
+    required this.getUsersUseCase,
+    required this.updateUserRoleUseCase,
+  }) : super(const UserManagementInitial()) {
+    on<LoadUsersEvent>(_onLoadUsers);
+    on<SearchUsersEvent>(_onSearch);
+    on<PromoteUserToAdminEvent>(_onPromoteUser);
+    on<PromoteUserToPresidenteEvent>(_onPromoteUserToPresidente);
   }
 
-  Future<void> _onLoad(
-    LoadManagedUsers event,
+  Future<void> _onLoadUsers(
+    LoadUsersEvent event,
     Emitter<UserManagementState> emit,
   ) async {
     emit(const UserManagementLoading());
-    try {
-      final users = await _service.getUsers(userTypeFilter: event.userTypeFilter);
-      emit(UserManagementLoaded(users, activeFilter: event.userTypeFilter));
-    } catch (e) {
-      emit(UserManagementError('No se pudo cargar la lista de usuarios: $e'));
+    final result = await getUsersUseCase.call();
+    result.fold(
+      (failure) => emit(UserManagementError(failure.message)),
+      (users) {
+        final previous = state;
+        final query = previous is UserManagementLoaded ? previous.query : '';
+        emit(UserManagementLoaded(users: users, query: query));
+      },
+    );
+  }
+
+  void _onSearch(SearchUsersEvent event, Emitter<UserManagementState> emit) {
+    final state = this.state;
+    if (state is UserManagementLoaded) {
+      emit(UserManagementLoaded(users: state.users, query: event.query));
     }
   }
 
-  Future<void> _onSetActive(
-    SetManagedUserActiveState event,
+  Future<void> _onPromoteUser(
+    PromoteUserToAdminEvent event,
     Emitter<UserManagementState> emit,
   ) async {
-    final current = state;
-    if (current is! UserManagementLoaded) return;
-    emit(UserManagementLoaded(
-      current.users,
-      activeFilter: current.activeFilter,
-      updatingUid: event.uid,
-    ));
-    try {
-      await _service.setUserActive(event.uid, event.isActive);
-      final users = await _service.getUsers(userTypeFilter: current.activeFilter);
-      emit(UserManagementLoaded(users, activeFilter: current.activeFilter));
-    } catch (e) {
-      emit(UserManagementError('No se pudo actualizar el estado del usuario: $e'));
-    }
+    await _promote(
+      emit,
+      uid: event.uid,
+      role: 'admin',
+      successMessage: 'Usuario promovido a administrador',
+    );
   }
 
-  Future<void> _onSetQaAccess(
-    SetManagedUserQaAccess event,
+  Future<void> _onPromoteUserToPresidente(
+    PromoteUserToPresidenteEvent event,
     Emitter<UserManagementState> emit,
   ) async {
-    final current = state;
-    if (current is! UserManagementLoaded) return;
-    emit(UserManagementLoaded(
-      current.users,
-      activeFilter: current.activeFilter,
-      updatingUid: event.uid,
-    ));
-    try {
-      await _service.setQaAccess(event.uid, event.qaAccess);
-      final users = await _service.getUsers(userTypeFilter: current.activeFilter);
-      emit(UserManagementLoaded(users, activeFilter: current.activeFilter));
-    } catch (e) {
-      emit(UserManagementError('No se pudo actualizar el acceso QA: $e'));
-    }
+    await _promote(
+      emit,
+      uid: event.uid,
+      role: 'presidente',
+      successMessage: 'Usuario promovido a presidente',
+    );
+  }
+
+  /// Cambia el rol de una cuenta y recarga la lista. Compartido por todas las
+  /// promociones: solo cambian el `role` destino y el mensaje de exito.
+  Future<void> _promote(
+    Emitter<UserManagementState> emit, {
+    required String uid,
+    required String role,
+    required String successMessage,
+  }) async {
+    emit(const UserManagementLoading());
+    final result = await updateUserRoleUseCase.call(uid: uid, role: role);
+    await result.fold(
+      (failure) async => emit(UserManagementError(failure.message)),
+      (_) async {
+        emit(UserManagementSuccess(successMessage));
+        final reload = await getUsersUseCase.call();
+        reload.fold(
+          (failure) => emit(UserManagementError(failure.message)),
+          (users) => emit(UserManagementLoaded(users: users)),
+        );
+      },
+    );
   }
 }

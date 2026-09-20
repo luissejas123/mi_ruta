@@ -31,7 +31,11 @@ class _QRScannerPageState extends State<QRScannerPage> {
     _controller.toggleTorch();
   }
 
+  bool _hasScanned = false;
+
   void _onQrDetected(Barcode barcode) {
+    if (_hasScanned) return;
+    _hasScanned = true;
     final qrCode = barcode.rawValue ?? '';
     Navigator.of(context).pop(qrCode);
   }

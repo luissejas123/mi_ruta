@@ -27,6 +27,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     on<NavigationResumed>(_onNavigationResumed);
     on<NavigationStopped>(_onNavigationStopped);
     on<TimerTick>(_onTimerTick);
+    on<FareCharged>(_onFareCharged);
   }
 
   /// Inicia el tracking GPS y el timer
@@ -43,7 +44,13 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         ? TripPhase.walkStart
         : TripPhase.onBus;
 
-    emit(state.copyWith(phase: initialPhase, isTracking: true));
+    emit(state.copyWith(
+      phase: initialPhase,
+      isTracking: true,
+      boardingTripId: event.initialBoardingTripId,
+      boardingDriverId: event.initialBoardingDriverId,
+      boardingRouteRef: event.initialBoardingRouteRef,
+    ));
 
     _startTimer();
     await _startGpsTracking();
@@ -119,6 +126,13 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
   ) async {
     final elapsed = DateTime.now().difference(_startTime);
     emit(state.copyWith(elapsed: elapsed));
+  }
+
+  Future<void> _onFareCharged(
+    FareCharged event,
+    Emitter<NavigationState> emit,
+  ) async {
+    emit(state.copyWith(farePaid: event.amount));
   }
 
   /// Inicia el stream que despacha TimerTick cada segundo

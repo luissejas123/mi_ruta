@@ -9,6 +9,13 @@ class NavigationState extends Equatable {
   final bool isTracking;
   final bool isPaused;
   final String? error;
+  // Viaje de abordaje (Bloque 2, paso 3) — null hasta que el pasajero
+  // escanea el QR fijo de la unidad. `farePaid` queda null hasta el "aviso
+  // de bajada" (o el cobro de respaldo por tarifa máxima, ver DriverService).
+  final String? boardingTripId;
+  final String? boardingDriverId;
+  final String? boardingRouteRef;
+  final double? farePaid;
 
   const NavigationState({
     required this.phase,
@@ -17,6 +24,10 @@ class NavigationState extends Equatable {
     this.isTracking = false,
     this.isPaused = false,
     this.error,
+    this.boardingTripId,
+    this.boardingDriverId,
+    this.boardingRouteRef,
+    this.farePaid,
   });
 
   NavigationState copyWith({
@@ -26,6 +37,10 @@ class NavigationState extends Equatable {
     bool? isTracking,
     bool? isPaused,
     String? error,
+    String? boardingTripId,
+    String? boardingDriverId,
+    String? boardingRouteRef,
+    double? farePaid,
   }) {
     return NavigationState(
       phase: phase ?? this.phase,
@@ -34,6 +49,10 @@ class NavigationState extends Equatable {
       isTracking: isTracking ?? this.isTracking,
       isPaused: isPaused ?? this.isPaused,
       error: error ?? this.error,
+      boardingTripId: boardingTripId ?? this.boardingTripId,
+      boardingDriverId: boardingDriverId ?? this.boardingDriverId,
+      boardingRouteRef: boardingRouteRef ?? this.boardingRouteRef,
+      farePaid: farePaid ?? this.farePaid,
     );
   }
 
@@ -45,5 +64,9 @@ class NavigationState extends Equatable {
     isTracking,
     isPaused,
     error,
+    boardingTripId,
+    boardingDriverId,
+    boardingRouteRef,
+    farePaid,
   ];
 }

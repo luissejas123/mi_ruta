@@ -43,30 +43,29 @@ class PlannedTripLeg extends Equatable {
     required LatLng from,
     required LatLng to,
     required double meters,
-  }) =>
-      PlannedTripLeg(
-        type: LegType.walking,
-        routeId: '',
-        routeName: 'Caminando',
-        routeRef: '',
-        boardingPoint: from,
-        alightingPoint: to,
-        transitMeters: meters,
-      );
+  }) => PlannedTripLeg(
+    type: LegType.walking,
+    routeId: '',
+    routeName: 'Caminando',
+    routeRef: '',
+    boardingPoint: from,
+    alightingPoint: to,
+    transitMeters: meters,
+  );
 
   @override
   List<Object?> get props => [
-        type,
-        routeId,
-        routeName,
-        routeRef,
-        directionId,
-        boardingPoint,
-        alightingPoint,
-        walkToMeters,
-        transitMeters,
-        walkFromMeters,
-      ];
+    type,
+    routeId,
+    routeName,
+    routeRef,
+    directionId,
+    boardingPoint,
+    alightingPoint,
+    walkToMeters,
+    transitMeters,
+    walkFromMeters,
+  ];
 }
 
 class PlannedTrip extends Equatable {
@@ -78,7 +77,10 @@ class PlannedTrip extends Equatable {
   final LatLng destinationLatLng;
   final List<PlannedTripLeg> legs;
   final DateTime createdAt;
+  final DateTime? scheduledAt;
   final bool isCompleted;
+  final bool isCancelled;
+  final DateTime? cancelledAt;
 
   const PlannedTrip({
     required this.id,
@@ -89,21 +91,45 @@ class PlannedTrip extends Equatable {
     required this.destinationLatLng,
     required this.legs,
     required this.createdAt,
+    this.scheduledAt,
     this.isCompleted = false,
+    this.isCancelled = false,
+    this.cancelledAt, 
   });
+
+  PlannedTrip copyWith({String? id, bool? isCompleted, bool? isCancelled, DateTime? cancelledAt}) =>
+      PlannedTrip(
+        id: id ?? this.id,
+        userId: userId,
+        originName: originName,
+        originLatLng: originLatLng,
+        destinationName: destinationName,
+        destinationLatLng: destinationLatLng,
+        legs: legs,
+        createdAt: createdAt,
+        isCompleted: isCompleted ?? this.isCompleted,
+        isCancelled: isCancelled ?? this.isCancelled,
+        cancelledAt: cancelledAt ?? this.cancelledAt,
+      );
 
   List<PlannedTripLeg> get busLegs => legs.where((l) => l.isBus).toList();
 
   int get totalMinutes => legs.fold(0, (s, l) => s + l.estimatedMinutes);
   double get totalDistanceKm =>
       legs.fold(
-              0.0,
-              (s, l) =>
-                  s + l.walkToMeters + l.transitMeters + l.walkFromMeters) /
+        0.0,
+        (s, l) => s + l.walkToMeters + l.transitMeters + l.walkFromMeters,
+      ) /
       1000;
+  /// Estimado plano (Bs. 2.5 por tramo de bus), sin mirar distancia real ni
+  /// la tarifa configurada de cada línea — usar solo donde no se puede
+  /// esperar una consulta async (ej. una lista larga sin datos precargados).
+  /// Donde sí se puede, usar `TariffService.resolvePlannedTripFare(this)`
+  /// (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2, paso 3).
   double get totalCostBs => busLegs.length * 2.5;
   String get routesSummary => busLegs.map((l) => l.routeName).join(' + ');
 
   @override
-  List<Object?> get props => [id, userId, legs, isCompleted];
+  List<Object?> get props =>
+      [id, userId, legs, scheduledAt, isCompleted, isCancelled, cancelledAt];
 }

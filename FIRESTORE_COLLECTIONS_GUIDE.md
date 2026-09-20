@@ -1,6 +1,6 @@
 # 📚 Firestore Collections Guide - Mi Ruta
 
-> Verificado directamente contra el proyecto Firebase (`mi-ruta-4004d`) el 2026-06-29 y contra el código en `lib/`. Las colecciones marcadas como **"sin referencias en código"** existen como datos semilla/demo pero ningún datasource las lee o escribe todavía — corresponden al módulo de conductores (`driver/`), que en `lib/features/driver/` es solo un placeholder (`.gitkeep`).
+> Verificado directamente contra el proyecto Firebase (`mi-ruta-4004d`) el 2026-06-29 y contra el código en `lib/`. Las colecciones marcadas como **"sin referencias en código"** existen como datos semilla/demo pero ningún datasource las lee o escribe todavía. `driver/` **no** es un placeholder — está implementado (ver `CLAUDE.md`); esta nota quedó de una versión anterior del proyecto y se corrigió el 2026-08-31 tras verificarse contra el código real. Actualizado el 2026-09-07: `claims` ya tiene datasource/UI real (feature Reclamos) y `ratings` ya tiene un primer escritor (chofer→pasajero, `RatingService`) — ninguna de las dos sigue "sin referencias".
 
 ## Estructura General
 
@@ -17,10 +17,10 @@
 | `transactions` | Ledger de movimientos de dinero (recargas, beneficios, pagos) | auto-id | ✅ |
 | `config` | Documentos de configuración global de la app | clave fija (`qr_recarga`, `routes_meta`) | ✅ |
 | `trips` | Registro de viajes de conductor (ingresos, pasajeros) | `trip_id` | ✅ (leído por `TripPaymentService`) |
-| `vehicles` | Datos técnicos/documentación legal de vehículos | `vehicle_id` (placa) | ⚠️ Sin referencias en código — datos demo para futuro módulo conductor |
-| `ratings` | Calificaciones de pasajero → conductor | `rating_id` | ⚠️ Sin referencias en código |
-| `claims` | Reclamos/denuncias | `claim_id` | ⚠️ Sin referencias en código |
-| `station_logs` | Registro de salidas/llegadas en terminal | `log_id` | ⚠️ Sin referencias en código |
+| `vehicles` | Datos técnicos/documentación legal de vehículos | `vehicle_id` (placa) | ✅ (leído/escrito por `VehicleRemoteDataSourceImpl`, features `driver`/`admin`) |
+| `ratings` | Calificaciones pasajero↔conductor (`reviewer_uid`/`target_uid` genéricos) | `rating_id` | ✅ Se lee (reporte admin) y se escribe (`RatingService`, hoy solo chofer→pasajero) |
+| `claims` | Reclamos/denuncias | `claim_id` | ✅ (`ClaimDatasource`, feature Reclamos) |
+| `station_logs` | Registro de salidas/llegadas en terminal | `log_id` | ✅ (duplicado, ver `docs/DEUDA_TECNICA.md`) |
 
 **Nota:** `transport_lines` y la subcolección `schedules` que aparecían en versiones previas de este documento **no existen** en el proyecto Firebase real — se han eliminado de esta guía.
 
@@ -72,9 +72,63 @@
 }
 ```
 
-**Al leer `users` siempre verificar ambas claves** (`full_name`/`fullName`, `wallet.current_balance`/`wallet.balance`, etc.) o normalizar en el modelo de datos — actualmente cada datasource asume un esquema distinto, lo que es una fuente real de bugs.
+**Estado actual (verificado 28 ago 2026):** `AuthModel.fromJson` y `UserModel.fromJson` ya leen ambas claves con fallback (`json['full_name'] ?? json['fullName']`, `json['role'] ?? json['userType']`, `json['wallet']?['current_balance'] ?? json['wallet']?['balance']`, etc.) — un doc en cualquiera de los dos esquemas se lee bien hoy, no hace falta migrar ni recrear cuentas para que funcionen. La escritura sigue sin unificar del todo: `AuthModel.toJson()` escribe snake_case consistente, `UserModel.toJson()` escribe una mezcla (snake_case salvo `isActive`/`reviewsCount`, que quedan en camelCase) — no rompe nada porque la lectura tolera ambos, pero conviene unificar los dos `toJson()` en algún momento (ver `RQ4-SYS-04` en `docs/REQUERIMIENTOS_POR_PERFIL_SPRINT3_SPRINT4.md`).
 
 **Roles vistos en datos:** `user`. Roles documentados pero sin datos de ejemplo: `driver`, `tickeador`, `admin`, `presidente` (relacionados al módulo de conductores no implementado).
+
+### Campos de jerarquía de roles (Sprint 4)
+
+Estos tres campos empezaron a escribirse con la jerarquía Administrador → Presidente → Chofer/Tickeador. **Los tres son privilegiados**: `firestore.rules` impide que el dueño de la cuenta se los escriba a sí mismo.
+
+| Campo | Tipo | Quién lo escribe | Para qué |
+|---|---|---|---|
+| `is_super_admin` | `bool` (default `false`) | **Nadie desde la app.** Solo consola de Firebase / Admin SDK | SuperAdmin: administrador con acceso total que ignora `admin_permissions`. Reemplaza las antiguas allowlists de correos en código. Ver el runbook en [SECURITY.md](SECURITY.md) |
+| `roles` | `array<string>` | `admin`/`presidente`, vía los métodos de grant (`updateUserRole`, `resolveDriverRequest`, `assignTickeador`) | **Todos** los roles simultáneos de la cuenta (siempre incluye `'user'`). Fuente de verdad para permisos — ver "Roles simultáneos" abajo |
+| `role` | `string` | igual que `roles`, se recalcula en la misma escritura | Cuál de los `roles` de la cuenta es el "activo" por defecto (pantalla de inicio tras login). Se mantiene por compatibilidad con lectores que aún no leen `roles` |
+| `driver_request` | `map` | El dueño solo puede crear `status: 'pending'`; `admin`/`presidente` escriben `approved`/`rejected` | Solicitud de un pasajero para ser chofer. **El `role`/`roles` no cambia al solicitar** — solo al aprobar, si no el ruteo por rol lo mandaría a la pantalla de chofer antes de tiempo |
+| `tickeador_info` | `map` | `admin`/`presidente` | Estación y líneas asignadas al tickeador. Lo consume `TickeadorEntity.fromJson` |
+| `assigned_route_ref` | `string` | `presidente`/`admin` | Ruta (`ref`) asignada al **perfil** del chofer, no a la unidad — el chofer elige qué vehículo usar. `DriverService.getAssignedRoute()` prioriza este campo sobre `vehicles.line_number` (que se mantiene como fallback legado). Escrito por `UserManagementDatasource.assignRouteToDriver` |
+| `presidente_info` | `map` | **Solo `admin`** | Líneas que preside/gestiona esta cuenta (`managed_lines: array<string>`, mismos `ref` reales de `routes` que `tickeador_info.assigned_lines` — no texto libre). Nuevo campo (Sprint 4, cierre): antes no existía ningún vínculo presidente→línea, así que "sus choferes" no se podía acotar. Se escribe solo desde admin (nunca desde el propio presidente ni desde otro presidente) porque decidir qué línea gestiona un dirigente es una decisión organizativa, igual que ya es admin quien asigna estación/líneas a un tickeador |
+
+```json
+{
+  "is_super_admin": false,
+  "roles": ["user", "driver", "presidente"],
+  "role": "presidente",
+  "driver_request": {
+    "status": "pending",
+    "requested_at": "2026-08-27T10:15:00.000000"
+  },
+  "tickeador_info": {
+    "assigned_station": "Terminal Sur",
+    "assigned_lines": ["138", "200"],
+    "status": "active"
+  }
+}
+```
+
+### Roles simultáneos (Sprint 4, corregido 28 ago 2026)
+
+Una cuenta puede tener **más de un rol a la vez** — otorgar un rol nunca le borra los que ya tenía. Toda cuenta es `user` por definición; sobre esa base, las únicas combinaciones válidas son:
+
+| Combinación | Ejemplo real |
+|---|---|
+| `[user]` | pasajero |
+| `[user, admin]` | admin que también puede usar la app como pasajero |
+| `[user, driver]` | chofer aprobado |
+| `[user, driver, presidente]` | dirigente que también es chofer |
+| `[user, presidente]` | dirigente que no maneja (no hace falta ser chofer para ser presidente) |
+| `[user, tickeador]` | tickeador |
+
+`admin`, `driver` y `tickeador` son mutuamente excluyentes entre sí. `presidente` es la única excepción: se combina con `driver` o va sola, nunca con `admin`/`tickeador`. Validado en código por `RoleHierarchy` (`lib/features/admin/domain/entities/role_hierarchy.dart`) — cualquier escritura de rol pasa por ahí antes de tocar Firestore, y lanza si la combinación no está permitida.
+
+**Sin límite** en la cantidad de cuentas con `admin` o `presidente` simultáneamente — decisión de producto para las pruebas de Sprint 4; se le pondrá límite recién al cierre.
+
+Notas:
+- `requested_at` es **string ISO 8601**, igual que `created_at` de esta colección (no `Timestamp` nativo).
+- `assigned_lines` guarda `ref` de línea reales, tomados de la colección `routes` sembrada desde GTFS — no una lista fija en código.
+- Al aprobar una solicitud, `roles`/`role` y `driver_request.status: 'approved'` se escriben en la **misma** operación, para que no quede un estado a medias.
+- Los lectores ya resuelven el legacy con `role ?? userType`; un doc sin `roles` todavía (creado antes de Sprint 4) se trata como `[role]` sin necesidad de migrarlo.
 
 ---
 
@@ -89,8 +143,8 @@
   "name": "106 - Trufi 106",
   "ref": "106",
   "color": "#FF5733",
-  "stops": [{"latitude": -17.32, "longitude": -66.14}],
-  "polyline": [{"latitude": -17.32, "longitude": -66.14}, "... cientos de puntos"],
+  "stops": [{"lat": -17.32, "lng": -66.14}],
+  "polyline": [{"lat": -17.32, "lng": -66.14}, "... cientos de puntos"],
   "description": null,
   "active": true,
   "created_at": "<Timestamp>",
@@ -99,6 +153,10 @@
 ```
 
 **Uso:** Documentos pueden ser grandes (polyline con cientos de puntos) — la migración a `routes_bbox` se hace en lotes de 20 (`getAllActiveRoutesForMigration`) para evitar OOM.
+
+**Corrección (2026-09-12):** esta sección decía `latitude`/`longitude` para los puntos de `stops`/`polyline` — es falso, el lector real (`route_datasource.dart:511-513,526-527`, `_mapToRouteEntity`) lee `lat`/`lng`. Si alguien escribe un documento siguiendo el esquema viejo de esta guía, cada punto se lee como `(0.0, 0.0)` sin ningún error.
+
+**Corrección (2026-09-15):** el ID de documento vía `createRoute` (alta manual desde el admin) sigue siendo auto-id, pero `upsertRouteByRef` (usado por "Cargar rutas desde GTFS") ahora usa **`ref` como ID fijo del documento**, no un ID de query-then-branch. Antes buscaba por `ref`+`direction_id` para decidir si ya existía la ruta, pero como el GTFS parseado siempre trae `direction_id` no nulo y ningún documento legado llegó a tener ese campo escrito, la búsqueda nunca encontraba coincidencia (Firestore no matchea campos ausentes en una igualdad) — cada corrida del botón agregaba un documento nuevo por línea en vez de reemplazar el viejo. Se detectaron y limpiaron manualmente ~140 documentos duplicados/corruptos de una siembra GTFS anterior (mayo 2026, IDs `gtfs_0`..`gtfs_141`, sin `direction_id` ni `description`, con polylines de miles de puntos por concatenar varios shapes sin separador — la causa de rutas que se veían como "polígonos cerrados" en el mapa) antes de aplicar este fix.
 
 ---
 
@@ -178,6 +236,8 @@ final routes = await FirebaseFirestore.instance
 
 Los campos `discount_percent`, `business_name`, `is_used`, `valid_until` solo existen cuando `type == "gift"`. `NotificationType` define los valores válidos de `type` en [lib/features/user/domain/entities/app_notification.dart](lib/features/user/domain/entities/app_notification.dart).
 
+**Campos opcionales (2026-09-15):** `related_trip_id` (string) y `related_amount` (number) existen solo en la notificación que el pasajero le manda al chofer con `type: "operational"` al elegir "Escanear QR del chofer" en "Aviso de bajada" (`NotificationService.saveDropOffPaymentRequestNotification`). Traen conectado el `tripId` del viaje de abordaje y el monto ya calculado por distancia — `NotificacionesPage` los usa para armar el QR (`"$driverId|$tripId|$amount"`, mismo formato que decodifica `TripPaymentService.processPayment`) sin que el chofer tenga que crear un cobro nuevo ni teclear un monto.
+
 ---
 
 ## 🕓 Subcolección: trip_history/{uid}/trips
@@ -213,6 +273,10 @@ Los campos `discount_percent`, `business_name`, `is_used`, `valid_until` solo ex
   "status": "pending",
   "admin_notes": null,
   "approved_at": null,
+  "decision_at": null,
+  "decision_by": null,
+  "rejected_at": null,
+  "rejected_by": null
   "created_at": "<Timestamp>"
 }
 ```
@@ -220,6 +284,10 @@ Los campos `discount_percent`, `business_name`, `is_used`, `valid_until` solo ex
 **Tipos:** `university`, `senior`, (otros definidos en la UI de solicitud)
 **Estados:** `pending`, `approved`, `rejected`
 **Efecto secundario:** al crear una solicitud se agrega un doc espejo en `transactions` con `transaction_type: "benefit_request"`.
+
+Al aprobar una solicitud, `active_benefits` se agrega al documento correspondiente de `users` mediante `arrayUnion`. La decisión queda registrada en `decision_at` y `decision_by`; los rechazos además usan `rejected_at` y `rejected_by`. La transacción espejo vinculada por `benefit_request_id` sincroniza su estado con la decisión.
+
+**Reglas (2026-09-13):** el dueño (`user_id == auth.uid`) puede leer/crear/actualizar su propia solicitud, pero solo para llevarla a `pending` o `rejected` (renovar/cancelar) — nunca puede escribirse `approved` a sí mismo. Solo staff (`isStaffManager()`) puede tocar `status`/`admin_notes` libremente. Antes la regla era `allow read, write: if isSignedIn()` sin ninguna de estas restricciones — cualquier usuario autenticado podía leer la solicitud (con documento de identidad adjunto) de otro usuario, o auto-aprobarse el beneficio. Ver `docs/DEUDA_TECNICA.md` ítem 10.
 
 ---
 
@@ -241,6 +309,8 @@ Los campos `discount_percent`, `business_name`, `is_used`, `valid_until` solo ex
 
 **Estados:** `pending`, `approved`, `rejected`
 **Efecto secundario:** al aprobarse, se actualiza `users/{uid}.wallet.current_balance` y se agrega un doc en `transactions`.
+
+**Revisión (2026-09-14):** el tickeador aprueba/rechaza desde `RevisionRecargasPage` (`lib/features/tickeador/presentation/pages/revision_recargas_page.dart`) — botón en el AppBar de `TickeadorHomePage`. `RechargeService.approveRecharge`/`rejectRecharge` ya existían implementados (créditos correctos a la billetera, campos snake/camelCase sincronizados) pero nada los llamaba desde el Bloque 0 en adelante — las recargas se quedaban `pending` para siempre. `RecargeDatasource.getAllPendingRecharges()` es nuevo (cross-usuario, sin `orderBy` a propósito para no pedir un índice compuesto — se ordena en memoria, mismo patrón que `ClaimDatasource.getClaims`). **Regla de Firestore endurecida** el mismo día: antes `allow read, write: if isSignedIn()` — cualquier usuario podía leerse la recarga de otro o auto-aprobarse `status: 'approved'`. Ahora solo el dueño (crear, siempre en `pending`) o tickeador/admin (aprobar/rechazar) — nueva función `isTickeador()` en `firestore.rules`, mismo patrón dual `roles`/`role` que ya usa `ClaimDatasource._ensureStaff` en Dart.
 
 ---
 
@@ -290,46 +360,70 @@ Los campos `discount_percent`, `business_name`, `is_used`, `valid_until` solo ex
 
 ---
 
-## 🚌 Colección: trips (conductor)
+## 🚌 Colección: trips (cobro chofer↔pasajero)
 
-**Descripción:** Registro de viajes completados por conductores — leído por `TripPaymentService` para procesar pagos pasajero→conductor. Actualmente solo hay datos demo (`TRP_001`, `TRP_002`); no existe flujo de escritura desde la app (el módulo conductor está sin implementar).
+**Descripción:** Viaje/cobro real entre un chofer y un pasajero — leído/escrito por `DriverDatasource` (`lib/features/driver/data/datasources/driver_datasource.dart`) y `TripPaymentService` (`lib/features/user/domain/services/trip_payment_service.dart`). **Corregido 2026-09-13** — esta sección describía un esquema demo (`driver_uid`, `route_line`, `total_amount_accumulated`, etc.) que nunca coincidió con el código real; el esquema real es el siguiente. ID = `trip_id` (auto-id de Firestore).
 
 ```json
 {
-  "trip_id": "TRP_001",
-  "driver_uid": "driver_001",
+  "driver_id": "uid-del-chofer",
   "vehicle_id": "ABC-1234",
-  "route_line": "233",
-  "route_name": "Quillacollo - Cochabamba",
-  "start_point": "Terminal Quillacollo",
-  "end_point": "Plaza 14 de Septiembre",
-  "start_time": "2026-05-29T06:00:29",
-  "end_time": "2026-05-29T06:15:29",
-  "duration_minutes": 15,
-  "distance_km": 5.2,
-  "base_fare": 4,
-  "passengers_count": 8,
-  "total_amount_accumulated": 32
+  "route_ref": "108",
+  "route_name": "MiniBus 108",
+  "base_fare": 3,
+  "status": "pending",
+  "payment_status": "pending",
+  "passenger_id": null,
+  "payment_amount": null,
+  "created_at": "<Timestamp>",
+  "boarded_at": "<Timestamp>",
+  "route_mismatch": false,
+  "paid_at": null,
+  "verified_by": null,
+  "verified_at": null
 }
 ```
 
+**Dos formas de crear el documento**, según quién inicia el viaje (ambas conviven, no se reemplaza una por otra — docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2):
+- **Cobro por QR del chofer** (`DriverDatasource.createTripCharge`, RQ-65): el chofer teclea un monto y genera el viaje con `base_fare` > 0, `status: 'pending'`, sin `passenger_id` (se completa recién cuando el pasajero escanea y `TripPaymentService.processPayment` corre). Sin campo `boarded_at`/`route_mismatch`.
+- **Abordaje del pasajero** (`DriverDatasource.createBoardingTrip`, Bloque 2 paso 3, rediseño 2026-09-14): el pasajero, antes de navegar, confirma abordaje en `ConfirmarAbordajePage` — escanea el QR fijo de la unidad (`UnitQrPage`) o escribe su placa (`DriverDatasource.getVehicleByPlate`). El viaje nace con `base_fare: 0` (todavía no hay monto), `status: 'boarding'`, `passenger_id` ya puesto desde el inicio, `boarded_at`, y `route_mismatch` (bool) — `true` si el GPS del pasajero, al confirmar, estaba a más de 150 m del trazado real de la línea de esa unidad (`DistanceUtils.distanceToPolylineMeters`); se le avisa en el momento pero no se bloquea el abordaje, solo queda registrado como observación. El monto real se resuelve después, por distancia (`TariffService`), cuando el pasajero presiona "Aviso de bajada" (`TripPaymentService.processDistanceFare`) o por el respaldo de tarifa máxima (`DriverService.chargeStaleBoardingTrips`/`stopService`) si nunca avisa.
+
+**Estados de `status`:** `pending` (cobro QR recién creado) → `completed` (pagado). `boarding` (abordaje recién creado) → `completed` (cobrado por distancia o por respaldo de tarifa máxima). **`payment_status`:** `pending` → `paid`. `payment_method` de la transacción espejo en `transactions` distingue `qr` de `distance`.
+
 ---
 
-## ⚠️ Colecciones sin referencias en código (datos demo del futuro módulo conductor)
+## ✅ vehicles (implementado — features `driver`/`admin`)
 
-Estas colecciones tienen datos en Firestore pero **ningún archivo en `lib/` las lee o escribe**. Coinciden con el feature `driver/` que en el repo es solo un placeholder (`.gitkeep`, ver CLAUDE.md). Documentadas aquí tal como existen hoy en la base, para cuando se implemente el módulo:
+ID = placa del vehículo. Campos: `vehicle_id`, `owner_uid` (uid del chofer dueño-operador, asignado por el admin), `vehicle_type` (`taxitrufi`/`micro`/...), `line_number`, `internal_number`, `brand`, `model`, `color`, `passenger_capacity`, `status` (`approved`/`pending_review`/`rejected`), `legal_documentation` (URLs a Storage: `soat_url`, `vehicle_inspection_url`, `driver_license_url`, `municipal_operation_card_url`, `ruat_url`), `updated_at`.
 
-### vehicles
-ID = placa del vehículo. Campos: `vehicle_id`, `owner_uid`, `vehicle_type` (`taxitrufi`/`micro`/...), `line_number`, `internal_number`, `brand`, `model`, `color`, `passenger_capacity`, `status` (`approved`/`pending_review`/`rejected`), `legal_documentation` (URLs a Storage: `soat_url`, `vehicle_inspection_url`, `driver_license_url`, `municipal_operation_card_url`, `ruat_url`), `updated_at`.
+Campos nuevos añadidos para la feature "unidades activas":
+- `is_on_duty` (bool, default `false`) — toggle manual que el chofer activa/desactiva desde su panel (`DriverHomePage`) para marcar su unidad como "en servicio ahora". No es presencia real (no hay heartbeat/Cloud Functions); permanece activo hasta que el chofer lo desactive manualmente.
+- `is_on_duty_updated_at` (string ISO8601) — timestamp del último cambio del toggle.
+
+El admin (`AdminHomePage`) consulta en tiempo real `vehicles` filtrando `is_on_duty == true` para ver qué unidades están activas.
+
+Leído/escrito por: `lib/features/driver/data/datasources/vehicle_remote_datasource_impl.dart`.
+
+---
+
+## ⚠️ Colecciones parcialmente conectadas (corregido 2026-08-31)
+
+Corrección: esta sección decía que ninguna de las tres tenía código — falso para dos de tres, verificado contra `lib/` (ver `docs/DEUDA_TECNICA.md` para el detalle de la verificación).
 
 ### ratings
-ID = `rating_id`. Campos: `trip_id`, `reviewer_uid`, `target_uid`, `stars` (1-5), `selected_tags` (array de strings predefinidos), `created_at`.
+ID = `rating_id`. Campos: `trip_id`, `reviewer_uid`, `target_uid`, `stars` (1-5), `selected_tags` (array de strings predefinidos), `created_at`. Se lee desde `lib/features/admin/data/datasources/operational_report_datasource.dart` (reporte operativo del admin). Escritura vía `RatingDatasource`/`RatingService` (`lib/features/user/data/datasources/rating_datasource.dart`) — un único método sirve para ambos sentidos gracias a que `reviewer_uid`/`target_uid` son genéricos: hoy lo usa el chofer para calificar al pasajero justo después de recibir un pago de viaje (`RatePassengerPage`). Falta todavía la UI del pasajero calificando al chofer.
 
 ### claims
-ID = `claim_id`. Campos: `reporter_id`, `target_id` (nullable), `line_id`, `claim_type` (`driver`/`user`/`service`), `title`, `description`, `status` (`open`/`resolved`), `created_at`, `resolved_at`, `resolved_by`.
+ID = `claim_id`. Campos: `reporter_id`, `target_id` (nullable), `line_id`, `claim_type` (`driver`/`user`/`service`), `title`, `description`, `status` (`open`/`resolved`), `created_at`, `resolved_at`, `resolved_by`. **Ya no es huérfana** (corregido 2026-09-13, esta nota estaba desactualizada) — `ClaimDatasource`/`ClaimService` (`lib/features/user/data/datasources/claim_datasource.dart`) la leen y escriben; UI del lado del reportante y del staff que resuelve (`PresidenteReclamosPage`).
 
 ### station_logs
-ID = `log_id`. Campos: `tickeador_id`, `station_name`, `line_id`, `vehicle_plate`, `driver_id`, `passenger_count`, `max_capacity`, `log_type` (`departure`/`arrival`), `timestamp`, `time_since_last_departure`.
+ID = `log_id`. Campos: `tickeador_id`, `station_name`, `line_id`, `vehicle_plate`, `driver_id`, `passenger_count`, `max_capacity`, `log_type` (`departure`/`arrival`), `timestamp`, `time_since_last_departure`. **Sí se lee y escribe**, desde dos datasources distintos: `lib/features/tickeador/data/datasources/tickeador_datasource.dart` y `lib/features/driver/data/datasources/tickeador_operations_datasource.dart` — la duplicidad de Tickeador (ver `docs/DEUDA_TECNICA.md`) hace que dos implementaciones distintas escriban esta misma colección.
+
+### route_deviation_notes
+ID = `note_id`. Campos: `route_ref`, `note` (texto libre, ej. "calle bloqueada"), `reported_by`, `created_at`, `active` (bool). Se escribe/lee desde `RouteDeviationDatasource`/`RouteDeviationService` (`lib/features/routes/data/datasources/route_deviation_datasource.dart`), UI en `RutaMapaDesvioPage` (presidente, al tocar una card de "Control de rutas en vivo"). Puramente informativo — no toca ni recalcula el `polyline` de `routes`/`routes_bbox`. Agregado 2026-09-13 (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 1).
+
+### tariffs
+**ID = ref de línea** (ej. `"108"`), no un campo auto-generado — así la regla de Firestore puede exigir "solo tu línea" comparando el ID del documento directo, sin leer el contenido. Campos: `brackets` (array de `{max_km: number|null, fare: number}`, ordenado ascendente por `max_km`; el último tramo lleva `max_km: null` = "el resto, sin límite superior"), `updated_at`, `updated_by` (uid de quien configuró la tarifa). Ejemplo: `[{max_km:10, fare:3}, {max_km:15, fare:4}, {max_km:null, fare:5}]`. Se escribe/lee desde `TariffDatasource`/`TariffService` (`lib/features/routes/data/datasources/tariff_datasource.dart`), UI en `TarifasPage` (presidente, una línea gestionada por vez). `TariffService.resolveFareForDistance` es la función que de verdad calcula el cobro — si la línea no tiene tarifa configurada todavía, cae a una tarifa plana de respaldo (2.5 Bs, la misma constante hardcodeada que ya existía en el proyecto antes de este feature). Agregado 2026-09-13 (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2, paso 2).
 
 ---
 
@@ -347,7 +441,7 @@ ID = `log_id`. Campos: `tickeador_id`, `station_name`, `line_id`, `vehicle_plate
 | Beneficio → Transacción | `transactions.benefit_request_id = benefit_requests.{id}` |
 | Ruta → BBox | `routes_bbox.ref = routes.ref` |
 
-**Relaciones del módulo conductor (sin código, solo datos demo):** `vehicles.owner_uid`, `trips.driver_uid`/`vehicle_id`, `ratings.target_uid`/`trip_id`, `claims.target_id`, `station_logs.driver_id`/`tickeador_id` — todas referencian `users.uid` o `trips.trip_id`, pero no hay datasources implementados todavía.
+**Relaciones del módulo conductor:** `vehicles.owner_uid`, `trips.driver_uid`/`vehicle_id`, `ratings.target_uid`/`trip_id`, `claims.target_id`, `station_logs.driver_id`/`tickeador_id` — todas referencian `users.uid` o `trips.trip_id`. `vehicles`, `trips`, `station_logs`, `claims` y `ratings` ya tienen datasources reales (lectura y escritura).
 
 ---
 

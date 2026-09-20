@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:printing/printing.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
@@ -10,25 +12,29 @@ import 'package:mi_ruta/features/routes/domain/services/planned_trip_service.dar
 import 'package:mi_ruta/features/routes/presentation/bloc/trip_planner_bloc.dart';
 import 'package:mi_ruta/features/routes/presentation/bloc/trip_planner_event.dart';
 import 'package:mi_ruta/features/routes/presentation/bloc/trip_planner_state.dart';
+import 'package:mi_ruta/features/user/domain/services/cancelled_trips_pdf_service.dart';
 import 'package:mi_ruta/features/user/presentation/pages/map_location_picker_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/map_search_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/plan_detalle_page.dart';
+import 'package:mi_ruta/features/user/presentation/utils/date_formatter.dart';
 
 class PlanificarViajePage extends StatelessWidget {
-  const PlanificarViajePage({super.key});
+  final PlannedTrip? tripToReschedule;
+  const PlanificarViajePage({super.key, this.tripToReschedule});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) =>
           TripPlannerBloc(service: getIt<PlannedTripService>()),
-      child: const _PlanificarViajeView(),
+      child: _PlanificarViajeView(tripToReschedule: tripToReschedule),
     );
   }
 }
 
 class _PlanificarViajeView extends StatefulWidget {
-  const _PlanificarViajeView();
+  final PlannedTrip? tripToReschedule;
+  const _PlanificarViajeView({this.tripToReschedule});
   @override
   State<_PlanificarViajeView> createState() => _PlanificarViajeViewState();
 }
@@ -39,6 +45,7 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
   PlaceResult? _origin;
   PlaceResult? _destination;
   LatLng? _userLocation;
+  DateTime? _scheduledAt;
 
   String get _userId {
     final s = context.read<AuthBloc>().state;
@@ -48,12 +55,24 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this);
+    _tabs = TabController(length: 3, vsync: this);
     _tabs.addListener(() {
+      if (_tabs.indexIsChanging) return;
       if (_tabs.index == 1) {
         context.read<TripPlannerBloc>().add(LoadMyPlans(_userId));
+      } else if (_tabs.index == 2) {
+        context.read<TripPlannerBloc>().add(LoadCancelledTrips(_userId));
       }
     });
+    final reschedule = widget.tripToReschedule;
+    if (reschedule != null) {
+      _origin = PlaceResult(
+          latLng: reschedule.originLatLng, name: reschedule.originName);
+      _destination = PlaceResult(
+          latLng: reschedule.destinationLatLng,
+          name: reschedule.destinationName);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _search());
+    }
   }
 
   @override
@@ -77,16 +96,21 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 36, height: 4,
+                  width: 36,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: cs.onSurface.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 const SizedBox(height: 12),
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 ListTile(
                   leading: const CircleAvatar(
@@ -100,8 +124,11 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
                 ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: Color(0xFFFFC12F),
-                    child: Icon(Icons.map_outlined,
-                        color: Colors.black, size: 20),
+                    child: Icon(
+                      Icons.map_outlined,
+                      color: Colors.black,
+                      size: 20,
+                    ),
                   ),
                   title: const Text('Seleccionar en el mapa'),
                   subtitle: const Text('Mueve el mapa y confirma el punto'),
@@ -174,17 +201,54 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
     setState(() => _destination = result);
   }
 
+  Future<void> _pickSchedule() async {
+    final now = DateTime.now();
+    final initial = _scheduledAt ?? now.add(const Duration(minutes: 15));
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 90)),
+    );
+    if (!mounted || date == null) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (!mounted || time == null) return;
+    final scheduledAt = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    if (!scheduledAt.isAfter(now)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El horario debe ser posterior a la hora actual.'),
+        ),
+      );
+      return;
+    }
+    setState(() => _scheduledAt = scheduledAt);
+  }
+
   void _search() {
     final origin = _origin;
     final destination = _destination;
-    if (origin == null || destination == null) return;
-    context.read<TripPlannerBloc>().add(SearchTripOptions(
-          userId: _userId,
-          origin: origin.latLng,
-          destination: destination.latLng,
-          originName: origin.name,
-          destinationName: destination.name,
-        ));
+    final scheduledAt = _scheduledAt;
+    if (origin == null || destination == null || scheduledAt == null) return;
+    context.read<TripPlannerBloc>().add(
+      SearchTripOptions(
+        userId: _userId,
+        origin: origin.latLng,
+        destination: destination.latLng,
+        originName: origin.name,
+        destinationName: destination.name,
+        scheduledAt: scheduledAt,
+      ),
+    );
   }
 
   @override
@@ -203,11 +267,11 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
           controller: _tabs,
           indicatorColor: const Color(0xFFFFC12F),
           labelColor: const Color(0xFFFFC12F),
-          unselectedLabelColor:
-              colorScheme.onSurface.withValues(alpha: 0.5),
+          unselectedLabelColor: colorScheme.onSurface.withValues(alpha: 0.5),
           tabs: const [
             Tab(text: 'Buscar ruta'),
             Tab(text: 'Mis planes'),
+            Tab(text: 'Cancelados'),
           ],
         ),
       ),
@@ -220,10 +284,14 @@ class _PlanificarViajeViewState extends State<_PlanificarViajeView>
             isDark: isDark,
             onPickOrigin: _pickOrigin,
             onPickDestination: _pickDestination,
+            scheduledAt: _scheduledAt,
+            onPickSchedule: _pickSchedule,
             onSearch: _search,
             userId: _userId,
+            rescheduleId: widget.tripToReschedule?.id,
           ),
           _MyPlansTab(userId: _userId),
+          _CancelledTripsTab(userId: _userId),
         ],
       ),
     );
@@ -241,7 +309,10 @@ class _SearchTab extends StatelessWidget {
   final VoidCallback onPickOrigin;
   final VoidCallback onPickDestination;
   final VoidCallback onSearch;
+  final DateTime? scheduledAt;
+  final VoidCallback onPickSchedule;
   final String userId;
+  final String? rescheduleId;
 
   const _SearchTab({
     required this.origin,
@@ -250,7 +321,10 @@ class _SearchTab extends StatelessWidget {
     required this.onPickOrigin,
     required this.onPickDestination,
     required this.onSearch,
+    required this.scheduledAt,
+    required this.onPickSchedule,
     required this.userId,
+    this.rescheduleId,
   });
 
   @override
@@ -285,11 +359,30 @@ class _SearchTab extends StatelessWidget {
                 value: destination?.name,
                 onTap: onPickDestination,
               ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Divider(
+                  height: 1,
+                  color: colorScheme.onSurface.withValues(alpha: 0.1),
+                ),
+              ),
+              _LocationPicker(
+                icon: Icons.schedule,
+                iconColor: const Color(0xFFFFA000),
+                hint: 'Fecha y hora de salida',
+                value: scheduledAt == null
+                    ? null
+                    : DateFormatter.formatWithTime(scheduledAt!),
+                onTap: onPickSchedule,
+              ),
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: (origin != null && destination != null)
+                  onPressed:
+                      (origin != null &&
+                          destination != null &&
+                          scheduledAt != null)
                       ? onSearch
                       : null,
                   icon: const Icon(Icons.search, size: 18),
@@ -302,7 +395,8 @@ class _SearchTab extends StatelessWidget {
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -341,12 +435,13 @@ class _SearchTab extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.route,
-                          size: 56,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.3)),
+                      Icon(
+                        Icons.route,
+                        size: 56,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.3),
+                      ),
                       const SizedBox(height: 12),
                       const Text(
                         'No se encontraron rutas\npara ese trayecto',
@@ -360,6 +455,7 @@ class _SearchTab extends StatelessWidget {
                 return _ResultsList(
                   options: state.options,
                   userId: userId,
+                  rescheduleId: rescheduleId,
                 );
               }
               if (state is TripPlannerError) {
@@ -370,21 +466,21 @@ class _SearchTab extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.directions_bus_outlined,
-                        size: 64,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.2)),
+                    Icon(
+                      Icons.directions_bus_outlined,
+                      size: 64,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.2),
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       'Elige origen y destino\npara buscar rutas',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.5),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
@@ -438,9 +534,11 @@ class _LocationPicker extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.chevron_right,
-                size: 18,
-                color: colorScheme.onSurface.withValues(alpha: 0.3)),
+            Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: colorScheme.onSurface.withValues(alpha: 0.3),
+            ),
           ],
         ),
       ),
@@ -451,8 +549,10 @@ class _LocationPicker extends StatelessWidget {
 class _ResultsList extends StatelessWidget {
   final List<PlannedTrip> options;
   final String userId;
+  final String? rescheduleId;
 
-  const _ResultsList({required this.options, required this.userId});
+  const _ResultsList(
+      {required this.options, required this.userId, this.rescheduleId});
 
   @override
   Widget build(BuildContext context) {
@@ -463,6 +563,7 @@ class _ResultsList extends StatelessWidget {
       itemBuilder: (context, i) => _TripOptionCard(
         trip: options[i],
         userId: userId,
+        rescheduleId: rescheduleId,
       ),
     );
   }
@@ -471,8 +572,10 @@ class _ResultsList extends StatelessWidget {
 class _TripOptionCard extends StatelessWidget {
   final PlannedTrip trip;
   final String userId;
+  final String? rescheduleId;
 
-  const _TripOptionCard({required this.trip, required this.userId});
+  const _TripOptionCard(
+      {required this.trip, required this.userId, this.rescheduleId});
 
   @override
   Widget build(BuildContext context) {
@@ -482,7 +585,8 @@ class _TripOptionCard extends StatelessWidget {
         color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-            color: colorScheme.onSurface.withValues(alpha: 0.08)),
+          color: colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
       ),
       child: Column(
         children: [
@@ -497,7 +601,9 @@ class _TripOptionCard extends StatelessWidget {
                     for (final leg in trip.legs) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFC12F),
                           borderRadius: BorderRadius.circular(6),
@@ -505,17 +611,21 @@ class _TripOptionCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.directions_bus,
-                                size: 12, color: Colors.black),
+                            const Icon(
+                              Icons.directions_bus,
+                              size: 12,
+                              color: Colors.black,
+                            ),
                             const SizedBox(width: 3),
                             Text(
                               leg.routeRef.isNotEmpty
                                   ? leg.routeRef
                                   : leg.routeName,
                               style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
                             ),
                           ],
                         ),
@@ -523,10 +633,11 @@ class _TripOptionCard extends StatelessWidget {
                       if (leg != trip.legs.last)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 3),
-                          child: Icon(Icons.transfer_within_a_station,
-                              size: 14,
-                              color: colorScheme.onSurface
-                                  .withValues(alpha: 0.5)),
+                          child: Icon(
+                            Icons.transfer_within_a_station,
+                            size: 14,
+                            color: colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
                         ),
                     ],
                   ],
@@ -552,18 +663,27 @@ class _TripOptionCard extends StatelessWidget {
                         'Bs ${trip.totalCostBs.toStringAsFixed(0)}',
                         style: TextStyle(
                           fontSize: 12,
-                          color:
-                              colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
+                      if (trip.scheduledAt != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Salida: ${DateFormatter.formatWithTime(trip.scheduledAt!)}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
                       if (trip.legs.length > 1) ...[
                         const SizedBox(height: 4),
                         Text(
                           '${trip.legs.length} tramos · 1 transbordo',
                           style: TextStyle(
                             fontSize: 11,
-                            color: const Color(0xFFFFC12F)
-                                .withValues(alpha: 0.9),
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface.withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -574,41 +694,55 @@ class _TripOptionCard extends StatelessWidget {
             ),
           ),
           Divider(
-              height: 1,
-              color: colorScheme.onSurface.withValues(alpha: 0.08)),
+            height: 1,
+            color: colorScheme.onSurface.withValues(alpha: 0.08),
+          ),
           Row(
             children: [
               Expanded(
                 child: TextButton(
-                  onPressed: () => context
-                      .read<TripPlannerBloc>()
-                      .add(SaveTripPlan(trip)),
-                  child: const Text(
+                  onPressed: () async {
+                    final tripToSave = rescheduleId != null
+                        ? trip.copyWith(id: rescheduleId)
+                        : trip;
+                    if (rescheduleId != null) {
+                      // Evita restaurar progreso de abordaje de la ruta
+                      // vieja si la reprogramada termina con la misma
+                      // cantidad de tramos (mismo trip.id reusado).
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.remove('plan_progress_$rescheduleId');
+                    }
+                    if (!context.mounted) return;
+                    context
+                        .read<TripPlannerBloc>()
+                        .add(SaveTripPlan(tripToSave));
+                  },
+                  child: Text(
                     'Guardar',
-                    style: TextStyle(color: Color(0xFFFFC12F)),
+                    style: TextStyle(color: colorScheme.onSurface),
                   ),
                 ),
               ),
               Container(
-                  width: 1,
-                  height: 36,
-                  color: colorScheme.onSurface.withValues(alpha: 0.08)),
+                width: 1,
+                height: 36,
+                color: colorScheme.onSurface.withValues(alpha: 0.08),
+              ),
               Expanded(
                 child: TextButton(
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => PlanDetallePage(
-                        trip: trip,
-                        userId: userId,
-                      ),
+                      builder: (_) =>
+                          PlanDetallePage(trip: trip, userId: userId),
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Elegir',
                     style: TextStyle(
-                        color: Color(0xFFFFC12F),
-                        fontWeight: FontWeight.bold),
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -650,7 +784,8 @@ class _MyPlansTabState extends State<_MyPlansTab> {
       builder: (context, state) {
         if (state is TripPlannerLoading) {
           return const Center(
-              child: CircularProgressIndicator(color: Color(0xFFFFC12F)));
+            child: CircularProgressIndicator(color: Color(0xFFFFC12F)),
+          );
         }
         if (state is TripPlannerError) {
           return Center(child: Text(state.message));
@@ -661,9 +796,11 @@ class _MyPlansTabState extends State<_MyPlansTab> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.bookmark_border,
-                      size: 56,
-                      color: colorScheme.onSurface.withValues(alpha: 0.3)),
+                  Icon(
+                    Icons.bookmark_border,
+                    size: 56,
+                    color: colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     'Aún no tienes planes guardados.\nBusca una ruta y guárdala.',
@@ -680,10 +817,8 @@ class _MyPlansTabState extends State<_MyPlansTab> {
             padding: const EdgeInsets.all(16),
             itemCount: state.plans.length,
             separatorBuilder: (_, i) => const SizedBox(height: 12),
-            itemBuilder: (context, i) => _SavedPlanCard(
-              trip: state.plans[i],
-              userId: widget.userId,
-            ),
+            itemBuilder: (context, i) =>
+                _SavedPlanCard(trip: state.plans[i], userId: widget.userId),
           );
         }
         return const SizedBox.shrink();
@@ -701,6 +836,8 @@ class _SavedPlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isScheduledForFuture =
+        trip.scheduledAt?.isAfter(DateTime.now()) ?? false;
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
@@ -723,9 +860,7 @@ class _SavedPlanCard extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    trip.isCompleted
-                        ? Icons.check_circle_outline
-                        : Icons.route,
+                    trip.isCompleted ? Icons.check_circle_outline : Icons.route,
                     color: Colors.black,
                     size: 22,
                   ),
@@ -743,6 +878,17 @@ class _SavedPlanCard extends StatelessWidget {
                           color: colorScheme.onSurface,
                         ),
                       ),
+                      if (trip.scheduledAt != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'Programado: ${DateFormatter.formatWithTime(trip.scheduledAt!)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFFFA000),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 2),
                       Text(
                         '${trip.originName} → ${trip.destinationName}',
@@ -750,8 +896,7 @@ class _SavedPlanCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12,
-                          color:
-                              colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -759,8 +904,7 @@ class _SavedPlanCard extends StatelessWidget {
                         '${trip.totalMinutes} min • Bs ${trip.totalCostBs.toStringAsFixed(0)}',
                         style: TextStyle(
                           fontSize: 11,
-                          color:
-                              colorScheme.onSurface.withValues(alpha: 0.4),
+                          color: colorScheme.onSurface.withValues(alpha: 0.4),
                         ),
                       ),
                     ],
@@ -769,7 +913,9 @@ class _SavedPlanCard extends StatelessWidget {
                 if (trip.isCompleted)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.green.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
@@ -777,29 +923,70 @@ class _SavedPlanCard extends StatelessWidget {
                     child: const Text(
                       'Completado',
                       style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold),
+                        fontSize: 10,
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
               ],
             ),
           ),
           Divider(
-              height: 1,
-              color: colorScheme.onSurface.withValues(alpha: 0.08)),
+            height: 1,
+            color: colorScheme.onSurface.withValues(alpha: 0.08),
+          ),
           Row(
             children: [
               Expanded(
                 child: TextButton.icon(
                   onPressed: () {
                     context.read<TripPlannerBloc>().add(
-                        DeleteTripPlan(userId, trip.id));
+                      DeleteTripPlan(userId, trip.id),
+                    );
                   },
-                  icon: const Icon(Icons.delete_outline,
-                      size: 16, color: Colors.red),
-                  label: const Text('Eliminar',
-                      style: TextStyle(color: Colors.red, fontSize: 13)),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    size: 16,
+                    color: Colors.red,
+                  ),
+                  label: const Text(
+                    'Eliminar',
+                    style: TextStyle(color: Colors.red, fontSize: 13),
+                  ),
+                ),
+              ),
+              Container(
+                  width: 1,
+                  height: 36,
+                  color: colorScheme.onSurface.withValues(alpha: 0.08)),
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: trip.isCompleted
+                      ? null
+                      : () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  PlanificarViajePage(tripToReschedule: trip),
+                            ),
+                          ),
+                  icon: Icon(
+                    Icons.edit_calendar_outlined,
+                    size: 16,
+                    color: trip.isCompleted
+                        ? colorScheme.onSurface.withValues(alpha: 0.3)
+                        : colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                  label: Text(
+                    'Reprogramar',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: trip.isCompleted
+                          ? colorScheme.onSurface.withValues(alpha: 0.3)
+                          : colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
                 ),
               ),
               Container(
@@ -824,21 +1011,224 @@ class _SavedPlanCard extends StatelessWidget {
                     size: 16,
                     color: trip.isCompleted
                         ? colorScheme.onSurface.withValues(alpha: 0.3)
-                        : const Color(0xFFFFC12F),
+                        : colorScheme.onSurface,
                   ),
                   label: Text(
-                    'Iniciar',
+                    isScheduledForFuture ? 'Programado' : 'Iniciar',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: trip.isCompleted
+                      color: trip.isCompleted || isScheduledForFuture
                           ? colorScheme.onSurface.withValues(alpha: 0.3)
-                          : const Color(0xFFFFC12F),
+                          : colorScheme.onSurface,
                     ),
                   ),
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cancelled trips tab (RQ-33) — history + PDF export
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CancelledTripsTab extends StatefulWidget {
+  final String userId;
+  const _CancelledTripsTab({required this.userId});
+
+  @override
+  State<_CancelledTripsTab> createState() => _CancelledTripsTabState();
+}
+
+class _CancelledTripsTabState extends State<_CancelledTripsTab> {
+  bool _isExporting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    context.read<TripPlannerBloc>().add(LoadCancelledTrips(widget.userId));
+  }
+
+  Future<void> _exportPdf(List<PlannedTrip> trips) async {
+    setState(() => _isExporting = true);
+    try {
+      final bytes = await getIt<CancelledTripsPdfService>().build(trips);
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: 'historial_viajes_cancelados.pdf',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo generar el PDF: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return BlocBuilder<TripPlannerBloc, TripPlannerState>(
+      buildWhen: (prev, curr) =>
+          curr is CancelledTripsLoaded ||
+          curr is TripPlannerLoading ||
+          curr is TripPlannerError,
+      builder: (context, state) {
+        if (state is TripPlannerLoading) {
+          return const Center(
+              child: CircularProgressIndicator(color: Color(0xFFFFC12F)));
+        }
+        if (state is TripPlannerError) {
+          return Center(child: Text(state.message));
+        }
+        final List<PlannedTrip> trips =
+            state is CancelledTripsLoaded ? state.trips : const [];
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed:
+                      (trips.isEmpty || _isExporting) ? null : () => _exportPdf(trips),
+                  icon: _isExporting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.black),
+                        )
+                      : const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                  label: Text(
+                    _isExporting ? 'Generando PDF...' : 'Exportar a PDF',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFC12F),
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: trips.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.cancel_outlined,
+                              size: 56,
+                              color:
+                                  colorScheme.onSurface.withValues(alpha: 0.3)),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Aún no tienes viajes cancelados.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color:
+                                  colorScheme.onSurface.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      itemCount: trips.length,
+                      separatorBuilder: (_, i) => const SizedBox(height: 12),
+                      itemBuilder: (context, i) =>
+                          _CancelledTripCard(trip: trips[i]),
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _CancelledTripCard extends StatelessWidget {
+  final PlannedTrip trip;
+  const _CancelledTripCard({required this.trip});
+
+  String _formatDate(DateTime d) {
+    const months = [
+      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+    ];
+    return '${d.day} ${months[d.month - 1]}. ${d.year} · '
+        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.cancel_outlined,
+                color: Colors.red, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  trip.routesSummary.isEmpty ? 'Viaje cancelado' : trip.routesSummary,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${trip.originName} → ${trip.destinationName}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Cancelado el ${_formatDate(trip.cancelledAt ?? trip.createdAt)}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.red,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

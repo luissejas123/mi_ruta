@@ -7,6 +7,7 @@ class MapPinConfirmPanel extends StatelessWidget {
   final String? address;
   final VoidCallback onCancel;
   final VoidCallback? onConfirm;
+  final String confirmButtonText;
 
   const MapPinConfirmPanel({
     super.key,
@@ -14,6 +15,7 @@ class MapPinConfirmPanel extends StatelessWidget {
     required this.address,
     required this.onCancel,
     required this.onConfirm,
+    this.confirmButtonText = 'Confirmar destino',
   });
 
   @override
@@ -103,9 +105,12 @@ class MapPinConfirmPanel extends StatelessWidget {
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text(
-                    'Confirmar destino',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                  child: Text(
+                    confirmButtonText,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
               ),

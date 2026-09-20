@@ -1,9 +1,264 @@
 rules_version = '2';
 
+// Reglas de seguridad de Mi Ruta.
+//
+// Objetivo principal: cerrar el escalamiento de privilegios. Antes de esto el
+// archivo era `allow read, write: if true`, así que cualquier cliente podía
+// escribirse `role: 'admin'` directamente por SDK.
+//
+// IMPORTANTE: no agregar un `match /{document=**}` permisivo al final. El
+// comodín recursivo también cubre `users/{uid}`, y en Firestore basta con que
+// UNA regla permita el acceso — un catch-all anularía todo lo de abajo.
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+
+    // ─────────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Documento del solicitante: los privilegios viven en Firestore, no en
+    // custom claims, así que hay que leerlo con get().
+    function requester() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && requester().get('is_super_admin', false) == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && (requester().get('role', 'user') == 'admin' || isSuperAdmin());
+    }
+
+    // Admin o presidente: los dos perfiles que gestionan personal
+    // (aprobar choferes, asignar tickeador, promover a presidente).
+    function isStaffManager() {
+      return isSignedIn()
+        && (requester().get('role', 'user') == 'presidente' || isAdmin());
+    }
+
+    // Chequea `roles` (array, fuente de verdad) con respaldo a `role`
+    // (pantalla activa) — mismo patrón dual que ya usa el resto del código
+    // (ver ClaimDatasource._ensureStaff en Dart).
+    function isTickeador() {
+      return isSignedIn()
+        && (requester().get('roles', []).hasAny(['tickeador'])
+            || requester().get('role', 'user') == 'tickeador');
+    }
+
+    function affected() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // Campos que otorgan privilegios: nunca los escribe el propio dueño.
+    function touchesPrivilegedField() {
+      return affected().hasAny([
+        'role', 'roles', 'userType', 'is_super_admin', 'admin_permissions',
+        'tickeador_info', 'assigned_route_ref', 'presidente_info'
+      ]);
+    }
+
+    // `is_super_admin` no se otorga desde la app en NINGÚN caso, ni siquiera
+    // por un admin. Se siembra a mano desde la consola de Firebase o con el
+    // Admin SDK, que ignoran estas reglas (ver SECURITY.md).
+    function touchesSuperAdmin() {
+      return affected().hasAny(['is_super_admin']);
+    }
+
+    // Lo único que el dueño puede hacer con su `driver_request` es pedir
+    // 'pending'. Aprobar/rechazar es exclusivo del staff.
+    function driverRequestSelfWriteIsValid() {
+      return !affected().hasAny(['driver_request'])
+        || request.resource.data.driver_request.status == 'pending';
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // users — la colección sensible
+    // ─────────────────────────────────────────────────────────────────
+    match /users/{uid} {
+      // Varios paneles listan choferes, tickeadores y pasajeros.
+      allow read: if isSignedIn();
+
+      // Alta: solo la propia cuenta recién registrada, sin auto-otorgarse
+      // privilegios. `role` solo puede nacer como 'user'.
+      allow create: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.get('is_super_admin', false) == false
+        && request.resource.data.get('role', 'user') == 'user'
+        && !('admin_permissions' in request.resource.data)
+        && !('tickeador_info' in request.resource.data)
+        && !('presidente_info' in request.resource.data);
+
+      // El dueño edita su perfil (nombre, teléfono, foto, wallet, settings),
+      // pero no los campos privilegiados.
+      allow update: if isSignedIn()
+        && request.auth.uid == uid
+        && !touchesPrivilegedField()
+        && !touchesSuperAdmin()
+        && driverRequestSelfWriteIsValid();
+
+      // Staff gestiona roles y asignaciones de otras cuentas — pero tampoco
+      // puede tocar `is_super_admin`.
+      allow update: if isStaffManager() && !touchesSuperAdmin();
+
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Datos de rutas sembrados desde GTFS: lectura abierta (la app los
+    // consulta antes de autenticar), escritura solo administrativa.
+    // ─────────────────────────────────────────────────────────────────
+    match /routes/{routeId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /routes_bbox/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Resto de colecciones operativas. Siguen permisivas para cualquier
+    // sesión autenticada: hoy no permiten escalar privilegios, y endurecerlas
+    // (que un pasajero no pueda editar el ledger de otro, etc.) es trabajo
+    // aparte. Se priorizó `users`, que era el hueco real.
+    // Se enumeran una por una a propósito: un comodín recursivo volvería a
+    // abrir `users`.
+    // ─────────────────────────────────────────────────────────────────
+    match /transactions/{docId}    { allow read, write: if isSignedIn(); }
+    // Recargas: antes `allow read, write: if isSignedIn()` a secas, así que
+    // cualquier usuario autenticado podía leer la recarga de otro o
+    // escribirse `status: 'approved'` directo, acreditándose saldo sin
+    // revisión. Ahora solo el tickeador/admin puede aprobar/rechazar
+    // (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0).
+    match /recharges/{docId} {
+      allow read: if isSignedIn()
+        && (isTickeador() || isAdmin() || resource.data.user_id == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid
+        && request.resource.data.get('status', 'pending') == 'pending';
+      allow update: if isTickeador() || isAdmin();
+    }
+    match /trips/{docId}           { allow read, write: if isSignedIn(); }
+
+    // Solicitudes de beneficio (estudiante/universitario/adulto mayor):
+    // llevan documento de identidad adjunto, así que no son de lectura
+    // pública como `vehicles` — solo el dueño o staff. Mismo patrón que
+    // `vehicles` de arriba para evitar auto-aprobación: antes era `allow
+    // read, write: if isSignedIn()`, así que cualquier cliente con un
+    // `requestId` ajeno podía leer el documento de otro usuario o
+    // escribirse `status: 'approved'` directo.
+    match /benefit_requests/{docId} {
+      allow read: if isSignedIn()
+        && (isAdmin() || resource.data.user_id == request.auth.uid);
+
+      // Alta: solo el propio usuario, y no puede nacer ya aprobada.
+      allow create: if isSignedIn()
+        && request.resource.data.user_id == request.auth.uid
+        && request.resource.data.get('status', 'pending') == 'pending';
+
+      // El dueño puede renovar (volver a 'pending') o cancelar (poner
+      // 'rejected'), pero nunca otorgarse 'approved'.
+      allow update: if isSignedIn()
+        && resource.data.user_id == request.auth.uid
+        && !affected().hasAny(['user_id'])
+        && (!affected().hasAny(['status'])
+            || request.resource.data.status in ['pending', 'rejected']);
+
+      // Staff aprueba o rechaza — únicamente puede tocar status/admin_notes.
+      allow update: if isStaffManager()
+        && affected().hasOnly(['status', 'admin_notes', 'updated_at']);
+    }
+
+    // trip_history y planned_trips son subcolecciones reales
+    // (trip_history/{uid}/trips/{tripId}, ver TripHistoryDatasource/
+    // PlannedTripDatasource) — un match plano de un solo nivel NO cubre la
+    // subcolección `trips` anidada; sin el match anidado, Firestore deniega
+    // por defecto y se rompe Planificar Viaje / Historial de viajes.
+    match /trip_history/{uid} {
+      allow read, write: if isSignedIn();
+      match /trips/{tripId} { allow read, write: if isSignedIn(); }
+    }
+    match /planned_trips/{uid} {
+      allow read, write: if isSignedIn();
+      match /trips/{tripId} { allow read, write: if isSignedIn(); }
+    }
+
+    // Unidades de transporte: cualquiera con sesión puede verlas (el
+    // presidente/admin las revisa, el pasajero ve la unidad de su viaje),
+    // pero solo el dueño edita sus propios datos/documentos y solo staff
+    // aprueba/rechaza — antes esto era `allow read, write: if isSignedIn()`
+    // a secas, así que cualquier cliente podía escribirse `status:
+    // 'approved'` sin que nadie lo revisara.
+    match /vehicles/{vehicleId} {
+      allow read: if isSignedIn();
+
+      // Alta: solo el propio chofer, y no puede nacer ya aprobada.
+      allow create: if isSignedIn()
+        && request.resource.data.owner_uid == request.auth.uid
+        && request.resource.data.get('status', 'pending_review') == 'pending_review';
+
+      // El dueño edita sus datos/documentos. Puede volver a poner `status`
+      // en 'pending_review' (pedir revisión tras editar), pero nunca
+      // otorgarse 'approved' — y nunca cambiar de dueño.
+      allow update: if isSignedIn()
+        && resource.data.owner_uid == request.auth.uid
+        && !affected().hasAny(['owner_uid'])
+        && (!affected().hasAny(['status'])
+            || request.resource.data.status == 'pending_review');
+
+      // Staff aprueba o rechaza — únicamente puede tocar `status`.
+      allow update: if isStaffManager() && affected().hasOnly(['status', 'updated_at']);
+    }
+
+    match /station_logs/{docId}    { allow read, write: if isSignedIn(); }
+    match /ratings/{docId}         { allow read, write: if isSignedIn(); }
+    match /claims/{docId}          { allow read, write: if isSignedIn(); }
+
+    // Notas de desvío que marca el presidente sobre una ruta (calle
+    // bloqueada, etc.) — informativo, no recalcula la ruta.
+    // docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 1.
+    match /route_deviation_notes/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isStaffManager();
+    }
+
+    // Tarifas por distancia de cada línea. El ref de línea es el ID del
+    // documento (no un campo) para poder exigir "solo tu línea" de forma
+    // nativa. docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2.
+    match /tariffs/{routeRef} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin()
+        || (isSignedIn()
+            && requester().get('role', 'user') == 'presidente'
+            && routeRef in requester().get('presidente_info', {}).get('managed_lines', []));
+    }
+
+    // `notifications/{uid}/items/{itemId}` — subcolección por usuario.
+    // La lectura es solo del dueño; la escritura la hace cualquier sesión
+    // autenticada a propósito, porque un chofer/tickeador notifica a otros
+    // usuarios (ver NotificationDatasource.save, que escribe en la
+    // subcolección del destinatario).
+    match /notifications/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if isSignedIn();
+
+      match /items/{itemId} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow write: if isSignedIn();
+      }
     }
   }
 }

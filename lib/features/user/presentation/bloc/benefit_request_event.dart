@@ -34,6 +34,45 @@ class LoadBenefitHistoryEvent extends BenefitRequestEvent {
   List<Object?> get props => [userId];
 }
 
+class RenewBenefitRequestEvent extends BenefitRequestEvent {
+  final String userId;
+  final String requestId;
+
+  const RenewBenefitRequestEvent({
+    required this.userId,
+    required this.requestId,
+  });
+
+  @override
+  List<Object?> get props => [userId, requestId];
+}
+
+class CancelBenefitRequestEvent extends BenefitRequestEvent {
+  final String userId;
+  final String requestId;
+
+  const CancelBenefitRequestEvent({
+    required this.userId,
+    required this.requestId,
+  });
+
+  @override
+  List<Object?> get props => [userId, requestId];
+}
+
+class DownloadBenefitDocumentEvent extends BenefitRequestEvent {
+  final String userId;
+  final String requestId;
+
+  const DownloadBenefitDocumentEvent({
+    required this.userId,
+    required this.requestId,
+  });
+
+  @override
+  List<Object?> get props => [userId, requestId];
+}
+
 class ClearBenefitRequestEvent extends BenefitRequestEvent {
   const ClearBenefitRequestEvent();
 }

@@ -7,13 +7,14 @@ class TripPlannerBloc extends Bloc<TripPlannerEvent, TripPlannerState> {
   final PlannedTripService _service;
 
   TripPlannerBloc({required PlannedTripService service})
-      : _service = service,
-        super(TripPlannerInitial()) {
+    : _service = service,
+      super(TripPlannerInitial()) {
     on<SearchTripOptions>(_onSearch);
     on<SaveTripPlan>(_onSave);
     on<LoadMyPlans>(_onLoadMyPlans);
     on<DeleteTripPlan>(_onDelete);
     on<MarkTripCompleted>(_onMarkCompleted);
+    on<LoadCancelledTrips>(_onLoadCancelledTrips);
     on<ClearSearch>((_, emit) => emit(TripPlannerInitial()));
   }
 
@@ -29,6 +30,7 @@ class TripPlannerBloc extends Bloc<TripPlannerEvent, TripPlannerState> {
         destination: event.destination,
         originName: event.originName,
         destinationName: event.destinationName,
+        scheduledAt: event.scheduledAt,
       );
       if (options.isEmpty) {
         emit(TripSearchEmpty());
@@ -79,5 +81,18 @@ class TripPlannerBloc extends Bloc<TripPlannerEvent, TripPlannerState> {
   ) async {
     await _service.markCompleted(event.userId, event.tripId);
     add(LoadMyPlans(event.userId));
+  }
+
+  Future<void> _onLoadCancelledTrips(
+    LoadCancelledTrips event,
+    Emitter<TripPlannerState> emit,
+  ) async {
+    emit(TripPlannerLoading());
+    try {
+      final trips = await _service.getCancelledTrips(event.userId);
+      emit(CancelledTripsLoaded(trips));
+    } catch (e) {
+      emit(TripPlannerError('Error cargando viajes cancelados: $e'));
+    }
   }
 }

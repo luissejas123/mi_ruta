@@ -57,11 +57,20 @@ class DownloadTripHistory extends DriverOperationsEvent {
   List<Object?> get props => [driverName];
 }
 
+/// Ya no lleva nombre de parada — la UI valida proximidad GPS real contra
+/// el polyline de la ruta antes de disparar este evento (ver
+/// `DriverService.notifyStop`, docs/PLAN_SEGURIDAD_TARIFAS_GPS.md Bloque 1).
 class NotifyStop extends DriverOperationsEvent {
-  final String stopName;
+  const NotifyStop();
+}
 
-  const NotifyStop(this.stopName);
+class TripPaymentReceived extends DriverOperationsEvent {
+  final String tripId;
+  final double amount;
+  final String? passengerId;
+
+  const TripPaymentReceived(this.tripId, this.amount, {this.passengerId});
 
   @override
-  List<Object?> get props => [stopName];
+  List<Object?> get props => [tripId, amount, passengerId];
 }

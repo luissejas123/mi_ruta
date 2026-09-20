@@ -592,11 +592,6 @@ void setupDependencies() {
   );
 
   // ============================================
-  // CONECTIVIDAD - REANUDAR SINCRONIZACIÓN (RQ-57)
-  // ============================================
-  getIt.registerSingleton<ConnectivityService>(ConnectivityService());
-
-  // ============================================
   // ADMIN FEATURE - PASAJEROS TRANSPORTADOS
   // ============================================
   getIt.registerSingleton<TransportedPassengersDatasource>(

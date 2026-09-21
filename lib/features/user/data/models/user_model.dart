@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/utils/firestore_date.dart';
 import 'package:mi_ruta/features/user/domain/entities/driver_request_entity.dart';
 import 'package:mi_ruta/features/user/domain/entities/user_entity.dart';
 
@@ -44,7 +45,7 @@ class UserModel extends UserEntity {
           (json['profile_picture_url'] ?? json['profileImageUrl']) as String? ??
           '',
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
-      reviewsCount: json['reviewsCount'] as int? ?? 0,
+      reviewsCount: (json['reviewsCount'] as num?)?.toInt() ?? 0,
       walletBalance:
           (json['wallet']?['current_balance'] ??
                   json['wallet']?['balance'] as num?)
@@ -54,17 +55,14 @@ class UserModel extends UserEntity {
       driverRequest: DriverRequestEntity.fromJson(json['driver_request']),
       role: legacyRole,
       roles: roles,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
-          : json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
-          : DateTime.now(),
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'] as String)
-          : json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String)
-          : DateTime.now(),
-      activeBenefits: List<String>.from(json['active_benefits'] ?? const []),
+      createdAt: parseFirestoreDate(json['created_at'] ?? json['createdAt']) ??
+          DateTime.now(),
+      updatedAt: parseFirestoreDate(json['updated_at'] ?? json['updatedAt']) ??
+          DateTime.now(),
+      activeBenefits: (json['active_benefits'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
       managedLines: List<String>.from(
         (json['presidente_info'] as Map?)?['managed_lines'] ?? const [],
       ),

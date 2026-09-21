@@ -347,6 +347,10 @@ class DriverDatasource {
   Future<VehicleEntity?> getVehicleByPlate(String plate) async {
     final placaTrim = plate.trim().toUpperCase();
     if (placaTrim.isEmpty) return null;
+    // ID del documento = placa; `registerVehicle` no escribe `vehicle_id`, así
+    // que solo buscar por ese campo no encuentra las unidades nuevas.
+    final byId = await _firestore.collection('vehicles').doc(placaTrim).get();
+    if (byId.exists) return _vehicleFromDoc(byId);
     final snapshot = await _firestore
         .collection('vehicles')
         .where('vehicle_id', isEqualTo: placaTrim)

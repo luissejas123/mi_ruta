@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:mi_ruta/features/admin/domain/entities/role_hierarchy.dart';
 import 'package:mi_ruta/features/user/data/models/user_model.dart';
 
@@ -24,7 +25,7 @@ class UserManagementDatasource {
 
   Future<List<UserModel>> getUsers({String? userTypeFilter}) async {
     final snap = await _firestore.collection('users').get();
-    final users = snap.docs.map((d) => UserModel.fromJson(d.data())).toList();
+    final users = _parseUsers(snap.docs);
     if (userTypeFilter == null) return users;
     return users.where((u) => u.userType == userTypeFilter).toList();
   }
@@ -40,10 +41,21 @@ class UserManagementDatasource {
   /// la misma razón que [getUsers]: los docs de `users` no son homogéneos.
   Future<List<UserModel>> getPendingDriverRequests() async {
     final snap = await _firestore.collection('users').get();
-    return snap.docs
-        .map((d) => UserModel.fromJson(d.data()))
-        .where((u) => u.hasPendingDriverRequest)
-        .toList();
+    return _parseUsers(snap.docs).where((u) => u.hasPendingDriverRequest).toList();
+  }
+
+  /// Un doc de `users` con formato inesperado se omite en vez de tumbar toda
+  /// la cola (presidente/admin dependen de esta lectura para ver solicitudes).
+  List<UserModel> _parseUsers(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
+    final users = <UserModel>[];
+    for (final d in docs) {
+      try {
+        users.add(UserModel.fromJson({...d.data(), 'uid': d.data()['uid'] ?? d.id}));
+      } catch (e) {
+        debugPrint('users/${d.id} omitido por formato inválido: $e');
+      }
+    }
+    return users;
   }
 
   /// El propio usuario pide ser chofer. **No toca `role`**: el rol solo cambia

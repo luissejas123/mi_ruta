@@ -30,16 +30,26 @@ class TickeadorDatasource {
     }
   }
 
-  /// Busca un vehículo por placa (vehicle_id) en la colección `vehicles`.
+  /// Busca un vehículo por placa en la colección `vehicles`.
+  ///
+  /// El ID del documento es la placa. Las unidades dadas de alta desde
+  /// "Registrarme como chofer" no escriben un campo `vehicle_id`, así que se
+  /// busca primero por ID de documento y solo después por ese campo (docs
+  /// legados/demo que sí lo traen).
   Future<VehicleEntity?> buscarVehiculoPorPlaca(String placa) async {
     try {
       final placaTrim = placa.trim().toUpperCase();
       if (placaTrim.isEmpty) return null;
-      final snapshot = await _firestore
-          .collection('vehicles')
-          .where('vehicle_id', isEqualTo: placaTrim)
-          .limit(1)
-          .get();
+      final vehicles = _firestore.collection('vehicles');
+      final byId = await vehicles.doc(placaTrim).get();
+      if (byId.exists && byId.data() != null) {
+        return VehicleEntity.fromJson({
+          ...byId.data()!,
+          'vehicle_id': byId.data()!['vehicle_id'] ?? byId.id,
+        });
+      }
+      final snapshot =
+          await vehicles.where('vehicle_id', isEqualTo: placaTrim).limit(1).get();
       if (snapshot.docs.isEmpty) return null;
       return VehicleEntity.fromJson(snapshot.docs.first.data());
     } catch (e) {

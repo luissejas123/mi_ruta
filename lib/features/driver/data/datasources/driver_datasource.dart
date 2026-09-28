@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mi_ruta/core/utils/firestore_date.dart';
+import 'package:mi_ruta/features/driver/data/models/vehicle_model.dart';
 import 'package:mi_ruta/features/driver/domain/entities/driver_trip_entity.dart';
 import 'package:mi_ruta/features/driver/domain/entities/vehicle_entity.dart';
 
@@ -430,5 +431,37 @@ class DriverDatasource {
   Future<List<VehicleEntity>> getAllVehicles() async {
     final snap = await _firestore.collection('vehicles').get();
     return snap.docs.map(_vehicleFromDoc).toList();
+  }
+
+  // ── RQ-68: "Convertirme en chofer" ──────────────────────────────────────
+  // Mismos campos/colección que el resto de este datasource (`vehicles`,
+  // doc id = placa) — solo un `VehicleApplicationModel` distinto porque
+  // `DriverRepository` (RQ-68) trabaja con la entidad `Vehicle`, más simple
+  // que `VehicleEntity` (sin `isOnDuty`).
+
+  /// Crea (o sobrescribe) la solicitud de vehículo — doc id = placa.
+  Future<void> createVehicleApplication(VehicleApplicationModel vehicle) async {
+    await _firestore.collection('vehicles').doc(vehicle.id).set({
+      ...vehicle.toJson(),
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Todas las solicitudes de vehículo del usuario (`owner_uid == userId`),
+  /// más recientes primero. Sin `orderBy` para no requerir un índice
+  /// compuesto (mismo criterio que `PlannedTripDatasource.getCancelled()`);
+  /// se ordena en memoria.
+  Future<List<VehicleApplicationModel>> getVehicleApplicationsByOwner(
+    String userId,
+  ) async {
+    final snap = await _firestore
+        .collection('vehicles')
+        .where('owner_uid', isEqualTo: userId)
+        .get();
+    final vehicles = snap.docs
+        .map((d) => VehicleApplicationModel.fromJson(d.id, d.data()))
+        .toList();
+    vehicles.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return vehicles;
   }
 }

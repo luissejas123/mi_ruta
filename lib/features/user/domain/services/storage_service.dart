@@ -91,7 +91,10 @@ class StorageService {
   /// Sube un documento legal de una unidad (SOAT, inspección técnica,
   /// licencia, RUAT, tarjeta de operación municipal — ver
   /// `VehicleEntity.legalDocumentation` / FIRESTORE_COLLECTIONS_GUIDE.md).
-  /// [docKey] es la clave sin el sufijo `_url` (ej. "soat", "ruat").
+  /// [docKey] es la clave sin el sufijo `_url` (ej. "soat", "ruat"). Usado
+  /// tanto por `solicitud_chofer_page.dart` (flujo clásico) como por
+  /// `DriverRepositoryImpl.submitVehicleApplication` (RQ-68) — un solo
+  /// método de subida para la misma colección `vehicles`.
   Future<String> uploadVehicleDocument({
     required String ownerUid,
     required String plate,

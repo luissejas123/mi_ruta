@@ -86,7 +86,6 @@ import 'package:mi_ruta/features/admin/domain/services/admin_privileges_service.
 import 'package:mi_ruta/features/stops/domain/services/bus_stop_service.dart';
 import 'package:mi_ruta/core/connectivity/connectivity_service.dart';
 import 'package:mi_ruta/features/user/domain/services/user_preferences_service.dart';
-
 import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_bloc.dart';
 import 'package:mi_ruta/features/routes/domain/services/gtfs_schedule_service.dart';
 import 'package:mi_ruta/features/admin/data/datasources/user_management_datasource.dart';
@@ -97,10 +96,13 @@ import 'package:mi_ruta/features/tickeador/data/repositories/tickeador_repositor
 import 'package:mi_ruta/features/tickeador/domain/repositories/tickeador_repository.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_bloc.dart';
 import 'package:mi_ruta/features/tickeador/domain/services/tickeador_service.dart';
-
-
-
-
+import 'package:mi_ruta/features/driver/data/repositories/driver_repository_impl.dart';
+import 'package:mi_ruta/features/driver/domain/repositories/driver_repository.dart';
+import 'package:mi_ruta/features/driver/domain/usecases/activate_driver_mode_usecase.dart';
+import 'package:mi_ruta/features/driver/domain/usecases/deactivate_driver_mode_usecase.dart';
+import 'package:mi_ruta/features/driver/domain/usecases/get_my_vehicle_application_usecase.dart';
+import 'package:mi_ruta/features/driver/domain/usecases/submit_vehicle_application_usecase.dart';
+import 'package:mi_ruta/features/driver/presentation/bloc/driver_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -753,5 +755,53 @@ void setupDependencies() {
   // ============================================
   getIt.registerSingleton<TickeadorBloc>(
     TickeadorBloc(service: getIt<TickeadorService>()),
+  );
+
+  // ============================================
+  // DRIVER FEATURE (RQ-68) - DATA LAYER
+  // ============================================
+  // Reusa el `DriverDatasource` ya registrado más arriba (feature driver
+  // "clásica": rutas/cobros/aprobación de unidades) — ahora también expone
+  // createVehicleApplication/getVehicleApplicationsByOwner (RQ-68), sobre la
+  // MISMA colección `vehicles`. Antes esto registraba un `DriverDatasourceImpl`
+  // aparte, duplicando el acceso a la misma colección con otra clase.
+  getIt.registerSingleton<DriverRepository>(
+    DriverRepositoryImpl(
+      datasource: getIt<DriverDatasource>(),
+      storageService: getIt<StorageService>(),
+      updateUserUseCase: getIt<UpdateUserUseCase>(),
+    ),
+  );
+
+  // ============================================
+  // DRIVER FEATURE (RQ-68) - DOMAIN LAYER (UseCases)
+  // ============================================
+  getIt.registerSingleton<GetMyVehicleApplicationUseCase>(
+    GetMyVehicleApplicationUseCase(repository: getIt<DriverRepository>()),
+  );
+
+  getIt.registerSingleton<SubmitVehicleApplicationUseCase>(
+    SubmitVehicleApplicationUseCase(repository: getIt<DriverRepository>()),
+  );
+
+  getIt.registerSingleton<ActivateDriverModeUseCase>(
+    ActivateDriverModeUseCase(repository: getIt<DriverRepository>()),
+  );
+
+  getIt.registerSingleton<DeactivateDriverModeUseCase>(
+    DeactivateDriverModeUseCase(repository: getIt<DriverRepository>()),
+  );
+
+  // ============================================
+  // DRIVER FEATURE (RQ-68) - PRESENTATION LAYER (BLoC)
+  // ============================================
+  getIt.registerSingleton<DriverBloc>(
+    DriverBloc(
+      getMyVehicleApplicationUseCase: getIt<GetMyVehicleApplicationUseCase>(),
+      submitVehicleApplicationUseCase:
+          getIt<SubmitVehicleApplicationUseCase>(),
+      activateDriverModeUseCase: getIt<ActivateDriverModeUseCase>(),
+      deactivateDriverModeUseCase: getIt<DeactivateDriverModeUseCase>(),
+    ),
   );
 }

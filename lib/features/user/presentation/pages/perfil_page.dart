@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/role_switcher_page.dart';
 import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/convertirse_chofer_page.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart'
     as auth_events;
@@ -595,6 +596,31 @@ class _PerfilPageState extends State<PerfilPage> {
                   ),
                 ],
 
+                // ── Chofer (RQ-68, flujo nuevo en paralelo al de arriba) ──
+                // Solo para pasajeros que todavía no tienen ninguna
+                // solicitud por el flujo clásico — evita mostrarle 2
+                // caminos de "hacerme chofer" a la vez a la misma cuenta.
+                // El chofer YA activo sigue entrando por su dashboard real
+                // (`driver_home_page.dart`), no por acá: `ModoChoferPage` es
+                // todavía un placeholder ("Próximamente") sin la gestión de
+                // viajes/ganancias real.
+                if (_isPassenger(user.userType) &&
+                    !user.hasPendingDriverRequest) ...[
+                  _buildSectionTitle('CHOFER (RQ-68)'),
+                  _buildMenuItem(
+                    icon: Icons.local_taxi_outlined,
+                    title: 'Convertirme en chofer',
+                    subtitle: 'Solicita convertirte en chofer con tu vehículo',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ConvertirseChoferPage(),
+                      ),
+                    ),
+                  ),
+                ],
+
+                // ── Billetera ──
                 _buildSectionTitle('BILLETERA'),
                 BlocBuilder<WalletBloc, WalletState>(
                   builder: (context, walletState) {

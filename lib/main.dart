@@ -19,6 +19,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/notification_preferences_cubit.dart';
+import 'package:mi_ruta/features/driver/presentation/bloc/driver_bloc.dart';
 import 'dart:async';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
@@ -239,6 +240,9 @@ class MyApp extends StatelessWidget {
           create: (context) => getIt<BenefitRequestBLoC>(),
         ),
         BlocProvider<MiRutaBloc>(create: (context) => getIt<MiRutaBloc>()),
+        BlocProvider<DriverBloc>(
+          create: (context) => getIt<DriverBloc>(),
+        ),
       ],
       // ✅ BlocBuilder para aplicar tema en toda la app
       child: BlocListener<AuthBloc, AuthState>(

@@ -144,6 +144,17 @@ class UserManagementDatasource {
     }, SetOptions(merge: true));
   }
 
+  /// UIDs de los tickeadores con [routeRef] entre sus
+  /// `tickeador_info.assigned_lines` — usado para avisarles cuando una
+  /// unidad de esa línea inicia servicio.
+  Future<List<String>> getTickeadoresForLine(String routeRef) async {
+    final snap = await _firestore
+        .collection('users')
+        .where('tickeador_info.assigned_lines', arrayContains: routeRef)
+        .get();
+    return snap.docs.map((doc) => doc.id).toList();
+  }
+
   /// Líneas que gestiona un presidente (`presidente_info.managed_lines`).
   /// Solo admin la escribe (privilegiado en firestore.rules) — decidir qué
   /// línea preside un dirigente es una decisión organizativa, no algo que

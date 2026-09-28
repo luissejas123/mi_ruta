@@ -12,6 +12,8 @@ import 'package:mi_ruta/features/user/domain/services/navigation_utils_service.d
 import 'package:mi_ruta/features/user/domain/services/pago_qr_utils_service.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_phase_service.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_payment_service.dart';
+import 'package:mi_ruta/features/user/domain/services/benefit_discount_service.dart';
+import 'package:mi_ruta/features/user/domain/usecases/user_usecases.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_state.dart';
@@ -65,19 +67,29 @@ class RutaNavegacionPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => NavigationBloc()
-        ..add(
-          NavigationStarted(
-            origin: origin,
-            boardingStop: boardingStop,
-            alightingStop: alightingStop,
-            destination: destination.latLng,
-            initialBoardingTripId: initialBoardingTripId,
-            initialBoardingDriverId: initialBoardingDriverId,
-            initialBoardingRouteRef: initialBoardingRouteRef,
-          ),
+    // Singleton (C3): si ya hay un viaje en curso (se reabrió esta pantalla
+    // desde el banner de "Rutas"), `NavigationBloc` ignora este evento — ver
+    // el guard en `_onNavigationStarted`.
+    final navBloc = getIt<NavigationBloc>()
+      ..add(
+        NavigationStarted(
+          origin: origin,
+          boardingStop: boardingStop,
+          alightingStop: alightingStop,
+          destination: destination.latLng,
+          route: route,
+          destinationInfo: destination,
+          originName: originName,
+          transitSegment: transitSegment,
+          walkStartPoints: walkStartPoints,
+          walkEndPoints: walkEndPoints,
+          initialBoardingTripId: initialBoardingTripId,
+          initialBoardingDriverId: initialBoardingDriverId,
+          initialBoardingRouteRef: initialBoardingRouteRef,
         ),
+      );
+    return BlocProvider.value(
+      value: navBloc,
       child: _RutaNavegacionView(
         route: route,
         destination: destination,
@@ -177,8 +189,11 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
     }
   }
 
+  // El viaje NO se cancela al retroceder — sigue anclado en `NavigationBloc`
+  // (singleton) hasta bajar, pagar, o el cobro automático de respaldo (C3).
+  // Solo se corta el tracking real en `NavigationStopped`, que ya se dispara
+  // al llegar al destino (`_showSummarySheet`).
   void _onBackPressed() {
-    _navBloc.add(const NavigationStopped());
     Navigator.of(context).pop(false);
   }
 
@@ -217,6 +232,7 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
         routeRef,
         traveledMeters / 1000,
       );
+      fare = await _applyBenefitDiscount(fare);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -245,6 +261,30 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
         routeName: widget.route.name,
         fare: fare,
       );
+    }
+  }
+
+  /// Reduce la tarifa según el mayor % de descuento configurado por el admin
+  /// (`config/benefit_discounts`) entre los beneficios activos de la cuenta.
+  /// Sin beneficios activos o sin descuentos configurados, devuelve la
+  /// tarifa sin cambios.
+  Future<double> _applyBenefitDiscount(double fare) async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthLoaded) return fare;
+    try {
+      final userResult = await getIt<GetUserByIdUseCase>()(authState.user.uid);
+      final activeBenefits = userResult.fold(
+        (_) => const <String>[],
+        (user) => user.activeBenefits,
+      );
+      if (activeBenefits.isEmpty) return fare;
+
+      final discountService = getIt<BenefitDiscountService>();
+      final discounts = await discountService.getDiscounts();
+      final percent = discountService.highestDiscountFor(activeBenefits, discounts);
+      return percent <= 0 ? fare : fare * (1 - percent);
+    } catch (_) {
+      return fare;
     }
   }
 

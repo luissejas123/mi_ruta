@@ -47,4 +47,9 @@ class UserManagementService {
   /// Líneas que gestiona un presidente (RQ4 dirigente↔línea, cierre Sprint 4).
   Future<void> assignPresidenteLines(String uid, {required List<String> managedLines}) =>
       _datasource.assignPresidenteLines(uid, managedLines: managedLines);
+
+  /// UIDs de los tickeadores asignados a [routeRef] — para avisarles cuando
+  /// una unidad de esa línea inicia servicio.
+  Future<List<String>> getTickeadoresForLine(String routeRef) =>
+      _datasource.getTickeadoresForLine(routeRef);
 }

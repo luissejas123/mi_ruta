@@ -118,6 +118,36 @@ class TickeadorService {
     );
   }
 
+  /// Marca el paso de un vehículo por un punto intermedio del camino
+  /// (ni salida de parada ni llegada) creando un log en `station_logs`.
+  Future<void> marcarIntermedio({
+    required String tickeadorId,
+    required String stationName,
+    required VehicleEntity vehicle,
+  }) async {
+    if (stationName.isEmpty) {
+      throw Exception('El tickeador no tiene estación asignada');
+    }
+    if (vehicle.vehicleId.isEmpty) {
+      throw Exception('El vehículo no tiene placa');
+    }
+    if (vehicle.ownerUid.isEmpty) {
+      throw Exception('El vehículo no tiene conductor asignado');
+    }
+    if (vehicle.lineNumber.isEmpty) {
+      throw Exception('El vehículo no tiene línea asignada');
+    }
+    await _repository.crearStationLog(
+      tickeadorId: tickeadorId,
+      stationName: stationName,
+      lineId: vehicle.lineNumber,
+      vehiclePlate: vehicle.vehicleId,
+      driverId: vehicle.ownerUid,
+      maxCapacity: vehicle.passengerCapacity,
+      logType: 'intermediate',
+    );
+  }
+
   /// Lee la actividad reciente del tickeador desde `station_logs`.
   Future<List<StationLogEntity>> getActividadReciente(
     String tickeadorId, {

@@ -356,6 +356,20 @@ Al aprobar una solicitud, `active_benefits` se agrega al documento correspondien
   "total_routes": 140,
   "updated_at": "<Timestamp>"
 }
+
+// config/benefit_discounts (agregado 2026-09-28, plan de 11 puntos QA, C1)
+// % de descuento (0.0-1.0) por tipo de beneficio, definido por el admin en
+// "Configurar descuentos de beneficios". Los tipos son los mismos que
+// BenefitRequest.benefitType. Se lee en BenefitDiscountService.
+// highestDiscountFor() para reducir la tarifa al cobrar (RutaNavegacionPage
+// y DriverService._chargeOpenBoardingTrips), usando el mayor % entre los
+// beneficios activos de la cuenta (no se suman).
+{
+  "student": 0.5,
+  "university": 0.3,
+  "senior": 0.5,
+  "updated_at": "<Timestamp>"
+}
 ```
 
 ---
@@ -417,7 +431,7 @@ ID = `rating_id`. Campos: `trip_id`, `reviewer_uid`, `target_uid`, `stars` (1-5)
 ID = `claim_id`. Campos: `reporter_id`, `target_id` (nullable), `line_id`, `claim_type` (`driver`/`user`/`service`), `title`, `description`, `status` (`open`/`resolved`), `created_at`, `resolved_at`, `resolved_by`. **Ya no es huérfana** (corregido 2026-09-13, esta nota estaba desactualizada) — `ClaimDatasource`/`ClaimService` (`lib/features/user/data/datasources/claim_datasource.dart`) la leen y escriben; UI del lado del reportante y del staff que resuelve (`PresidenteReclamosPage`).
 
 ### station_logs
-ID = `log_id`. Campos: `tickeador_id`, `station_name`, `line_id`, `vehicle_plate`, `driver_id`, `passenger_count`, `max_capacity`, `log_type` (`departure`/`arrival`), `timestamp`, `time_since_last_departure`. **Sí se lee y escribe**, desde dos datasources distintos: `lib/features/tickeador/data/datasources/tickeador_datasource.dart` y `lib/features/driver/data/datasources/tickeador_operations_datasource.dart` — la duplicidad de Tickeador (ver `docs/DEUDA_TECNICA.md`) hace que dos implementaciones distintas escriban esta misma colección.
+ID = `log_id`. Campos: `tickeador_id`, `station_name`, `line_id`, `vehicle_plate`, `driver_id`, `passenger_count`, `max_capacity`, `log_type` (`departure`/`arrival`/`intermediate` — este último agregado 2026-09-28, plan de 11 puntos QA C2, para marcar el paso de una unidad por un punto intermedio del camino, no solo salida/llegada de parada), `timestamp`, `time_since_last_departure`. **Sí se lee y escribe**, desde dos datasources distintos: `lib/features/tickeador/data/datasources/tickeador_datasource.dart` y `lib/features/driver/data/datasources/tickeador_operations_datasource.dart` — la duplicidad de Tickeador (ver `docs/DEUDA_TECNICA.md`) hace que dos implementaciones distintas escriban esta misma colección.
 
 ### route_deviation_notes
 ID = `note_id`. Campos: `route_ref`, `note` (texto libre, ej. "calle bloqueada"), `reported_by`, `created_at`, `active` (bool). Se escribe/lee desde `RouteDeviationDatasource`/`RouteDeviationService` (`lib/features/routes/data/datasources/route_deviation_datasource.dart`), UI en `RutaMapaDesvioPage` (presidente, al tocar una card de "Control de rutas en vivo"). Puramente informativo — no toca ni recalcula el `polyline` de `routes`/`routes_bbox`. Agregado 2026-09-13 (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 1).

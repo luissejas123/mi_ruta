@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/driver/domain/entities/vehicle.dart';
@@ -9,6 +10,8 @@ import 'package:mi_ruta/features/driver/presentation/bloc/driver_bloc.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_event.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_state.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/modo_chofer_page.dart';
+import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
+import 'package:mi_ruta/features/user/domain/usecases/user_usecases.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/document_upload_section.dart';
 
 class ConvertirseChoferPage extends StatefulWidget {
@@ -224,7 +227,6 @@ class _ApplicationFormState extends State<_ApplicationForm> {
 
   final _plateController = TextEditingController();
   final _vehicleTypeController = TextEditingController();
-  final _lineNumberController = TextEditingController();
   final _internalNumberController = TextEditingController();
   final _brandController = TextEditingController();
   final _modelController = TextEditingController();
@@ -238,11 +240,39 @@ class _ApplicationFormState extends State<_ApplicationForm> {
   File? _municipalOperationCardFile;
   File? _ruatFile;
 
+  // La línea la asigna el dirigente (`assigned_route_ref`), no quien
+  // solicita — se muestra de solo lectura (ver solicitud_chofer_page.dart,
+  // mismo criterio aplicado acá para el flujo RQ-68).
+  bool _loadingAssignedRoute = true;
+  String? _assignedRouteRef;
+  String? _assignedRouteName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAssignedRoute();
+  }
+
+  Future<void> _loadAssignedRoute() async {
+    final userResult = await getIt<GetUserByIdUseCase>()(widget.userId);
+    final ref = userResult.fold((_) => null, (user) => user.assignedRouteRef);
+    String? name;
+    if (ref != null && ref.isNotEmpty) {
+      final route = await getIt<RouteService>().getRouteByRef(ref);
+      name = route?.name;
+    }
+    if (!mounted) return;
+    setState(() {
+      _assignedRouteRef = ref;
+      _assignedRouteName = name;
+      _loadingAssignedRoute = false;
+    });
+  }
+
   @override
   void dispose() {
     _plateController.dispose();
     _vehicleTypeController.dispose();
-    _lineNumberController.dispose();
     _internalNumberController.dispose();
     _brandController.dispose();
     _modelController.dispose();
@@ -325,7 +355,7 @@ class _ApplicationFormState extends State<_ApplicationForm> {
           userId: widget.userId,
           plate: _plateController.text.trim(),
           vehicleType: _vehicleTypeController.text.trim(),
-          lineNumber: _lineNumberController.text.trim(),
+          lineNumber: _assignedRouteRef ?? '',
           internalNumber: _internalNumberController.text.trim(),
           brand: _brandController.text.trim(),
           model: _modelController.text.trim(),
@@ -352,6 +382,35 @@ class _ApplicationFormState extends State<_ApplicationForm> {
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  // La línea la asigna el dirigente, no es un `TextField` editable — se
+  // muestra como texto de solo lectura (sin controller, para no crear uno
+  // nuevo en cada rebuild).
+  Widget _assignedRouteField() {
+    final text = _loadingAssignedRoute
+        ? 'Cargando...'
+        : (_assignedRouteName ?? _assignedRouteRef ?? 'Pendiente de asignación por el dirigente');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.lock_outline, size: 18, color: Colors.grey),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text('Línea: $text', style: const TextStyle(color: Colors.grey)),
+            ),
+          ],
         ),
       ),
     );
@@ -410,7 +469,7 @@ class _ApplicationFormState extends State<_ApplicationForm> {
           const SizedBox(height: 12),
           _field(_plateController, 'Placa'),
           _field(_vehicleTypeController, 'Tipo de vehículo (ej. taxitrufi, micro)'),
-          _field(_lineNumberController, 'Línea'),
+          _assignedRouteField(),
           _field(_internalNumberController, 'Número interno'),
           _field(_brandController, 'Marca'),
           _field(_modelController, 'Modelo'),

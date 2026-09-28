@@ -13,8 +13,11 @@ import 'package:mi_ruta/features/user/domain/services/route_finder_service.dart'
 import 'package:mi_ruta/features/user/presentation/bloc/route_search_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/route_search_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/route_search_state.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/navigation_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/navigation_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/map_search_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/ruta_linea_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/ruta_navegacion_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/map_pin_confirm_panel.dart';
@@ -291,11 +294,38 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
     }
   }
 
+  /// Reconstruye `RutaNavegacionPage` desde el estado guardado en
+  /// `NavigationBloc` (singleton) — el mismo viaje sigue corriendo aunque
+  /// el pasajero haya navegado a otra pestaña (C3).
+  void _resumeActiveTrip(NavigationState navState) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RutaNavegacionPage(
+          route: navState.activeRoute!,
+          destination: navState.activeDestination!,
+          origin: navState.activeOrigin,
+          originName: navState.activeOriginName ?? 'Mi ubicación',
+          boardingStop: navState.activeBoardingStop!,
+          alightingStop: navState.activeAlightingStop!,
+          transitSegment: navState.activeTransitSegment,
+          walkStartPoints: navState.activeWalkStartPoints,
+          walkEndPoints: navState.activeWalkEndPoints,
+          initialBoardingTripId: navState.boardingTripId,
+          initialBoardingDriverId: navState.boardingDriverId,
+          initialBoardingRouteRef: navState.boardingRouteRef,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = context.watch<ThemeCubit>().state;
     return Scaffold(
-      body: Stack(
+      body: BlocProvider<NavigationBloc>.value(
+        value: getIt<NavigationBloc>(),
+        child: Stack(
         children: [
           GoogleMap(
             style: isDark ? MapStyles.dark : null,
@@ -450,7 +480,49 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
             },
             child: const SizedBox.shrink(),
           ),
+          // "Viaje en curso" (C3): el abordaje sigue corriendo en el
+          // singleton `NavigationBloc` aunque se haya salido de la pantalla
+          // de navegación — este banner deja volver a esa pantalla.
+          Positioned(
+            top: 60,
+            left: 16,
+            right: 16,
+            child: BlocBuilder<NavigationBloc, NavigationState>(
+              builder: (context, navState) {
+                if (!navState.hasResumableTrip) return const SizedBox.shrink();
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => _resumeActiveTrip(navState),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade700,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.directions_bus, color: Colors.white),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Viaje en curso — Toca para continuar',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          Icon(Icons.chevron_right, color: Colors.white),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ],
+        ),
       ),
       bottomNavigationBar: CustomBottomNav(
         currentIndex: _navIndexRoutes,

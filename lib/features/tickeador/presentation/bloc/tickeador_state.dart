@@ -46,6 +46,18 @@ class VehicleNotFound extends TickeadorState {
   const VehicleNotFound();
 }
 
+/// Vehículo encontrado tras escanear el QR fijo de unidad — a diferencia de
+/// [VehicleFound] (búsqueda manual por placa), la UI reacciona abriendo
+/// directo el selector de Salida/Llegada/Intermedio.
+class VehicleFoundViaQr extends TickeadorState {
+  final VehicleEntity vehicle;
+
+  const VehicleFoundViaQr({required this.vehicle});
+
+  @override
+  List<Object?> get props => [vehicle];
+}
+
 /// Operación (marcar salida/llegada) exitosa.
 class StationLogSuccess extends TickeadorState {
   final String message;

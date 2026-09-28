@@ -109,7 +109,11 @@ class VehicleApplicationModel extends Vehicle {
     required VehicleLegalDocuments legalDocuments,
   }) {
     return VehicleApplicationModel(
-      id: plate,
+      // Normalizado igual que el flujo clásico (`registerVehicle`,
+      // `DriverDatasource`) — antes esta solicitud guardaba la placa tal
+      // cual la tecleó el chofer (sin mayúsculas), y `getVehicleByPlate`
+      // (que sí normaliza al buscar) nunca la encontraba al abordar.
+      id: plate.trim().toUpperCase(),
       ownerUid: ownerUid,
       vehicleType: vehicleType,
       lineNumber: lineNumber,

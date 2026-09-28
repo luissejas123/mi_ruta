@@ -39,14 +39,6 @@ class LocationIconPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3,
     );
-    // Flecha de navegación (triángulo apuntando arriba)
-    final path = Path()
-      ..moveTo(size / 2, size * 0.20)
-      ..lineTo(size * 0.33, size * 0.70)
-      ..lineTo(size / 2, size * 0.55)
-      ..lineTo(size * 0.67, size * 0.70)
-      ..close();
-    canvas.drawPath(path, Paint()..color = Colors.white);
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(size.toInt(), size.toInt());

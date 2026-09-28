@@ -120,6 +120,11 @@ class DriverDatasource {
     final vehicleId = plate.trim().toUpperCase();
     final docRef = _firestore.collection('vehicles').doc(vehicleId);
     await docRef.set({
+      // `vehicle_id` no se usaba como filtro de identidad (el ID del
+      // documento ya es la placa), pero `getVehicleByPlate` lo necesita
+      // como respaldo cuando busca por campo — sin esto, esa segunda vía
+      // de búsqueda nunca encontraba unidades dadas de alta por acá.
+      'vehicle_id': vehicleId,
       'owner_uid': ownerUid,
       'vehicle_type': vehicleType,
       'line_number': lineNumber,
@@ -344,27 +349,41 @@ class DriverDatasource {
     return doc.id;
   }
 
-  /// Busca un vehículo por placa (`vehicle_id`) — segunda forma de
-  /// confirmar abordaje además de escanear el QR fijo de la unidad. Mismo
-  /// patrón que `TickeadorDatasource.buscarVehiculoPorPlaca` (trim +
-  /// mayúsculas, query por campo en vez de asumir que `vehicle_id` es el ID
-  /// del documento).
-  Future<VehicleEntity?> getVehicleByPlate(String plate) async {
+  /// Busca TODAS las unidades registradas con esta placa (`vehicle_id`) —
+  /// segunda forma de confirmar abordaje además de escanear el QR fijo de
+  /// la unidad. Mismo patrón que `TickeadorDatasource.buscarVehiculoPorPlaca`
+  /// (trim + mayúsculas), pero sin `.limit(1)`: dos flujos de alta distintos
+  /// (`registerVehicle` clásico, `createVehicleApplication` RQ-68) pueden
+  /// terminar creando dos documentos separados para la misma placa física
+  /// (ej. si un chofer se registró por los dos caminos) — antes esto se
+  /// resolvía arbitrariamente con el primero que devolviera Firestore; ahora
+  /// el caller (`ConfirmarAbordajePage`) puede mostrarle ambos al pasajero
+  /// para que elija cuál abordó.
+  Future<List<VehicleEntity>> getVehiclesByPlate(String plate) async {
     final placaTrim = plate.trim().toUpperCase();
-    if (placaTrim.isEmpty) return null;
-    // ID del documento = placa; `registerVehicle` no escribe `vehicle_id`, así
-    // que solo buscar por ese campo no encuentra las unidades nuevas.
+    if (placaTrim.isEmpty) return const [];
+    final results = <String, VehicleEntity>{};
+
+    // ID del documento = placa (ambos flujos de alta la usan como ID).
     final byId = await _firestore.collection('vehicles').doc(placaTrim).get();
-    if (byId.exists) return _vehicleFromDoc(byId);
+    if (byId.exists) {
+      final vehicle = _vehicleFromDoc(byId);
+      results[vehicle.vehicleId] = vehicle;
+    }
+    // Respaldo por campo `vehicle_id` — cubre cualquier documento cuyo ID
+    // real no sea la placa (no debería pasar hoy, pero antes `registerVehicle`
+    // no escribía este campo en absoluto).
     final snapshot = await _firestore
         .collection('vehicles')
         .where('vehicle_id', isEqualTo: placaTrim)
-        .limit(1)
         .get();
-    if (snapshot.docs.isEmpty) return null;
-    return _vehicleFromDoc(
-      snapshot.docs.first as DocumentSnapshot<Map<String, dynamic>>,
-    );
+    for (final doc in snapshot.docs) {
+      final vehicle = _vehicleFromDoc(
+        doc as DocumentSnapshot<Map<String, dynamic>>,
+      );
+      results[vehicle.vehicleId] = vehicle;
+    }
+    return results.values.toList();
   }
 
   /// Viajes de abordaje todavía sin cobrar de una unidad — usado para cobrar

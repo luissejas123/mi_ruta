@@ -4,8 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/role_switcher_page.dart';
-import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
-import 'package:mi_ruta/features/driver/presentation/pages/convertirse_chofer_page.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart'
     as auth_events;
@@ -73,22 +71,6 @@ class PerfilPage extends StatefulWidget {
 class _PerfilPageState extends State<PerfilPage> {
   static const _amarillo = Color(0xFFFFC12F);
   static const _navIndexPerfil = 3;
-
-  /// El botón del panel administrativo se muestra si la cuenta tiene el rol
-  /// admin entre sus roles (puede tener otros a la vez, ej. admin + user).
-  bool get _isAdmin {
-    final authState = context.read<AuthBloc>().state;
-    return authState is AuthLoaded && authState.user.roles.contains('admin');
-  }
-
-  /// "Cambiar de perfil" solo tiene sentido si la cuenta tiene más de un rol
-  /// real (todas tienen 'user' como base). No confundir con
-  /// [SwitchProfileButton], que es el acceso de superadmin a los 5 perfiles
-  /// sin importar los roles reales de la cuenta.
-  List<String> get _ownedRoles {
-    final authState = context.read<AuthBloc>().state;
-    return authState is AuthLoaded ? authState.user.roles : const ['user'];
-  }
 
   /// `users` arrastra dos valores para una cuenta sin rol especial: 'user'
   /// (lo que escribe el registro) y 'passenger' (default de UserModel).
@@ -272,9 +254,23 @@ class _PerfilPageState extends State<PerfilPage> {
         notificationSettings['recharge_notifications_enabled'] as bool? ?? true;
     final giftNotificationsEnabled =
         notificationSettings['gift_notifications_enabled'] as bool? ?? true;
-    final userRole = authState is AuthLoaded
-        ? authState.user.role.trim().toLowerCase()
-        : '';
+    // Rol en vivo (UserBloc, stream de Firestore) para el título y las
+    // pestañas del pie de navegación — `AuthBloc` solo se carga una vez al
+    // iniciar sesión (`GetCurrentUserEvent`) y nunca se refresca, así que si
+    // el rol cambia durante la sesión (aprobación como chofer, presidente,
+    // etc.) seguía mostrando el título/pestañas del rol viejo hasta cerrar y
+    // volver a abrir sesión. Cae a `AuthBloc` solo mientras el stream
+    // todavía no cargó ningún dato.
+    final liveUserState = context.watch<UserBloc>().state;
+    final liveUserType = liveUserState is UserLoaded
+        ? liveUserState.user.userType
+        : liveUserState is UserStreamLoaded
+        ? liveUserState.user.userType
+        : null;
+    final userRole = (liveUserType ??
+            (authState is AuthLoaded ? authState.user.role : ''))
+        .trim()
+        .toLowerCase();
     final isLeadershipRole = {
       'admin',
       'administrador',
@@ -431,30 +427,29 @@ class _PerfilPageState extends State<PerfilPage> {
 
                   _buildMenuItem(
                     icon: Icons.history,
-                    title: () {
-                      final authState = context.read<AuthBloc>().state;
-                      final role = authState is AuthLoaded ? authState.user.role : '';
-                      return role == 'driver' ? 'Historial del conductor' : 'Historial de viajes';
-                    }(),
+                    // `user` (UserBloc, en vivo) en vez de releer AuthBloc
+                    // (foto vieja de al iniciar sesión) — antes un chofer
+                    // recién aprobado seguía viendo "Historial de viajes" del
+                    // pasajero hasta cerrar y volver a abrir sesión.
+                    title: user.userType == 'driver'
+                        ? 'Historial del conductor'
+                        : 'Historial de viajes',
                     subtitle: 'Ver todos tus viajes',
                     onTap: () {
-                      final authState = context.read<AuthBloc>().state;
-                      if (authState is AuthLoaded) {
-                        if (authState.user.role == "driver") {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => DriverTripHistoryPage(driverId: authState.user.uid),
-                            ),
-                          );
-                        } else {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const HistorialViajesPage(),
-                            ),
-                          );
-                        }
+                      if (user.userType == 'driver') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DriverTripHistoryPage(driverId: user.uid),
+                          ),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const HistorialViajesPage(),
+                          ),
+                        );
                       }
                     },
                   ),
@@ -565,9 +560,14 @@ class _PerfilPageState extends State<PerfilPage> {
                 ],
 
                 // ── Panel administrativo (solo admins) ──
-                if (_isAdmin)
+                // `user` viene del stream en vivo de UserBloc (arriba) — antes
+                // esto leía `roles` desde AuthBloc, que solo se carga una vez
+                // al iniciar sesión y no se refresca si el rol cambia durante
+                // la sesión (bug real: un admin recién otorgado no veía esta
+                // sección hasta cerrar y volver a abrir sesión).
+                if (user.isAdmin)
                   _buildSectionTitle('PANEL ADMINISTRATIVO'),
-                if (_isAdmin)
+                if (user.isAdmin)
                   _buildMenuItem(
                     icon: Icons.admin_panel_settings_outlined,
                     title: 'Panel administrativo',
@@ -584,44 +584,28 @@ class _PerfilPageState extends State<PerfilPage> {
                 // Reemplaza el viejo switch binario "Modo conductor": una
                 // cuenta puede tener hasta 3 roles a la vez (ej. chofer +
                 // presidente + user) y un on/off no alcanza para eso.
-                if (_ownedRoles.length > 1) ...[
+                if (user.roles.length > 1) ...[
                   _buildSectionTitle('PERFILES'),
                   _buildMenuItem(
                     icon: Icons.switch_account_outlined,
                     title: 'Cambiar de perfil',
-                    subtitle: 'Esta cuenta tiene ${_ownedRoles.length} roles',
+                    subtitle: 'Esta cuenta tiene ${user.roles.length} roles',
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => RoleSwitcherPage(ownedRoles: _ownedRoles),
+                        builder: (_) => RoleSwitcherPage(ownedRoles: user.roles),
                       ),
                     ),
                   ),
                 ],
 
-                // ── Chofer (RQ-68, flujo nuevo en paralelo al de arriba) ──
-                // Solo para pasajeros que todavía no tienen ninguna
-                // solicitud por el flujo clásico — evita mostrarle 2
-                // caminos de "hacerme chofer" a la vez a la misma cuenta.
-                // El chofer YA activo sigue entrando por su dashboard real
-                // (`driver_home_page.dart`), no por acá: `ModoChoferPage` es
-                // todavía un placeholder ("Próximamente") sin la gestión de
-                // viajes/ganancias real.
-                if (_isPassenger(user.userType) &&
-                    !user.hasPendingDriverRequest) ...[
-                  _buildSectionTitle('CHOFER (RQ-68)'),
-                  _buildMenuItem(
-                    icon: Icons.local_taxi_outlined,
-                    title: 'Convertirme en chofer',
-                    subtitle: 'Solicita convertirte en chofer con tu vehículo',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ConvertirseChoferPage(),
-                      ),
-                    ),
-                  ),
-                ],
+                // "Convertirme en chofer" (RQ-68, ConvertirseChoferPage) se
+                // ocultó a pedido del usuario — era un segundo camino
+                // duplicado para lo mismo que ya hace "Registrarme como
+                // chofer" (SER CHOFER, arriba), y ese es el que funciona de
+                // verdad (`ModoChoferPage` sigue siendo un placeholder "Próx-
+                // imamente" sin gestión de viajes/ganancias real). La página
+                // queda sin usar a propósito (ver docs/DEUDA_TECNICA.md).
 
                 // ── Billetera ──
                 _buildSectionTitle('BILLETERA'),
@@ -825,7 +809,7 @@ class _PerfilPageState extends State<PerfilPage> {
           // (PresidentePanelPage: tabs [0,2,3], TickeadorHomePage: tabs
           // [0,3]). Mismo criterio acá para que Perfil no "readquiera" una
           // pestaña que el resto de las pantallas del rol ya esconde.
-          tabs: _tabsForRole(authState is AuthLoaded ? authState.user.role : ''),
+          tabs: _tabsForRole(userRole),
           onTap: _onNavTap,
         ),
       );

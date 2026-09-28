@@ -10,6 +10,8 @@ import 'package:mi_ruta/features/user/presentation/bloc/notification_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/notification_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/notification_preferences_cubit.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/notification_state.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/user_state.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/administracion_beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/preferencias_notificacion_page.dart';
 
@@ -49,7 +51,14 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
   /// notificaciones son alertas operativas de la vía (mantenimiento,
   /// bloqueos, avisos de parada) — un feed plano, sin el selector de
   /// categorías ni sus preferencias.
+  ///
+  /// Lee `UserBloc` (stream en vivo) en vez de `AuthBloc` (foto fija de al
+  /// iniciar sesión) — si no, un chofer recién aprobado seguía viendo el
+  /// feed de pasajero hasta cerrar y volver a abrir sesión.
   bool get _isDriver {
+    final userState = context.watch<UserBloc>().state;
+    if (userState is UserStreamLoaded) return userState.user.userType == 'driver';
+    if (userState is UserLoaded) return userState.user.userType == 'driver';
     final s = context.read<AuthBloc>().state;
     return s is AuthLoaded && s.user.role == 'driver';
   }

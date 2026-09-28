@@ -11,7 +11,6 @@ import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_event.dar
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_state.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/revision_recargas_page.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_actividad_section.dart';
-import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_mode_switch_section.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_station_section.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_vehicle_search_section.dart';
 import 'package:mi_ruta/features/user/presentation/pages/qr_scanner_page.dart';
@@ -35,6 +34,8 @@ import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart'
 /// tickeador_actividad_item.dart, tickeador_section_title.dart) — esta clase
 /// solo mantiene el estado y la lógica (carga inicial, búsqueda, marcar
 /// salida/llegada, escáner QR) y compone esas secciones en `build()`.
+enum _AccionUnidad { salida, llegada, intermedio }
+
 class TickeadorHomePage extends StatefulWidget {
   const TickeadorHomePage({super.key});
 
@@ -68,12 +69,88 @@ class _TickeadorHomePageState extends State<TickeadorHomePage> {
       context,
     ).push<String>(MaterialPageRoute(builder: (_) => const QRScannerPage()));
 
-    if (qrCode != null && qrCode.isNotEmpty) {
-      if (_uid == null) {
-        _showSnack('Usuario no autenticado', isError: true);
-        return;
-      }
-      _tickeadorBloc.add(ValidateTripQr(qrCode: qrCode, tickeadorUid: _uid!));
+    if (qrCode == null || qrCode.isEmpty) return;
+    if (_uid == null) {
+      _showSnack('Usuario no autenticado', isError: true);
+      return;
+    }
+
+    // QR fijo de unidad (`UnitQrPage`): `ownerUid|vehicleId`, 2 partes, sin
+    // monto — a diferencia del QR de cobro de viaje (`driverId|tripId|amount`,
+    // 3 partes). Se detecta por cantidad de partes antes de asumir que es
+    // un pago a validar.
+    final parts = qrCode.split('|');
+    if (parts.length == 2 && parts[1].trim().isNotEmpty) {
+      _tickeadorBloc.add(BuscarVehiculoPorQrEvent(vehicleId: parts[1].trim()));
+      return;
+    }
+
+    _tickeadorBloc.add(ValidateTripQr(qrCode: qrCode, tickeadorUid: _uid!));
+  }
+
+  Future<void> _mostrarSelectorAccion(VehicleEntity vehicle) async {
+    if (_stationName == null || _stationName!.isEmpty) {
+      _showSnack(
+        'El tickeador no tiene estación asignada. No se puede registrar.',
+        isError: true,
+      );
+      return;
+    }
+    final accion = await showModalBottomSheet<_AccionUnidad>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Unidad ${vehicle.vehicleId}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              const SizedBox(height: 4),
+              const Text('¿Qué querés registrar?'),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.orange),
+                title: const Text('Salida de la parada'),
+                onTap: () => Navigator.pop(context, _AccionUnidad.salida),
+              ),
+              ListTile(
+                leading: const Icon(Icons.login, color: Colors.green),
+                title: const Text('Llegada a la parada'),
+                onTap: () => Navigator.pop(context, _AccionUnidad.llegada),
+              ),
+              ListTile(
+                leading: const Icon(Icons.alt_route, color: Colors.blue),
+                title: const Text('Punto intermedio del camino'),
+                onTap: () => Navigator.pop(context, _AccionUnidad.intermedio),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (accion == null || _uid == null) return;
+
+    switch (accion) {
+      case _AccionUnidad.salida:
+        _tickeadorBloc.add(
+          MarcarSalidaEvent(tickeadorId: _uid!, stationName: _stationName!, vehicle: vehicle),
+        );
+        break;
+      case _AccionUnidad.llegada:
+        _tickeadorBloc.add(
+          MarcarLlegadaEvent(tickeadorId: _uid!, stationName: _stationName!, vehicle: vehicle),
+        );
+        break;
+      case _AccionUnidad.intermedio:
+        _tickeadorBloc.add(
+          MarcarIntermedioEvent(tickeadorId: _uid!, stationName: _stationName!, vehicle: vehicle),
+        );
+        break;
     }
   }
 
@@ -245,6 +322,9 @@ class _TickeadorHomePageState extends State<TickeadorHomePage> {
               _selectedVehicle = null;
               _showSnack('Vehículo no encontrado', isError: true);
             }
+            if (state is VehicleFoundViaQr) {
+              _mostrarSelectorAccion(state.vehicle);
+            }
             if (state is StationLogSuccess) {
               _showSnack(state.message);
             }
@@ -266,7 +346,6 @@ class _TickeadorHomePageState extends State<TickeadorHomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const TickeadorModeSwitchSection(),
                   TickeadorStationSection(
                     stationName: _stationName,
                     isDarkMode: isDarkMode,

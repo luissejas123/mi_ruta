@@ -5,7 +5,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/admin/domain/services/user_management_service.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
+import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
 import 'package:mi_ruta/features/user/domain/services/storage_service.dart';
+import 'package:mi_ruta/features/user/domain/usecases/user_usecases.dart';
 
 const _amarillo = Color(0xFFFFC12F);
 
@@ -57,7 +59,6 @@ class SolicitudChoferPage extends StatefulWidget {
 class _SolicitudChoferPageState extends State<SolicitudChoferPage> {
   final _picker = ImagePicker();
   final _plateCtrl = TextEditingController();
-  final _lineCtrl = TextEditingController();
   final _internalNumberCtrl = TextEditingController();
   final _brandCtrl = TextEditingController();
   final _colorCtrl = TextEditingController();
@@ -68,10 +69,38 @@ class _SolicitudChoferPageState extends State<SolicitudChoferPage> {
   bool _isSubmitting = false;
   String? _errorText;
 
+  // La línea ya NO la tipea quien solicita — la asigna el dirigente
+  // (`assigned_route_ref`, ver `AsignarRutaChoferPage`). Se muestra de
+  // solo lectura; `null` mientras el dirigente todavía no asignó ninguna.
+  bool _loadingAssignedRoute = true;
+  String? _assignedRouteRef;
+  String? _assignedRouteName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAssignedRoute();
+  }
+
+  Future<void> _loadAssignedRoute() async {
+    final userResult = await getIt<GetUserByIdUseCase>()(widget.uid);
+    final ref = userResult.fold((_) => null, (user) => user.assignedRouteRef);
+    String? name;
+    if (ref != null && ref.isNotEmpty) {
+      final route = await getIt<RouteService>().getRouteByRef(ref);
+      name = route?.name;
+    }
+    if (!mounted) return;
+    setState(() {
+      _assignedRouteRef = ref;
+      _assignedRouteName = name;
+      _loadingAssignedRoute = false;
+    });
+  }
+
   @override
   void dispose() {
     _plateCtrl.dispose();
-    _lineCtrl.dispose();
     _internalNumberCtrl.dispose();
     _brandCtrl.dispose();
     _colorCtrl.dispose();
@@ -81,7 +110,6 @@ class _SolicitudChoferPageState extends State<SolicitudChoferPage> {
 
   bool get _formComplete =>
       _plateCtrl.text.trim().isNotEmpty &&
-      _lineCtrl.text.trim().isNotEmpty &&
       _internalNumberCtrl.text.trim().isNotEmpty &&
       _brandCtrl.text.trim().isNotEmpty &&
       _colorCtrl.text.trim().isNotEmpty &&
@@ -136,7 +164,7 @@ class _SolicitudChoferPageState extends State<SolicitudChoferPage> {
         ownerUid: widget.uid,
         vehicleType: _vehicleType.toLowerCase(),
         plate: plate,
-        lineNumber: _lineCtrl.text.trim(),
+        lineNumber: _assignedRouteRef ?? '',
         internalNumber: _internalNumberCtrl.text.trim(),
         brand: _brandCtrl.text.trim(),
         color: _colorCtrl.text.trim(),
@@ -232,7 +260,11 @@ class _SolicitudChoferPageState extends State<SolicitudChoferPage> {
               const SizedBox(height: 10),
               _LabeledField(label: 'Placa del vehículo', controller: _plateCtrl),
               const SizedBox(height: 12),
-              _LabeledField(label: 'Línea', controller: _lineCtrl),
+              _AssignedRouteField(
+                loading: _loadingAssignedRoute,
+                routeName: _assignedRouteName,
+                routeRef: _assignedRouteRef,
+              ),
               const SizedBox(height: 12),
               _LabeledField(label: 'Número de unidad', controller: _internalNumberCtrl),
               const SizedBox(height: 12),
@@ -331,6 +363,59 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+    );
+  }
+}
+
+/// Muestra la línea que el dirigente ya le asignó al perfil del chofer
+/// (`assigned_route_ref`) — de solo lectura, no editable por quien solicita.
+class _AssignedRouteField extends StatelessWidget {
+  final bool loading;
+  final String? routeName;
+  final String? routeRef;
+
+  const _AssignedRouteField({
+    required this.loading,
+    required this.routeName,
+    required this.routeRef,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final text = loading
+        ? 'Cargando...'
+        : (routeName ?? routeRef ?? 'Pendiente de asignación por el dirigente');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Línea', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.lock_outline, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    color: (routeName == null && routeRef == null && !loading)
+                        ? colorScheme.onSurface.withValues(alpha: 0.5)
+                        : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -6,12 +6,12 @@ import 'package:mi_ruta/features/admin/domain/services/admin_access_service.dart
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/actualizar_qr_recarga_page.dart';
-import 'package:mi_ruta/features/admin/presentation/pages/asignar_lineas_presidente_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/administracion_beneficios_page.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/user_management_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/widgets/admin_bottom_navigation_bar.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_privileges_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_route_management_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/configurar_descuentos_beneficios_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/user_management_page.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
@@ -147,20 +147,9 @@ class AdminHomePage extends StatelessWidget {
                         );
                       },
                     ),
-                  if (AdminAccessService.canAccessOperation(user, AdminOperation.manageUsers))
-                    _MenuCard(
-                      icon: Icons.groups_outlined,
-                      title: 'Asignar línea a presidente',
-                      subtitle: 'Qué línea(s) gestiona cada dirigente',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const AsignarLineasPresidentePage(),
-                          ),
-                        );
-                      },
-                    ),
+                  // "Asignar línea a presidente" (AsignarLineasPresidentePage) se
+                  // ocultó a pedido del usuario — ya no es necesaria en el flujo de
+                  // admin. La página queda sin usar a propósito (ver DEUDA_TECNICA.md).
                   if (AdminAccessService.canAccessOperation(user, AdminOperation.manageUsers))
                     _MenuCard(
                       icon: Icons.qr_code_2,
@@ -171,6 +160,20 @@ class AdminHomePage extends StatelessWidget {
                           context,
                           MaterialPageRoute(
                             builder: (_) => const ActualizarQrRecargaPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  if (AdminAccessService.canAccessOperation(user, AdminOperation.manageUsers))
+                    _MenuCard(
+                      icon: Icons.percent_outlined,
+                      title: 'Descuentos de beneficios',
+                      subtitle: '% de descuento por tipo (estudiante, universitario, adulto mayor)',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ConfigurarDescuentosBeneficiosPage(),
                           ),
                         );
                       },
@@ -287,8 +290,16 @@ class AdminHomePage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
-                          PerfilPage(homeBuilder: (_) => const AdminHomePage()),
+                      builder: (_) => PerfilPage(
+                        homeBuilder: (_) => const AdminHomePage(),
+                        // Sin esto, "Rutas" desde Perfil caía a la pantalla
+                        // de rutas del pasajero en vez de volver a la
+                        // gestión de rutas del admin.
+                        routesBuilder: (_) => BlocProvider.value(
+                          value: getIt<RouteManagementBloc>(),
+                          child: const AdminRouteManagementPage(),
+                        ),
+                      ),
                     ),
                   );
                   break;

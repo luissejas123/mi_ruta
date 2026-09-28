@@ -96,14 +96,78 @@ class _ConfirmarAbordajePageState extends State<ConfirmarAbordajePage> {
     }
     setState(() => _confirming = true);
     try {
-      final vehicle = await getIt<DriverService>().getVehicleByPlate(plate);
-      if (vehicle == null) {
+      final vehicles = await getIt<DriverService>().getVehiclesByPlate(plate);
+      if (vehicles.isEmpty) {
         throw Exception('No se encontró una unidad con esa placa.');
+      }
+      final vehicle = vehicles.length == 1
+          ? vehicles.first
+          // Dos flujos de alta distintos pueden haber registrado la misma
+          // placa dos veces — sin esto, se elegía cualquiera al azar.
+          : await _pickAmongDuplicates(vehicles);
+      if (vehicle == null) {
+        // El pasajero canceló la elección.
+        setState(() => _confirming = false);
+        return;
       }
       await _confirmWithVehicle(vehicle);
     } catch (e) {
       _showError('No se pudo confirmar el abordaje: $e');
     }
+  }
+
+  Future<VehicleEntity?> _pickAmongDuplicates(
+    List<VehicleEntity> vehicles,
+  ) async {
+    if (!mounted) return null;
+    return showModalBottomSheet<VehicleEntity>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Hay más de una unidad con esa placa',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Elegí cuál abordaste.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 320),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: vehicles.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, i) {
+                    final v = vehicles[i];
+                    final brandModel = '${v.brand} ${v.model}'.trim();
+                    return ListTile(
+                      leading: const Icon(Icons.directions_bus_outlined),
+                      title: Text('Línea ${v.lineNumber.isEmpty ? "sin línea" : v.lineNumber}'),
+                      subtitle: Text(
+                        [
+                          if (brandModel.isNotEmpty) brandModel,
+                          if (v.internalNumber.isNotEmpty) 'Nº ${v.internalNumber}',
+                        ].join(' · '),
+                      ),
+                      onTap: () => Navigator.pop(context, v),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _confirmWithVehicle(VehicleEntity vehicle) async {

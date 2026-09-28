@@ -200,6 +200,28 @@ class NotificationService {
     );
   }
 
+  /// Avisa a un tickeador que una unidad de su línea inició servicio —
+  /// para que sepa que puede escanear el QR fijo de la unidad (`UnitQrPage`)
+  /// y marcar Salida/Llegada/Intermedio.
+  Future<void> saveDriverServiceStartedNotification(
+    String tickeadorUid, {
+    required String vehicleId,
+    required String routeName,
+  }) async {
+    await _datasource.save(
+      AppNotification(
+        id: _id(),
+        userId: tickeadorUid,
+        type: NotificationType.operational,
+        title: 'Unidad en servicio',
+        body: 'La unidad $vehicleId de $routeName inició servicio. '
+            'Escaneá su QR para registrar su recorrido.',
+        isRead: false,
+        createdAt: DateTime.now(),
+      ),
+    );
+  }
+
   /// El pasajero avisa que baja y elige pagar con QR (segunda opción de
   /// "Aviso de bajada", `RutaNavegacionPage._payViaQr`) — le llega al
   /// chofer con el `tripId` del abordaje ya conectado, así el chofer no

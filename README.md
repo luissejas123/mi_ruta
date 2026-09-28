@@ -26,9 +26,19 @@ Clean Architecture por feature (`data` / `domain` / `presentation`), BLoC para e
 
 `.env`, `firebase_options.dart`, `google-services.json`, `GoogleService-Info.plist`, certificados (`*.pem`/`*.key`/`*.p12`), `debug.keystore`. Guía completa, incluido el runbook para sembrar el primer SuperAdmin: [SECURITY.md](SECURITY.md).
 
-## Estado del proyecto (2026-09-13)
+## Estado del proyecto (2026-09-28)
 
 Sprint 3 avanzado y parcialmente completado; varios módulos que originalmente estaban planificados para Sprint 4 (chofer/admin/tickeador/presidente) ya se adelantaron y están implementados — Sprint 3 y 4 corrieron en paralelo, no en secuencia estricta, con cambios de alcance pedidos sobre la marcha (típico en Scrum). El detalle día a día de quién implementó qué vive en `docs/specs/claude Documento 8 Bitácora de Implementación.docx`.
+
+### Trabajo en curso sin commitear (rama `dev-jesus-villarroel`)
+
+Hay cambios locales sin commitear al 2026-09-28 — **para seguir trabajando en otra máquina hay que commitear y pushear esta rama primero**, `git status`/`git diff` no viaja solo. Resumen de lo que incluyen:
+
+- **Plan de 11 puntos QA (chofer/tickeador/beneficios/navegación) completo**, las 3 tandas: ícono de ubicación sin flecha, ocultar opciones de menú ya no vigentes, abordaje por placa con lista para duplicados, descuentos de beneficios configurables por el admin y aplicados al cobro, notificación al tickeador cuando un chofer inicia servicio + escaneo de QR de unidad para Salida/Llegada/Intermedio, y el viaje abordado persiste al cambiar de pestaña (`NavigationBloc` ahora es singleton).
+- **Auditoría y fix de navegación por rol**: varias pantallas decidían qué mostrar/a dónde navegar leyendo `AuthBloc` (foto fija de al iniciar sesión) en vez de `UserBloc` (stream en vivo de Firestore) — un cambio de rol durante la sesión no se reflejaba hasta cerrar y volver a entrar. Corregido en `perfil_rol_page.dart`, `perfil_page.dart` y `notificaciones_page.dart`.
+- **`PerfilConductorPage` eliminada**: el chofer tenía una pantalla de Perfil aparte, desactualizada (4 opciones fijas) y con un pie de navegación que no reenviaba a las pantallas del rol — ahora el chofer usa el mismo `PerfilPage` compartido que el resto de los roles, que ya lo soporta bien.
+- **"Convertirme en chofer" (RQ-68) oculto** de Perfil por decisión del usuario — quedaba duplicado con "Registrarme como chofer" (el flujo real, con aprobación del dirigente); ver `docs/DEUDA_TECNICA.md` ítem correspondiente.
+- Ver [docs/DEUDA_TECNICA.md](docs/DEUDA_TECNICA.md) para el detalle completo de bugs encontrados/corregidos y páginas que quedaron huérfanas a propósito.
 
 ## Documentación formal del proyecto (`docs/specs/`)
 

@@ -61,6 +61,36 @@ class MarcarLlegadaEvent extends TickeadorEvent {
   List<Object?> get props => [tickeadorId, stationName, vehicle];
 }
 
+/// Marca el paso de un vehículo por un punto intermedio del camino.
+class MarcarIntermedioEvent extends TickeadorEvent {
+  final String tickeadorId;
+  final String stationName;
+  final VehicleEntity vehicle;
+
+  const MarcarIntermedioEvent({
+    required this.tickeadorId,
+    required this.stationName,
+    required this.vehicle,
+  });
+
+  @override
+  List<Object?> get props => [tickeadorId, stationName, vehicle];
+}
+
+/// Busca un vehículo por su `vehicleId` exacto tras escanear el QR fijo de
+/// unidad (`ownerUid|vehicleId`, ver `UnitQrPage`) — a diferencia de
+/// [BuscarVehiculoEvent] (búsqueda manual por placa tipeada), emite
+/// [VehicleFoundViaQr] para que la UI abra directo el selector de acción
+/// (Salida/Llegada/Intermedio) en vez de solo llenar la tarjeta de vehículo.
+class BuscarVehiculoPorQrEvent extends TickeadorEvent {
+  final String vehicleId;
+
+  const BuscarVehiculoPorQrEvent({required this.vehicleId});
+
+  @override
+  List<Object?> get props => [vehicleId];
+}
+
 /// Carga la actividad reciente del tickeador.
 class CargarActividadEvent extends TickeadorEvent {
   final String tickeadorId;

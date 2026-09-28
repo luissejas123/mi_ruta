@@ -39,9 +39,9 @@ void navigateBottomNav(
       // homeBuilder/walletBuilder/routesBuilder se reenvían para que, desde
       // Perfil, las pestañas Billetera/Rutas sigan yendo a las pantallas del
       // rol correcto en vez de caer a las del pasajero (bug real: antes se
-      // perdían acá aunque el llamador las pasara bien). PerfilRolPage decide
-      // entre PerfilConductorPage (chofer) y PerfilPage (todos los demás
-      // roles), reenviando estos mismos builders a este último.
+      // perdían acá aunque el llamador las pasara bien). PerfilRolPage los
+      // reenvía tal cual a PerfilPage (todos los roles pasan por la misma
+      // pantalla de Perfil, ver perfil_rol_page.dart).
       destination = PerfilRolPage(
         homeBuilder: homeBuilder,
         walletBuilder: walletBuilder,

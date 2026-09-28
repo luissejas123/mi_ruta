@@ -4,14 +4,17 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:mi_ruta/features/admin/domain/services/user_management_service.dart';
 import 'package:mi_ruta/features/driver/data/datasources/driver_datasource.dart';
 import 'package:mi_ruta/features/driver/domain/entities/driver_trip_entity.dart';
 import 'package:mi_ruta/features/driver/domain/entities/vehicle_entity.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/tariff_service.dart';
+import 'package:mi_ruta/features/user/domain/services/benefit_discount_service.dart';
 import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_payment_service.dart';
+import 'package:mi_ruta/features/user/domain/usecases/user_usecases.dart';
 
 class DriverPerformanceSummary {
   final int totalTrips;
@@ -33,6 +36,9 @@ class DriverService {
   final NotificationService _notificationService;
   final TariffService _tariffService;
   final TripPaymentService _tripPaymentService;
+  final BenefitDiscountService _benefitDiscountService;
+  final GetUserByIdUseCase _getUserByIdUseCase;
+  final UserManagementService _userManagementService;
 
   DriverService({
     required DriverDatasource datasource,
@@ -40,11 +46,17 @@ class DriverService {
     required NotificationService notificationService,
     required TariffService tariffService,
     required TripPaymentService tripPaymentService,
+    required BenefitDiscountService benefitDiscountService,
+    required GetUserByIdUseCase getUserByIdUseCase,
+    required UserManagementService userManagementService,
   })  : _datasource = datasource,
         _routeService = routeService,
         _notificationService = notificationService,
         _tariffService = tariffService,
-        _tripPaymentService = tripPaymentService;
+        _tripPaymentService = tripPaymentService,
+        _benefitDiscountService = benefitDiscountService,
+        _getUserByIdUseCase = getUserByIdUseCase,
+        _userManagementService = userManagementService;
 
   Future<VehicleEntity?> getAssignedVehicle(String driverUid) =>
       _datasource.getVehicleForOwner(driverUid);
@@ -95,7 +107,29 @@ class DriverService {
       );
     }
     await _datasource.setVehicleServiceStatus(vehicle.vehicleId, true);
-    return vehicle.copyWith(isOnDuty: true, isOnDutyUpdatedAt: DateTime.now());
+    final result = vehicle.copyWith(isOnDuty: true, isOnDutyUpdatedAt: DateTime.now());
+    try {
+      await _notifyTickeadoresOfServiceStart(result);
+    } catch (_) {
+      // No bloquea al chofer de iniciar servicio si el aviso falla.
+    }
+    return result;
+  }
+
+  /// Avisa a los tickeadores asignados a la línea de esta unidad que ya
+  /// está en servicio (C2 del plan de QA: hoy el tickeador solo se entera
+  /// de recargas para validar, no de choferes en servicio).
+  Future<void> _notifyTickeadoresOfServiceStart(VehicleEntity vehicle) async {
+    final route = await getAssignedRoute(vehicle);
+    if (route == null) return;
+    final tickeadorUids = await _userManagementService.getTickeadoresForLine(route.ref);
+    for (final uid in tickeadorUids) {
+      await _notificationService.saveDriverServiceStartedNotification(
+        uid,
+        vehicleId: vehicle.vehicleId,
+        routeName: route.name,
+      );
+    }
   }
 
   Future<VehicleEntity> stopService(VehicleEntity vehicle) async {
@@ -231,10 +265,12 @@ class DriverService {
     );
   }
 
-  /// Busca un vehículo por placa — segunda forma de confirmar abordaje
-  /// además de escanear el QR fijo de la unidad (`ConfirmarAbordajePage`).
-  Future<VehicleEntity?> getVehicleByPlate(String plate) =>
-      _datasource.getVehicleByPlate(plate);
+  /// Busca todas las unidades registradas con esta placa — segunda forma de
+  /// confirmar abordaje además de escanear el QR fijo de la unidad
+  /// (`ConfirmarAbordajePage`). Puede devolver más de una si la misma placa
+  /// quedó registrada por dos flujos de alta distintos.
+  Future<List<VehicleEntity>> getVehiclesByPlate(String plate) =>
+      _datasource.getVehiclesByPlate(plate);
 
   /// Cobra la tarifa máxima de su línea a cualquier viaje de abordaje de
   /// [driverId] que lleve más de 2 horas sin que el pasajero avise que baja
@@ -255,12 +291,34 @@ class DriverService {
   Future<void> _chargeOpenBoardingTrips(List<DriverTripEntity> trips) async {
     for (final trip in trips) {
       final maxFare = await _tariffService.resolveMaxFare(trip.routeRef);
+      final fare = await _applyBenefitDiscount(trip.passengerId, maxFare);
       await _tripPaymentService.processDistanceFare(
         userId: trip.passengerId ?? '',
         driverId: trip.driverId,
         tripId: trip.tripId,
-        amount: maxFare,
+        amount: fare,
       );
+    }
+  }
+
+  /// Mismo criterio que `RutaNavegacionPage._applyBenefitDiscount` — el
+  /// respaldo automático de cobro no debe ignorar el beneficio del
+  /// pasajero solo porque nunca avisó que bajó.
+  Future<double> _applyBenefitDiscount(String? passengerId, double fare) async {
+    if (passengerId == null || passengerId.isEmpty) return fare;
+    try {
+      final userResult = await _getUserByIdUseCase(passengerId);
+      final activeBenefits = userResult.fold(
+        (_) => const <String>[],
+        (user) => user.activeBenefits,
+      );
+      if (activeBenefits.isEmpty) return fare;
+
+      final discounts = await _benefitDiscountService.getDiscounts();
+      final percent = _benefitDiscountService.highestDiscountFor(activeBenefits, discounts);
+      return percent <= 0 ? fare : fare * (1 - percent);
+    } catch (_) {
+      return fare;
     }
   }
 

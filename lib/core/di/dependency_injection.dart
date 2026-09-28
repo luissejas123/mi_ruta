@@ -37,6 +37,8 @@ import 'package:mi_ruta/features/routes/domain/services/planned_trip_service.dar
 import 'package:mi_ruta/features/user/data/datasources/wallet_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/recharge_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/benefit_request_datasource.dart';
+import 'package:mi_ruta/features/user/data/datasources/benefit_discount_datasource.dart';
+import 'package:mi_ruta/features/user/domain/services/benefit_discount_service.dart';
 import 'package:mi_ruta/features/user/data/datasources/claim_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/rating_datasource.dart';
 import 'package:mi_ruta/features/user/data/repositories/user_repository_impl.dart';
@@ -54,6 +56,7 @@ import 'package:mi_ruta/features/user/domain/usecases/user_usecases.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/navigation_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/benefit_request_bloc.dart';
 import 'package:mi_ruta/features/presidente/presentation/bloc/claims_bloc.dart';
@@ -437,6 +440,10 @@ void setupDependencies() {
     TripPaymentBLoC(tripPaymentService: getIt<TripPaymentService>()),
   );
 
+  // Singleton (C3): el viaje abordado debe seguir corriendo (GPS/timer) aunque
+  // el pasajero cierre `RutaNavegacionPage` y navegue a otra pestaña.
+  getIt.registerSingleton<NavigationBloc>(NavigationBloc());
+
   // DRIVER FEATURE - DATA LAYER (el registro del DriverService se hace más
   // abajo: necesita RouteService/TariffService, que todavía no existen acá)
   getIt.registerSingleton<DriverDatasource>(
@@ -518,6 +525,16 @@ void setupDependencies() {
   );
 
   // ============================================
+  // BENEFIT DISCOUNTS (% por tipo de beneficio, configurado por el admin)
+  // ============================================
+  getIt.registerSingleton<BenefitDiscountDatasource>(
+    BenefitDiscountDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+  getIt.registerSingleton<BenefitDiscountService>(
+    BenefitDiscountService(datasource: getIt<BenefitDiscountDatasource>()),
+  );
+
+  // ============================================
   // ROUTES FEATURE - DATA LAYER
   // ============================================
   getIt.registerSingleton<RouteDatasource>(
@@ -540,6 +557,9 @@ void setupDependencies() {
       notificationService: getIt<NotificationService>(),
       tariffService: getIt<TariffService>(),
       tripPaymentService: getIt<TripPaymentService>(),
+      benefitDiscountService: getIt<BenefitDiscountService>(),
+      getUserByIdUseCase: getIt<GetUserByIdUseCase>(),
+      userManagementService: getIt<UserManagementService>(),
     ),
   );
 
@@ -705,25 +725,8 @@ void setupDependencies() {
     ),
   );
 
-  // ============================================
-  // DRIVER FEATURE - DATA LAYER (unidades/viajes/cobros)
-  // ============================================
-  getIt.registerSingleton<DriverDatasource>(
-    DriverDatasource(firestore: getIt<FirebaseFirestore>()),
-  );
-
-  // ============================================
-  // DRIVER FEATURE - DOMAIN LAYER (Services)
-  // ============================================
-  getIt.registerSingleton<DriverService>(
-    DriverService(
-      datasource: getIt<DriverDatasource>(),
-      routeService: getIt<RouteService>(),
-      notificationService: getIt<NotificationService>(),
-      tariffService: getIt<TariffService>(),
-      tripPaymentService: getIt<TripPaymentService>(),
-    ),
-  );
+  // DriverDatasource/DriverService ya se registran arriba (junto a
+  // RouteService/TariffService/BenefitDiscountService, de los que dependen).
 
   getIt.registerSingleton<TickeadorOperationsDatasource>(
     TickeadorOperationsDatasource(firestore: getIt<FirebaseFirestore>()),

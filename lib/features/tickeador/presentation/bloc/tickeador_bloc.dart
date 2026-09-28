@@ -17,6 +17,8 @@ class TickeadorBloc extends Bloc<TickeadorEvent, TickeadorState> {
     on<BuscarVehiculoEvent>(_onBuscarVehiculo);
     on<MarcarSalidaEvent>(_onMarcarSalida);
     on<MarcarLlegadaEvent>(_onMarcarLlegada);
+    on<MarcarIntermedioEvent>(_onMarcarIntermedio);
+    on<BuscarVehiculoPorQrEvent>(_onBuscarVehiculoPorQr);
     on<CargarActividadEvent>(_onCargarActividad);
     on<ValidateTripQr>(_onValidateTripQr);
     on<LoadVerificationHistory>(_onLoadVerificationHistory);
@@ -99,6 +101,48 @@ class TickeadorBloc extends Bloc<TickeadorEvent, TickeadorState> {
       emit(ActividadLoaded(logs: logs));
       // Mantener el vehículo seleccionado visible
       emit(VehicleFound(vehicle: event.vehicle));
+    } catch (e) {
+      emit(TickeadorError(message: e.toString()));
+    }
+  }
+
+  /// Marca el paso de un vehículo por un punto intermedio del camino.
+  Future<void> _onMarcarIntermedio(
+    MarcarIntermedioEvent event,
+    Emitter<TickeadorState> emit,
+  ) async {
+    emit(const TickeadorLoading());
+    try {
+      await _service.marcarIntermedio(
+        tickeadorId: event.tickeadorId,
+        stationName: event.stationName,
+        vehicle: event.vehicle,
+      );
+      emit(
+        const StationLogSuccess(message: 'Punto intermedio registrado correctamente'),
+      );
+      emit(const TickeadorLoading());
+      final logs = await _service.getActividadReciente(event.tickeadorId);
+      emit(ActividadLoaded(logs: logs));
+      emit(VehicleFound(vehicle: event.vehicle));
+    } catch (e) {
+      emit(TickeadorError(message: e.toString()));
+    }
+  }
+
+  /// Busca un vehículo por su `vehicleId` exacto (QR fijo de unidad).
+  Future<void> _onBuscarVehiculoPorQr(
+    BuscarVehiculoPorQrEvent event,
+    Emitter<TickeadorState> emit,
+  ) async {
+    emit(const TickeadorLoading());
+    try {
+      final vehicle = await _service.buscarVehiculoPorPlaca(event.vehicleId);
+      if (vehicle == null) {
+        emit(const VehicleNotFound());
+      } else {
+        emit(VehicleFoundViaQr(vehicle: vehicle));
+      }
     } catch (e) {
       emit(TickeadorError(message: e.toString()));
     }

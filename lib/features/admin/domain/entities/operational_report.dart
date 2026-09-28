@@ -59,7 +59,16 @@ class OperationalReport extends Equatable {
   });
 
   @override
-  List<Object?> get props => [drivers];
+  List<Object> get props => [
+    drivers,
+    unitsInService,
+    approvedUnits,
+    unitsUnderReview,
+    rejectedUnits,
+    registeredPassengers,
+    registeredTicketers,
+    blockedAccounts,
+  ];
 
   /// Filtra a los choferes cuyo `assignedRouteRef` está entre [managedLines]
   /// (líneas que gestiona un presidente, `users.presidente_info.managed_lines`).

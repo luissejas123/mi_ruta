@@ -65,7 +65,7 @@ class _ReportesOperativosPageState extends State<ReportesOperativosPage> {
         return Scaffold(
           appBar: AppBar(
             title: const Text(
-              'Panel de dirigencia',
+              'Estadísticas generales',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             centerTitle: true,
@@ -106,7 +106,7 @@ class _ReportesOperativosPageState extends State<ReportesOperativosPage> {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
                   children: [
                     const Text(
-                      'Reporte operativo',
+                      'Indicadores generales',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,

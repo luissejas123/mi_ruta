@@ -12,7 +12,7 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_state.dart';
-import 'package:mi_ruta/features/user/presentation/pages/perfil_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/perfil_rol_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/rutas_inicio_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/wallet_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
@@ -126,13 +126,12 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
       return;
     }
     if (index == 3) {
-      // ✅ Navega al perfil real con AuthBloc disponible
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => BlocProvider.value(
             value: context.read<AuthBloc>(),
-            child: const PerfilPage(),
+            child: const PerfilRolPage(),
           ),
         ),
       );
@@ -259,7 +258,7 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
                               address: state.pinAddress,
                               confirmButtonText: 'Confirmar destino',
                               onCancel: _togglePinMode,
-                              onConfirm: (state.isCameraMoving ||
+                                onConfirm: (state.isCameraMoving ||
                                       state.pinAddress == null)
                                   ? null
                                   : _confirmPinDestination,

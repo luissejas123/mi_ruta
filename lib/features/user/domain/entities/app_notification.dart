@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-enum NotificationType { trip, recharge, gift, operational }
+enum NotificationType { trip, recharge, gift, operational, benefitRequest }
 
 class AppNotification extends Equatable {
   final String id;

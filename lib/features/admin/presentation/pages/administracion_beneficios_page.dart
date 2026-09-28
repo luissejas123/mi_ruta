@@ -423,14 +423,13 @@ class _RequestDetails extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               // Antes mostraba la URL cruda como texto — nadie va a pegarla
-              // en el navegador para revisar un comprobante. Botón directo
-              // a verla en grande.
-              for (var i = 0; i < request.documentUrls.length; i++)
-                _DocumentButton(
-                  label: request.documentUrls.length > 1
-                      ? 'Ver documento ${i + 1}'
-                      : 'Ver documento',
-                  url: request.documentUrls[i],
+              // en el navegador para revisar un comprobante. Miniatura
+              // directa (no solo un botón ciego) que además se puede tocar
+              // para verla en grande.
+              for (final url in request.documentUrls)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: _DocumentPreview(url: url),
                 ),
             ],
             if (request.adminNotes?.isNotEmpty == true)
@@ -462,6 +461,50 @@ class _RequestDetails extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DocumentPreview extends StatelessWidget {
+  final String url;
+
+  const _DocumentPreview({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => showDialog<void>(
+        context: context,
+        builder: (_) => Dialog(
+          child: InteractiveViewer(
+            child: Image.network(
+              url,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('No se pudo cargar el documento.'),
+              ),
+            ),
+          ),
+        ),
+      ),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 180,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.black12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Image.network(
+          url,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => const Center(
+            child: Text('No se pudo cargar el documento.'),
+          ),
         ),
       ),
     );
@@ -505,40 +548,6 @@ class _BenefitsList extends StatelessWidget {
           ),
         );
       }).toList(),
-    );
-  }
-}
-
-/// Botón que abre el documento subido (siempre imagen — `SolicitudBeneficioPage`
-/// solo permite `ImagePicker`, nunca PDF) para revisarlo antes de aprobar o
-/// rechazar, en vez de mostrar la URL en texto plano.
-class _DocumentButton extends StatelessWidget {
-  final String label;
-  final String url;
-  const _DocumentButton({required this.label, required this.url});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: OutlinedButton.icon(
-        onPressed: () => showDialog(
-          context: context,
-          builder: (_) => Dialog(
-            child: InteractiveViewer(
-              child: Image.network(
-                url,
-                errorBuilder: (_, _, _) => const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('No se pudo cargar la imagen.'),
-                ),
-              ),
-            ),
-          ),
-        ),
-        icon: const Icon(Icons.image_outlined, size: 18),
-        label: Text(label),
-      ),
     );
   }
 }

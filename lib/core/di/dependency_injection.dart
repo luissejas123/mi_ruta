@@ -70,6 +70,8 @@ import 'package:mi_ruta/features/user/data/repositories/location_repository_impl
 import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
 import 'package:mi_ruta/features/user/domain/usecases/reverse_geocode_usecase.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
+import 'package:mi_ruta/features/driver/data/datasources/driver_datasource.dart';
+import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
 import 'package:mi_ruta/features/driver/data/datasources/vehicle_remote_datasource.dart';
 import 'package:mi_ruta/features/driver/data/datasources/vehicle_remote_datasource_impl.dart';
 import 'package:mi_ruta/features/driver/data/repositories/vehicle_repository_impl.dart';
@@ -87,8 +89,6 @@ import 'package:mi_ruta/features/user/domain/services/user_preferences_service.d
 
 import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_bloc.dart';
 import 'package:mi_ruta/features/routes/domain/services/gtfs_schedule_service.dart';
-import 'package:mi_ruta/features/driver/data/datasources/driver_datasource.dart';
-import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
 import 'package:mi_ruta/features/admin/data/datasources/user_management_datasource.dart';
 import 'package:mi_ruta/features/admin/domain/services/user_management_service.dart';
 import 'package:mi_ruta/features/admin/domain/services/admin_service.dart';
@@ -267,7 +267,10 @@ void setupDependencies() {
   );
 
   getIt.registerSingleton<UserRemoteDataSource>(
-    UserRemoteDataSourceImpl(firestore: getIt<FirebaseFirestore>()),
+    UserRemoteDataSourceImpl(
+      firestore: getIt<FirebaseFirestore>(),
+      firebaseAuth: getIt<FirebaseAuth>(),
+    ),
   );
 
   getIt.registerSingleton<UserRepository>(
@@ -427,6 +430,12 @@ void setupDependencies() {
     TripPaymentBLoC(tripPaymentService: getIt<TripPaymentService>()),
   );
 
+  // DRIVER FEATURE - DATA LAYER (el registro del DriverService se hace más
+  // abajo: necesita RouteService/TariffService, que todavía no existen acá)
+  getIt.registerSingleton<DriverDatasource>(
+    DriverDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
   // ============================================
   // BENEFIT REQUEST FEATURE - DATA LAYER
   // ============================================
@@ -444,6 +453,7 @@ void setupDependencies() {
     BenefitRequestService(
       datasource: getIt<BenefitRequestDatasource>(),
       storageService: getIt<StorageService>(),
+      notificationService: getIt<NotificationService>(),
     ),
   );
 
@@ -512,6 +522,18 @@ void setupDependencies() {
   // ============================================
   getIt.registerSingleton<RouteService>(
     RouteService(datasource: getIt<RouteDatasource>()),
+  );
+
+  // DRIVER FEATURE - DOMAIN LAYER (DriverService). Va acá porque necesita
+  // RouteService/TariffService, ya registrados arriba.
+  getIt.registerSingleton<DriverService>(
+    DriverService(
+      datasource: getIt<DriverDatasource>(),
+      routeService: getIt<RouteService>(),
+      notificationService: getIt<NotificationService>(),
+      tariffService: getIt<TariffService>(),
+      tripPaymentService: getIt<TripPaymentService>(),
+    ),
   );
 
   getIt.registerSingleton<RouteMigrationService>(

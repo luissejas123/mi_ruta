@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/user/presentation/pages/mi_ruta_screen.dart';
-import 'package:mi_ruta/features/user/presentation/pages/perfil_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/perfil_rol_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/rutas_inicio_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/wallet_page.dart';
 
@@ -39,8 +39,10 @@ void navigateBottomNav(
       // homeBuilder/walletBuilder/routesBuilder se reenvían para que, desde
       // Perfil, las pestañas Billetera/Rutas sigan yendo a las pantallas del
       // rol correcto en vez de caer a las del pasajero (bug real: antes se
-      // perdían acá aunque el llamador las pasara bien).
-      destination = PerfilPage(
+      // perdían acá aunque el llamador las pasara bien). PerfilRolPage decide
+      // entre PerfilConductorPage (chofer) y PerfilPage (todos los demás
+      // roles), reenviando estos mismos builders a este último.
+      destination = PerfilRolPage(
         homeBuilder: homeBuilder,
         walletBuilder: walletBuilder,
         routesBuilder: routesBuilder,

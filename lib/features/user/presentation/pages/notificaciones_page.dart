@@ -10,6 +10,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/notification_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/notification_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/notification_preferences_cubit.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/notification_state.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/administracion_beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/preferencias_notificacion_page.dart';
 
 class NotificacionesPage extends StatelessWidget {
@@ -74,10 +75,12 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
           _activeCategory == null
               ? 'Notificaciones'
               : _activeCategory == 'trip'
-              ? 'Viajes'
-              : _activeCategory == 'recharge'
-              ? 'Recargas'
-              : 'Regalos',
+                  ? 'Viajes'
+                  : _activeCategory == 'recharge'
+                      ? 'Recargas'
+                      : _activeCategory == 'gift'
+                        ? 'Regalos'
+                        : 'Solicitudes de beneficios',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
         actions: [
@@ -127,6 +130,7 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
                     rechargeCount:
                         prefs.rechargesEnabled ? state.recharges.length : 0,
                     giftCount: prefs.giftsEnabled ? state.gifts.length : 0,
+                    benefitCount: state.benefitRequests.length,
                     tripUnread: prefs.tripsEnabled
                         ? state.trips.where((n) => !n.isRead).length
                         : 0,
@@ -136,6 +140,8 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
                     giftUnread: prefs.giftsEnabled
                         ? state.gifts.where((n) => !n.isRead).length
                         : 0,
+                    benefitUnread:
+                        state.benefitRequests.where((n) => !n.isRead).length,
                     tripsEnabled: prefs.tripsEnabled,
                     rechargesEnabled: prefs.rechargesEnabled,
                     giftsEnabled: prefs.giftsEnabled,
@@ -148,7 +154,11 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
                         ? (prefs.rechargesEnabled
                             ? state.recharges
                             : const <AppNotification>[])
-                        : (prefs.giftsEnabled ? state.gifts : const <AppNotification>[]);
+                        : _activeCategory == 'gift'
+                            ? (prefs.giftsEnabled
+                                ? state.gifts
+                                : const <AppNotification>[])
+                            : state.benefitRequests;
                 return _NotificationList(
                   items: items,
                   userId: _userId,
@@ -191,6 +201,10 @@ class _NotificacionesViewState extends State<_NotificacionesView> {
             return Center(child: Text(state.message));
           }
           if (state is NotificationLoaded) {
+            // El chofer no recibe avisos de beneficios (esos son para
+            // admin/dirigente — ver `saveBenefitRequestNotification`, el
+            // primer parámetro es literalmente `adminId`), así que sigue
+            // siendo un feed plano sin selector de categorías.
             final operational = state.all
                 .where((n) => n.type == NotificationType.operational)
                 .toList();
@@ -254,8 +268,8 @@ class _NotificationsDisabledState extends StatelessWidget {
 }
 
 class _CategoryPicker extends StatelessWidget {
-  final int tripCount, rechargeCount, giftCount;
-  final int tripUnread, rechargeUnread, giftUnread;
+  final int tripCount, rechargeCount, giftCount, benefitCount;
+  final int tripUnread, rechargeUnread, giftUnread, benefitUnread;
   final bool tripsEnabled, rechargesEnabled, giftsEnabled;
   final void Function(String) onTap;
 
@@ -263,9 +277,11 @@ class _CategoryPicker extends StatelessWidget {
     required this.tripCount,
     required this.rechargeCount,
     required this.giftCount,
+    required this.benefitCount,
     required this.tripUnread,
     required this.rechargeUnread,
     required this.giftUnread,
+    required this.benefitUnread,
     required this.tripsEnabled,
     required this.rechargesEnabled,
     required this.giftsEnabled,
@@ -304,6 +320,15 @@ class _CategoryPicker extends StatelessWidget {
             unread: giftUnread,
             enabled: giftsEnabled,
             onTap: () => onTap('gift'),
+          ),
+          const SizedBox(height: 16),
+          _CategoryCard(
+            icon: Icons.fact_check_outlined,
+            label: 'Solicitudes de beneficios',
+            count: benefitCount,
+            unread: benefitUnread,
+            enabled: true,
+            onTap: () => onTap('benefitRequest'),
           ),
         ],
       ),
@@ -454,6 +479,8 @@ class _NotifTile extends StatelessWidget {
         return Icons.card_giftcard_outlined;
       case NotificationType.operational:
         return Icons.campaign_outlined;
+      case NotificationType.benefitRequest:
+        return Icons.fact_check_outlined;
     }
   }
 
@@ -467,6 +494,12 @@ class _NotifTile extends StatelessWidget {
       _showGiftDetail(context);
     } else if (notif.relatedTripId != null) {
       _showQrDetail(context);
+    } else if (notif.type == NotificationType.benefitRequest) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const AdministracionBeneficiosPage(),
+        ),
+      );
     }
   }
 

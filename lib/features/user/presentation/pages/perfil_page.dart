@@ -268,14 +268,28 @@ class _PerfilPageState extends State<PerfilPage> {
         notificationSettings['recharge_notifications_enabled'] as bool? ?? true;
     final giftNotificationsEnabled =
         notificationSettings['gift_notifications_enabled'] as bool? ?? true;
+    final userRole = authState is AuthLoaded
+        ? authState.user.role.trim().toLowerCase()
+        : '';
+    final isLeadershipRole = {
+      'admin',
+      'administrador',
+      'dirigente',
+      'presidente',
+    }.contains(userRole);
+    final profileTitle = userRole == 'dirigente' || userRole == 'presidente'
+        ? 'Perfil de dirigencia'
+        : isLeadershipRole
+        ? 'Perfil administrativo'
+        : 'Mi Perfil';
 
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         centerTitle: true,
-        title: const Text(
-          'Mi Perfil',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        title: Text(
+          profileTitle,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
       ),
       body: BlocConsumer<UserBloc, UserState>(
@@ -641,12 +655,13 @@ class _PerfilPageState extends State<PerfilPage> {
                     ),
                   ),
 
-                if ({
-                  'admin',
-                  'administrador',
-                  'dirigente',
-                  'presidente',
-                }.contains(user.userType.trim().toLowerCase())) ...[
+                if (isLeadershipRole ||
+                    {
+                      'admin',
+                      'administrador',
+                      'dirigente',
+                      'presidente',
+                    }.contains(user.userType.trim().toLowerCase())) ...[
                   _buildSectionTitle('SUPERVISIÓN'),
                   _buildMenuItem(
                     icon: Icons.assessment_outlined,
@@ -688,7 +703,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   trailing: Switch(
                     value: isDarkMode,
                     onChanged: (_) => context.read<ThemeCubit>().toggleTheme(),
-                    activeColor: _amarillo,
+                    activeThumbColor: _amarillo,
                   ),
                 ),
 

@@ -1,4 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/foundation.dart';
 import 'package:mi_ruta/features/routes/data/datasources/planned_trip_datasource.dart';
 import 'package:mi_ruta/features/routes/domain/entities/planned_trip.dart';
 import 'package:mi_ruta/features/routes/domain/services/multi_route_planner.dart';
@@ -24,7 +25,9 @@ class PlannedTripService {
     required String destinationName,
     required DateTime scheduledAt,
   }) async {
+    final totalTimer = Stopwatch()..start();
     await _syncService.ensureDataReady();
+    final dataReadyMs = totalTimer.elapsedMilliseconds;
 
     // Midpoint between origin and destination — needed for 3-leg combos
     final midLat = (origin.latitude + destination.latitude) / 2;
@@ -49,10 +52,11 @@ class PlannedTripService {
     final originRoutes = _toOsmRoutes(results[0]);
     final destRoutes = _toOsmRoutes(results[1]);
     final midRoutes = _toOsmRoutes(results[2]);
+    final routeLookupMs = totalTimer.elapsedMilliseconds - dataReadyMs;
 
     if (originRoutes.isEmpty && destRoutes.isEmpty) return [];
 
-    return MultiRoutePlanner.planAsync(
+    final plans = await MultiRoutePlanner.planAsync(
       userId: userId,
       origin: origin,
       destination: destination,
@@ -63,6 +67,14 @@ class PlannedTripService {
       destName: destinationName,
       scheduledAt: scheduledAt,
     );
+    if (kDebugMode) {
+      debugPrint(
+        '[Rendimiento] planificar viaje: ${totalTimer.elapsedMilliseconds} ms '
+        '(datos: $dataReadyMs ms, rutas: $routeLookupMs ms, '
+        'calculo: ${totalTimer.elapsedMilliseconds - dataReadyMs - routeLookupMs} ms)',
+      );
+    }
+    return plans;
   }
 
   Future<void> save(PlannedTrip trip) => _datasource.save(trip);

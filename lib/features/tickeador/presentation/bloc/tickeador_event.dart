@@ -74,11 +74,12 @@ class CargarActividadEvent extends TickeadorEvent {
 /// Valida un código QR de viaje.
 class ValidateTripQr extends TickeadorEvent {
   final String qrCode;
+  final String tickeadorUid;
 
-  const ValidateTripQr({required this.qrCode});
+  const ValidateTripQr({required this.qrCode, required this.tickeadorUid});
 
   @override
-  List<Object?> get props => [qrCode];
+  List<Object?> get props => [qrCode, tickeadorUid];
 }
 
 /// Carga el historial de verificaciones.

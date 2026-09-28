@@ -6,6 +6,8 @@ import 'package:mi_ruta/features/user/domain/services/storage_service.dart';
 
 /// Servicio de dominio para operaciones de recarga
 class RechargeService {
+  static const double maxRechargeAmount = 5000;
+
   final RecargeDatasource _datasource;
   final StorageService _storageService;
 
@@ -16,6 +18,18 @@ class RechargeService {
   }) : _datasource = datasource,
        _storageService = storageService;
 
+  /// Retorna el mensaje de validación del monto o `null` cuando es válido.
+  /// La regla vive en dominio para que no pueda omitirse desde otra pantalla.
+  static String? validateAmount(double? amount) {
+    if (amount == null || !amount.isFinite || amount <= 0) {
+      return 'Ingresa un monto válido';
+    }
+    if (amount > maxRechargeAmount) {
+      return 'El monto máximo de recarga es Bs. 5.000';
+    }
+    return null;
+  }
+
   /// Crea una solicitud de recarga con comprobante
   /// Sube la imagen a Firebase Storage y retorna el ID de la recarga
   Future<String> submitRechargeRequest({
@@ -24,8 +38,9 @@ class RechargeService {
     required String currency,
     required File proofImageFile,
   }) async {
-    if (amount <= 0) {
-      throw ArgumentError('El monto debe ser mayor a 0');
+    final amountError = validateAmount(amount);
+    if (amountError != null) {
+      throw ArgumentError(amountError);
     }
 
     if (!proofImageFile.existsSync()) {

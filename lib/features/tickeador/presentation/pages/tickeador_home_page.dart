@@ -17,7 +17,8 @@ import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_vehicle_
 import 'package:mi_ruta/features/user/presentation/pages/qr_scanner_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' show confirmLogout;
+import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart'
+    show confirmLogout;
 
 /// Pantalla principal del Modo Tickeador (RQ-78).
 ///
@@ -63,15 +64,16 @@ class _TickeadorHomePageState extends State<TickeadorHomePage> {
   }
 
   void _mostrarQRScanner() async {
-    final qrCode = await Navigator.of(context).push<String>(
-      MaterialPageRoute(
-        builder: (_) => const QRScannerPage(),
-      ),
-    );
+    final qrCode = await Navigator.of(
+      context,
+    ).push<String>(MaterialPageRoute(builder: (_) => const QRScannerPage()));
 
     if (qrCode != null && qrCode.isNotEmpty) {
-      // Dispara la validación del QR
-      _tickeadorBloc.add(ValidateTripQr(qrCode: qrCode));
+      if (_uid == null) {
+        _showSnack('Usuario no autenticado', isError: true);
+        return;
+      }
+      _tickeadorBloc.add(ValidateTripQr(qrCode: qrCode, tickeadorUid: _uid!));
     }
   }
 
@@ -95,13 +97,17 @@ class _TickeadorHomePageState extends State<TickeadorHomePage> {
 
   void _marcarSalida() {
     if (_uid == null) {
-      _showSnack('Usuario sin UID. No se puede realizar la operación.',
-          isError: true);
+      _showSnack(
+        'Usuario sin UID. No se puede realizar la operación.',
+        isError: true,
+      );
       return;
     }
     if (_stationName == null || _stationName!.isEmpty) {
-      _showSnack('El tickeador no tiene estación asignada. No se puede registrar.',
-          isError: true);
+      _showSnack(
+        'El tickeador no tiene estación asignada. No se puede registrar.',
+        isError: true,
+      );
       return;
     }
     if (_selectedVehicle == null) {
@@ -119,13 +125,17 @@ class _TickeadorHomePageState extends State<TickeadorHomePage> {
 
   void _marcarLlegada() {
     if (_uid == null) {
-      _showSnack('Usuario sin UID. No se puede realizar la operación.',
-          isError: true);
+      _showSnack(
+        'Usuario sin UID. No se puede realizar la operación.',
+        isError: true,
+      );
       return;
     }
     if (_stationName == null || _stationName!.isEmpty) {
-      _showSnack('El tickeador no tiene estación asignada. No se puede registrar.',
-          isError: true);
+      _showSnack(
+        'El tickeador no tiene estación asignada. No se puede registrar.',
+        isError: true,
+      );
       return;
     }
     if (_selectedVehicle == null) {
@@ -151,6 +161,42 @@ class _TickeadorHomePageState extends State<TickeadorHomePage> {
     );
   }
 
+  // `_buildSectionTitle`/`_buildModeCard`/`_buildVehicleCard`/
+  // `_buildVehicleRow`/`_formatLogType`/`_formatTimestamp`/
+  // `_buildActividadItem` (todo lo que armaba esta pantalla en un solo
+  // archivo) ya no viven acá — se separaron en su propio widget dentro de
+  // esta misma carpeta (ver el comentario de la clase). Este método sí es
+  // nuevo (validación de QR de viaje) y no tenía todavía hogar en esos
+  // archivos separados.
+  Future<void> _showValidatedPayment(Map<String, dynamic> tripData) {
+    final amount = (tripData['paymentAmount'] as num?)?.toDouble() ?? 0;
+    final route = (tripData['routeName'] ?? 'Sin ruta').toString();
+    final vehicle = (tripData['vehicleId'] ?? 'Sin vehículo').toString();
+
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.check_circle, color: Colors.green, size: 52),
+        title: const Text('Pago válido'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Monto: Bs. ${amount.toStringAsFixed(2)}'),
+            Text('Ruta: $route'),
+            Text('Vehículo: $vehicle'),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Aceptar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode = context.watch<ThemeCubit>().state;
@@ -161,10 +207,7 @@ class _TickeadorHomePageState extends State<TickeadorHomePage> {
         centerTitle: true,
         title: const Text(
           'Modo Tickeador',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
         actions: [
           const SwitchProfileButton(),
@@ -206,6 +249,12 @@ class _TickeadorHomePageState extends State<TickeadorHomePage> {
               _showSnack(state.message);
             }
             if (state is TickeadorError) {
+              _showSnack(state.message, isError: true);
+            }
+            if (state is QrValidated) {
+              _showValidatedPayment(state.tripData);
+            }
+            if (state is QrInvalid) {
               _showSnack(state.message, isError: true);
             }
           },

@@ -90,7 +90,9 @@ class TickeadorBloc extends Bloc<TickeadorEvent, TickeadorState> {
         stationName: event.stationName,
         vehicle: event.vehicle,
       );
-      emit(const StationLogSuccess(message: 'Llegada registrada correctamente'));
+      emit(
+        const StationLogSuccess(message: 'Llegada registrada correctamente'),
+      );
       // Refrescar la actividad reciente
       emit(const TickeadorLoading());
       final logs = await _service.getActividadReciente(event.tickeadorId);
@@ -123,12 +125,12 @@ class TickeadorBloc extends Bloc<TickeadorEvent, TickeadorState> {
   ) async {
     emit(const TickeadorLoading());
     try {
-      final result = await _service.validateTripQR(event.qrCode);
+      final result = await _service.validateTripQR(
+        qrCode: event.qrCode,
+        tickeadorUid: event.tickeadorUid,
+      );
       if (result['valid'] == true) {
-        emit(QrValidated(
-          message: 'Viaje válido',
-          tripData: result,
-        ));
+        emit(QrValidated(message: 'Viaje válido', tripData: result));
       } else {
         emit(QrInvalid(message: result['error'] ?? 'Código QR inválido'));
       }

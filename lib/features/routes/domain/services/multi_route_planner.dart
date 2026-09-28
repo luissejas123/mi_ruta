@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/features/routes/domain/entities/planned_trip.dart';
 import 'package:mi_ruta/features/user/domain/entities/osm_route.dart';
@@ -42,7 +41,6 @@ class MultiRoutePlanner {
     // ── 1-leg (direct bus) ────────────────────────────────────────────────
     final directSeen = <String>{};
     for (final r in [...r1, ...r3]) {
-      await Future.delayed(Duration.zero);
       // Use name as fallback when ref is empty to avoid all routes sharing key "|null"
       final stableId = r.ref.isNotEmpty ? r.ref : r.name;
       final key = '$stableId|${r.directionId}';
@@ -81,8 +79,9 @@ class MultiRoutePlanner {
     }
 
     // ── 2-leg (transfer) ──────────────────────────────────────────────────
-    for (final ra in r1) {
-      await Future.delayed(Duration.zero);
+    for (var routeIndex = 0; routeIndex < r1.length; routeIndex++) {
+      if (routeIndex.isEven) await Future<void>.delayed(Duration.zero);
+      final ra = r1[routeIndex];
       for (final rb in r3) {
         if (_sameRef(ra, rb)) continue;
         final result = _findTransfer(ra, rb, origin, destination);
@@ -121,8 +120,9 @@ class MultiRoutePlanner {
     }
 
     // ── 3-leg (two transfers) ─────────────────────────────────────────────
-    for (final ra in r1) {
-      await Future.delayed(Duration.zero);
+    for (var routeIndex = 0; routeIndex < r1.length; routeIndex++) {
+      if (routeIndex.isEven) await Future<void>.delayed(Duration.zero);
+      final ra = r1[routeIndex];
       for (final rm in r2) {
         if (_sameRef(ra, rm)) continue;
         final res1 = _findTransfer(ra, rm, origin, destination);
@@ -316,17 +316,19 @@ class MultiRoutePlanner {
       if (!_forward(origin, destination, tPt)) continue;
 
       // Find nearest point on rb to this candidate transfer point
-      double minD = double.infinity;
+      double minDistanceSquared = double.infinity;
       LatLng? nearB;
       for (int j = 0; j < bPts.length; j += _sampleStep) {
-        final d = _dist(tPt, bPts[j]);
-        if (d < minD) {
-          minD = d;
+        final distanceSquared = _distanceSquared(tPt, bPts[j]);
+        if (distanceSquared < minDistanceSquared) {
+          minDistanceSquared = distanceSquared;
           nearB = bPts[j];
-          if (minD < 30) break;
+          if (minDistanceSquared < 900) break;
         }
       }
-      if (minD > _maxTransfer || nearB == null) continue;
+      if (minDistanceSquared > _maxTransfer * _maxTransfer || nearB == null) {
+        continue;
+      }
 
       final seg1 = TripSegmentService.compute(
         route: ra,
@@ -344,7 +346,7 @@ class MultiRoutePlanner {
 
       final t1 = _crow(seg1.boardingStop, seg1.alightingStop) * 1.3;
       final t2 = _crow(seg2.boardingStop, seg2.alightingStop) * 1.3;
-      final score = t1 + minD * 2 + t2;
+      final score = t1 + sqrt(minDistanceSquared) * 2 + t2;
 
       if (score < bestScore) {
         bestScore = score;
@@ -393,12 +395,18 @@ class MultiRoutePlanner {
     return (dx * px + dy * py) >= 0;
   }
 
-  static double _dist(LatLng a, LatLng b) => Geolocator.distanceBetween(
-    a.latitude,
-    a.longitude,
-    b.latitude,
-    b.longitude,
-  );
+  static double _dist(LatLng a, LatLng b) => sqrt(_distanceSquared(a, b));
+
+  /// Aproximación equirectangular: precisa para distancias urbanas y mucho
+  /// más barata que ejecutar Haversine miles de veces durante la búsqueda.
+  static double _distanceSquared(LatLng a, LatLng b) {
+    const metersPerDegree = 111000.0;
+    final dLat = (b.latitude - a.latitude) * metersPerDegree;
+    final averageLatitude = (a.latitude + b.latitude) * pi / 360;
+    final dLng =
+        (b.longitude - a.longitude) * metersPerDegree * cos(averageLatitude);
+    return dLat * dLat + dLng * dLng;
+  }
 
   static double _crow(LatLng a, LatLng b) {
     final dLat = (b.latitude - a.latitude) * 111000;

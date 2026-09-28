@@ -36,6 +36,9 @@ import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' s
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/consulta_pasajeros_transportados_page.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/transported_passengers_bloc.dart';
+import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/administracion_beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/legal_bottom_sheet.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_trip_history_page.dart';
@@ -697,6 +700,20 @@ class _PerfilPageState extends State<PerfilPage> {
                       context,
                       MaterialPageRoute(
                         builder: (_) => const ReportesOperativosPage(),
+                      ),
+                    ),
+                  ),
+                  _buildMenuItem(
+                    icon: Icons.groups_outlined,
+                    title: 'Pasajeros transportados',
+                    subtitle: 'Consulta por ruta y rango de fechas',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BlocProvider.value(
+                          value: getIt<TransportedPassengersBloc>(),
+                          child: const ConsultaPasajerosTransportadosPage(),
+                        ),
                       ),
                     ),
                   ),

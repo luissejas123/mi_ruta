@@ -295,6 +295,7 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       destinationName: widget.trip.destinationName,
       elapsed: Duration(minutes: widget.trip.totalMinutes),
       farePaid: farePaid,
+      routeRefs: widget.trip.busLegs.map((l) => l.routeRef).toList(),
     );
 
     final notifService = getIt<NotificationService>();

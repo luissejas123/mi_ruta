@@ -20,6 +20,7 @@ class TripHistoryDatasource {
       'elapsed_seconds': entry.elapsed.inSeconds,
       'date': entry.date.toIso8601String(),
       'fare_paid': entry.farePaid,
+      'route_refs': entry.routeRefs,
     });
   }
 
@@ -38,6 +39,8 @@ class TripHistoryDatasource {
         elapsed: Duration(seconds: d['elapsed_seconds'] as int),
         date: DateTime.parse(d['date'] as String),
         farePaid: (d['fare_paid'] as num?)?.toDouble() ?? 0.0,
+        routeRefs:
+            (d['route_refs'] as List<dynamic>?)?.cast<String>() ?? const [],
       );
     }).toList();
   }

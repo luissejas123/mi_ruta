@@ -21,6 +21,11 @@ import 'package:mi_ruta/features/admin/data/datasources/admin_route_datasource_i
 import 'package:mi_ruta/features/admin/data/repositories/admin_route_repository_impl.dart';
 import 'package:mi_ruta/features/admin/domain/repositories/admin_route_repository.dart';
 import 'package:mi_ruta/features/admin/domain/usecases/admin_route_usecases.dart';
+import 'package:mi_ruta/features/admin/data/datasources/transported_passengers_datasource.dart';
+import 'package:mi_ruta/features/admin/data/repositories/transported_passengers_repository_impl.dart';
+import 'package:mi_ruta/features/admin/domain/repositories/transported_passengers_repository.dart';
+import 'package:mi_ruta/features/admin/domain/usecases/get_transported_passengers_usecase.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/transported_passengers_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_bloc.dart';
 import 'package:mi_ruta/features/user/data/datasources/user_remote_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/user_remote_datasource_impl.dart';
@@ -607,6 +612,30 @@ void setupDependencies() {
       localDb: getIt<RouteLocalDatabase>(),
       gtfsDatasource: getIt<GtfsDatasource>(),
       firestore: getIt<FirebaseFirestore>(),
+    ),
+  );
+
+  // ============================================
+  // ADMIN FEATURE - PASAJEROS TRANSPORTADOS
+  // ============================================
+  getIt.registerSingleton<TransportedPassengersDatasource>(
+    TransportedPassengersDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+
+  getIt.registerSingleton<TransportedPassengersRepository>(
+    TransportedPassengersRepositoryImpl(
+      datasource: getIt<TransportedPassengersDatasource>(),
+    ),
+  );
+
+  getIt.registerSingleton<GetTransportedPassengersUseCase>(
+    GetTransportedPassengersUseCase(getIt<TransportedPassengersRepository>()),
+  );
+
+  getIt.registerSingleton<TransportedPassengersBloc>(
+    TransportedPassengersBloc(
+      getAdminRoutesUseCase: getIt<GetAdminRoutesUseCase>(),
+      getTransportedPassengersUseCase: getIt<GetTransportedPassengersUseCase>(),
     ),
   );
 

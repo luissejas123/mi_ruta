@@ -56,12 +56,20 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
         accuracy: LocationAccuracy.high,
         distanceFilter: 5,
       ),
-    ).listen((position) {
-      if (!mounted) return;
-      context.read<MiRutaBloc>().add(
-            MiRutaLiveLocationUpdated(LatLng(position.latitude, position.longitude)),
-          );
-    });
+    ).listen(
+      (position) {
+        if (!mounted) return;
+        context.read<MiRutaBloc>().add(
+              MiRutaLiveLocationUpdated(LatLng(position.latitude, position.longitude)),
+            );
+      },
+      // Sin esto, negar el permiso de ubicación (o tenerlo revocado) deja
+      // una excepción sin capturar flotando en el stream — no tumba la
+      // pantalla, pero sí queda como error no manejado de la app.
+      onError: (Object error) {
+        debugPrint('[MiRutaScreen] Error en el stream de ubicación: $error');
+      },
+    );
   }
 
   Future<void> _loadUnreadCount() async {

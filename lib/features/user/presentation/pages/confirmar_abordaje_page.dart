@@ -8,6 +8,7 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/driver/domain/entities/vehicle_entity.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
+import 'package:mi_ruta/features/user/domain/services/wallet_service.dart';
 import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
 import 'package:mi_ruta/features/user/presentation/pages/qr_scanner_page.dart';
 
@@ -174,6 +175,15 @@ class _ConfirmarAbordajePageState extends State<ConfirmarAbordajePage> {
     final authState = context.read<AuthBloc>().state;
     if (authState is! AuthLoaded) {
       _showError('Sesión no válida.');
+      return;
+    }
+
+    // Sin saldo no se puede abordar — si no, el pasajero aborda y el cobro
+    // (por distancia, QR o el respaldo automático) falla recién al final del
+    // viaje, cuando ya es tarde para resolverlo.
+    final wallet = await getIt<WalletService>().getWallet(authState.user.uid);
+    if (wallet == null || wallet.currentBalance <= 0) {
+      _showError('Necesitas recargar saldo antes de abordar.');
       return;
     }
 

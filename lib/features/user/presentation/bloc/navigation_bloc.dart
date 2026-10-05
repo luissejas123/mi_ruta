@@ -49,7 +49,14 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         ? TripPhase.walkStart
         : TripPhase.onBus;
 
-    emit(state.copyWith(
+    // Estado nuevo de cero (no `state.copyWith`) — el bloc es singleton y
+    // sobrevive entre viajes, así que campos del viaje ANTERIOR como
+    // `farePaid`/`elapsed`/`error` se quedaban pegados en el nuevo viaje.
+    // Eso hacía que el resumen (disparado por `farePaid != null`) se
+    // mostrara de más o se saltara según cuándo se re-renderizara la
+    // pantalla — el pasajero terminaba sin ver "viaje finalizado" ni
+    // "calificar al chofer" en su viaje real.
+    emit(NavigationState(
       phase: initialPhase,
       isTracking: true,
       boardingTripId: event.initialBoardingTripId,

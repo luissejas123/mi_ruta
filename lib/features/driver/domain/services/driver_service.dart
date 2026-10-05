@@ -327,6 +327,18 @@ class DriverService {
     return _datasource.streamTrip(tripId).map((doc) => doc.data() as Map<String, dynamic>?);
   }
 
+  /// Escucha en tiempo real el último viaje cobrado de este chofer — ver
+  /// `DriverDatasource.streamLatestPaidTrip`.
+  Stream<DriverTripEntity?> streamLatestPaidTrip(String driverId) {
+    return _datasource.streamLatestPaidTrip(driverId);
+  }
+
+  /// Cuenta en vivo de pasajeros abordados en la unidad sin pagar/bajar
+  /// todavía — ver `DriverDatasource.streamBoardedCount`.
+  Stream<int> streamBoardedCount(String vehicleId) {
+    return _datasource.streamBoardedCount(vehicleId);
+  }
+
   /// Avisa a los pasajeros que abordaron esta unidad recientemente que el
   /// chofer se aproxima a una parada (RQ-66). Devuelve cuántos fueron notificados.
   ///

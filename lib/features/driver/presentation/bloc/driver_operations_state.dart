@@ -36,6 +36,11 @@ class DriverOperationsLoaded extends DriverOperationsState {
   final String? lastPaymentReceivedPassengerId;
   final int? lastStopNotifiedCount;
   final bool isBusy;
+  // Pasajeros que abordaron y todavía no pagaron/bajaron — viene del stream
+  // de `DriverService.streamBoardedCount` (trips `status: boarding`,
+  // `payment_status: pending` de esta unidad). Se compara contra
+  // `vehicle.passengerCapacity` en el Home del chofer.
+  final int boardedCount;
 
   const DriverOperationsLoaded({
     required this.vehicle,
@@ -50,6 +55,7 @@ class DriverOperationsLoaded extends DriverOperationsState {
     this.lastPaymentReceivedPassengerId,
     this.lastStopNotifiedCount,
     this.isBusy = false,
+    this.boardedCount = 0,
   });
 
   DriverOperationsLoaded copyWith({
@@ -67,6 +73,7 @@ class DriverOperationsLoaded extends DriverOperationsState {
     bool clearLastPayment = false,
     int? lastStopNotifiedCount,
     bool? isBusy,
+    int? boardedCount,
   }) {
     return DriverOperationsLoaded(
       vehicle: vehicle ?? this.vehicle,
@@ -86,6 +93,7 @@ class DriverOperationsLoaded extends DriverOperationsState {
           : (lastPaymentReceivedPassengerId ?? this.lastPaymentReceivedPassengerId),
       lastStopNotifiedCount: lastStopNotifiedCount ?? this.lastStopNotifiedCount,
       isBusy: isBusy ?? this.isBusy,
+      boardedCount: boardedCount ?? this.boardedCount,
     );
   }
 
@@ -103,6 +111,7 @@ class DriverOperationsLoaded extends DriverOperationsState {
         lastPaymentReceivedPassengerId,
         lastStopNotifiedCount,
         isBusy,
+        boardedCount,
       ];
 }
 

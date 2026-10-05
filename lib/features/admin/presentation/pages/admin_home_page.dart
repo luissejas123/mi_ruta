@@ -7,6 +7,7 @@ import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.d
 import 'package:mi_ruta/features/admin/presentation/bloc/route_management_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/actualizar_qr_recarga_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/administracion_beneficios_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/asignar_lineas_presidente_page.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/user_management_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/widgets/admin_bottom_navigation_bar.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_privileges_page.dart';
@@ -147,9 +148,26 @@ class AdminHomePage extends StatelessWidget {
                         );
                       },
                     ),
-                  // "Asignar línea a presidente" (AsignarLineasPresidentePage) se
-                  // ocultó a pedido del usuario — ya no es necesaria en el flujo de
-                  // admin. La página queda sin usar a propósito (ver DEUDA_TECNICA.md).
+                  // Restaurada (2026-10-04): se había ocultado asumiendo que el
+                  // presidente podía gestionar cualquier línea, pero las
+                  // tarifas SÍ están acotadas a `presidente_info.managed_lines`
+                  // (UI de TarifasPage y firestore.rules de `tariffs` lo exigen
+                  // los dos) — sin esta asignación, ningún presidente puede
+                  // configurar tarifas. Ver docs/DEUDA_TECNICA.md.
+                  if (AdminAccessService.canAccessOperation(user, AdminOperation.manageUsers))
+                    _MenuCard(
+                      icon: Icons.how_to_reg_outlined,
+                      title: 'Asignar línea a presidente',
+                      subtitle: 'Elegir qué línea(s) gestiona cada dirigente',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AsignarLineasPresidentePage(),
+                          ),
+                        );
+                      },
+                    ),
                   if (AdminAccessService.canAccessOperation(user, AdminOperation.manageUsers))
                     _MenuCard(
                       icon: Icons.qr_code_2,

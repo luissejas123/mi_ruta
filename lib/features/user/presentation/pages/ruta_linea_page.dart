@@ -250,17 +250,21 @@ class _RutaLineaViewState extends State<_RutaLineaView> {
                       boundsPoints: boundsPoints,
                     ),
                     const SizedBox(height: 16),
-                    _buildSummary(
-                      boardingStop: state.tripSegment.boardingStop,
-                      alightingStop: state.tripSegment.alightingStop,
-                    ),
-                    const SizedBox(height: 16),
+                    // "Abordar línea" subido justo debajo del mapa — antes
+                    // quedaba después de la card de detalle (caminata/
+                    // vehículo), más abajo de lo necesario para la acción
+                    // principal de esta pantalla.
                     _buildBoardButton(
                       boardingStop: state.tripSegment.boardingStop,
                       alightingStop: state.tripSegment.alightingStop,
                       transitSegment: state.tripSegment.transitPoints,
                       walkStartPoints: state.walkingPaths.startWalkPath,
                       walkEndPoints: state.walkingPaths.endWalkPath,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSummary(
+                      boardingStop: state.tripSegment.boardingStop,
+                      alightingStop: state.tripSegment.alightingStop,
                     ),
                   ],
                 ),

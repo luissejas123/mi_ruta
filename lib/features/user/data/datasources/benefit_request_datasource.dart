@@ -191,6 +191,27 @@ class BenefitRequestDatasource {
     }
   }
 
+  /// Habilita o deshabilita el efecto de un beneficio YA aprobado, sin
+  /// revertir la aprobación en sí (`benefit_requests.status` queda
+  /// `'approved'` como registro histórico). El campo real que usa el cobro
+  /// (`RutaNavegacionPage`/`DriverService`) es `users/{uid}.active_benefits`
+  /// — deshabilitar quita el tipo de ese arreglo, habilitar lo vuelve a
+  /// agregar. Así el admin puede alternarlo ante reclamos sin tener que
+  /// borrar/recrear la solicitud original.
+  Future<void> setBenefitEnabled(
+    String userId,
+    String benefitType, {
+    required bool enabled,
+  }) async {
+    await _ensureAdministrator();
+    final update = enabled
+        ? FieldValue.arrayUnion([benefitType])
+        : FieldValue.arrayRemove([benefitType]);
+    await _firestore.collection('users').doc(userId).set({
+      'active_benefits': update,
+    }, SetOptions(merge: true));
+  }
+
   /// Rechaza una solicitud de beneficio
   Future<void> rejectBenefitRequest(
     String requestId,

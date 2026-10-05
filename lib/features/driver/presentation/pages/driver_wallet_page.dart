@@ -229,7 +229,7 @@ class _DriverWalletView extends StatelessWidget {
               Builder(
                 builder: (context) => _WalletActionButton(
                   icon: Icons.qr_code_scanner_outlined,
-                  label: 'ACTUALIZAR QR',
+                  label: 'QR DE IDENTIFICACIÓN',
                   onTap: () {
                     final serviceState = context.read<DriverServiceBloc>().state;
                     final vehicle = serviceState is DriverServiceLoaded

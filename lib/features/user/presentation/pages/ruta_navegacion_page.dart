@@ -28,6 +28,7 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_history_service.dart';
 import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
+import 'package:mi_ruta/features/user/presentation/pages/rate_driver_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/nav_bottom_panel.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/nav_summary_sheet.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/nav_top_bar.dart';
@@ -145,6 +146,13 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
   // tripId del abordaje pendiente de cerrar sin cobro si el pago por QR
   // (segunda opción de "Aviso de bajada") resulta exitoso.
   String? _pendingQrBoardingTripId;
+  // Copia de tripId/driverId tomada ANTES de cobrar — `NavigationBloc.
+  // _onFareCharged` limpia `boardingTripId`/`boardingDriverId` del estado en
+  // la MISMA emisión que pone `farePaid`, así que para cuando el listener de
+  // `farePaid` dispara `_showSummarySheet`, leerlos de `_navBloc.state` ya
+  // da null — por eso "Calificar al chofer" nunca se abría tras un pago real.
+  String? _ratedBoardingTripId;
+  String? _ratedBoardingDriverId;
 
   @override
   void initState() {
@@ -210,6 +218,8 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
     final driverId = navState.boardingDriverId;
     final routeRef = navState.boardingRouteRef;
     if (tripId == null || driverId == null || routeRef == null) return;
+    _ratedBoardingTripId = tripId;
+    _ratedBoardingDriverId = driverId;
 
     final position = navState.currentPosition;
     if (position == null) {
@@ -431,9 +441,23 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
   }
 
   bool _tripSaved = false;
+  bool _summaryShown = false;
 
   Future<void> _showSummarySheet(Duration elapsed) async {
-    if (!mounted) return;
+    if (!mounted || _summaryShown) return;
+    _summaryShown = true;
+    // Preferir la copia tomada en `_onAvisoDeBajadaPressed` — si ya se
+    // cobró, `_onFareCharged` ya limpió `boardingTripId`/`boardingDriverId`
+    // del estado en la MISMA emisión que puso `farePaid` (antes de llegar
+    // acá). Si se llegó por el destino sin haber cobrado nunca, esa copia
+    // no existe y sí vale leer del estado (todavía no se limpió nada).
+    final boardingTripId = _ratedBoardingTripId ?? _navBloc.state.boardingTripId;
+    final boardingDriverId = _ratedBoardingDriverId ?? _navBloc.state.boardingDriverId;
+    // Corta el tracking GPS/timer de una — antes solo se cortaba al tocar
+    // "Cerrar" en la hoja de resumen, así que si ese botón quedaba fuera de
+    // vista (ver `NavSummarySheet`/`isScrollControlled`) el tiempo seguía
+    // contando aunque el viaje ya estuviera pagado.
+    _navBloc.add(const NavigationStopped());
     if (!_tripSaved) {
       final authState = context.read<AuthBloc>().state;
       if (authState is AuthLoaded) {
@@ -507,6 +531,11 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
       context: context,
       isDismissible: false,
       enableDrag: false,
+      // Sin esto, el contenido se recortaba a la altura por defecto del
+      // sheet (~9/16 de la pantalla) y el botón "Cerrar" quedaba debajo del
+      // borde visible — imposible de tocar incluso con mouse. Con
+      // `isScrollControlled` el sheet mide su contenido real.
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -514,9 +543,29 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
         routeName: widget.route.name,
         destination: widget.destination.name,
         elapsed: elapsed,
-        onClose: () {
+        onClose: () async {
           Navigator.of(ctx).pop();
-          _navBloc.add(const NavigationStopped());
+          // El pasajero califica al chofer al finalizar — mismo flujo que ya
+          // tiene el chofer al recibir el pago (`RatePassengerPage`), ahora
+          // en el otro sentido. Se espera a que la cierre antes de salir de
+          // esta pantalla, igual que el chofer espera a cerrar la suya.
+          final authState = context.read<AuthBloc>().state;
+          if (authState is AuthLoaded &&
+              boardingTripId != null &&
+              boardingTripId.isNotEmpty &&
+              boardingDriverId != null &&
+              boardingDriverId.isNotEmpty) {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => RateDriverPage(
+                  tripId: boardingTripId,
+                  driverUid: boardingDriverId,
+                  passengerUid: authState.user.uid,
+                ),
+              ),
+            );
+          }
+          if (!mounted) return;
           Navigator.of(context).pop(true);
         },
       ),
@@ -540,6 +589,13 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
             }
             // ✅ Comparación directa con enum en vez de toString()
             if (state.phase == TripPhase.arrived) {
+              _showSummarySheet(state.elapsed);
+            }
+            // El viaje se da por terminado al pagar (aviso de bajada o QR),
+            // no hace falta esperar a llegar al destino — antes el
+            // cronómetro seguía corriendo porque nada mostraba el resumen
+            // hasta tocar un botón manual que ya no existe.
+            if (state.farePaid != null && !_summaryShown) {
               _showSummarySheet(state.elapsed);
             }
           },
@@ -652,7 +708,6 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
                   routeName: widget.route.name,
                   destinationName: widget.destination.name,
                   remainingMeters: remainingMeters,
-                  onFinalize: () => _showSummarySheet(state.elapsed),
                 ),
               ],
             );

@@ -61,6 +61,15 @@
       ]
     },
     {
+      "collectionGroup": "trips",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "driver_id", "order": "ASCENDING" },
+        { "fieldPath": "payment_status", "order": "ASCENDING" },
+        { "fieldPath": "paid_at", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "recharges",
       "queryScope": "COLLECTION",
       "fields": [

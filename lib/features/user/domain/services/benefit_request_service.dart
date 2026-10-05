@@ -118,6 +118,16 @@ class BenefitRequestService {
     return _datasource.rejectBenefitRequest(requestId, adminNotes, adminId);
   }
 
+  /// Habilita/deshabilita el efecto de un beneficio ya aprobado sin
+  /// revertir la aprobación — ver `BenefitRequestDatasource.setBenefitEnabled`.
+  Future<void> setBenefitEnabled(
+    String userId,
+    String benefitType, {
+    required bool enabled,
+  }) {
+    return _datasource.setBenefitEnabled(userId, benefitType, enabled: enabled);
+  }
+
   /// Renueva una solicitud existente devolviéndola a pending.
   Future<void> renewBenefitRequest(String requestId) async {
     return _datasource.renewBenefitRequest(requestId);

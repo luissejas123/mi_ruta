@@ -162,9 +162,14 @@ La razón de que "Cargar rutas desde GTFS" nunca reemplazara lo viejo: `upsertRo
 
 **Estado: decisión explícita del usuario, no accidente — no borrar sin confirmar de nuevo.**
 
-- `AsignarLineasPresidentePage` (`lib/features/admin/presentation/pages/`) — el usuario pidió ocultar la opción de "Asignar línea a presidente" del menú de admin (confirmó que está bien que el presidente vea cualquier línea, no hace falta acotarle cuáles). Se quitó el `_MenuCard` que navegaba ahí en `admin_home_page.dart`; la página sigue compilando pero ya no tiene ningún caller.
 - `TickeadorModeSwitchSection` — **borrada por completo** (no solo desconectada): eran dos botones "Modo chofer"/"Modo usuario" en la pantalla de inicio del tickeador sin ningún `onTap`, puramente decorativos y confirmados sin otro llamador antes de borrar.
 - `ConvertirseChoferPage` (RQ-68) — el usuario pidió ocultar "Convertirme en chofer" de Perfil (2026-09-28): era un segundo camino duplicado para hacerse chofer, en paralelo al que ya funciona de verdad ("Registrarme como chofer" → `SolicitudChoferPage`, flujo clásico con documentos + aprobación del dirigente). `ConvertirseChoferPage`/`ModoChoferPage` seguían siendo un placeholder "Próximamente" sin gestión real de viajes/ganancias — quedan sin caller en `perfil_page.dart`, la página sigue compilando.
+
+## 16. Contador de "pasajeros a bordo" del chofer — oculto, no se actualiza en vivo
+
+**Estado: oculto a pedido del usuario (2026-10), sin diagnosticar todavía.**
+
+Se agregó un contador en el Home del chofer (`_PassengerCounter`, ya borrado) contra `vehicle.passengerCapacity`, alimentado por `DriverService.streamBoardedCount`/`DriverDatasource.streamBoardedCount` (stream en vivo de `trips` con `vehicle_id` + `status: boarding` + `payment_status: pending`) vía un nuevo evento `BoardedCountUpdated` en `DriverOperationsBloc`. En la prueba del usuario, abordar por QR no actualizó el número (se quedó en 0). No se confirmó la causa — candidatos sin descartar: el `DriverOperationsBloc` de la pantalla no es el mismo que estaba corriendo cuando se creó el viaje de abordaje (cada pantalla instancia su propio bloc, ver ítem de "no llega el cobro en servicio" ya resuelto en sesión anterior), algún problema de permisos/índice silencioso (se agregó `onError` a la suscripción para la próxima vez que falle), o que `_ensureBoardedCountListener` nunca llegó a dispararse para esa unidad. El stream/evento/bloc quedan armados en el código (`driver_service.dart`, `driver_datasource.dart`, `driver_operations_bloc.dart`) — solo se quitó el widget que lo mostraba en `driver_home_page.dart`.
 
 ## Resuelto — ya no es deuda (registrado para no repetir la pregunta)
 

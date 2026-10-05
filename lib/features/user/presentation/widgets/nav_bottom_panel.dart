@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_phase_service.dart';
 
 /// Panel inferior de la pantalla de navegación.
-/// Muestra el icono/fase actual, la distancia restante y el botón de finalizar.
+/// Muestra el icono/fase actual y la distancia restante.
+///
+/// Ya no tiene un botón manual de "Finalizar viaje"/"Ver resumen" — convivía
+/// con "Aviso de bajada" (`_BoardingBanner`) y confundía cuál usar. El
+/// resumen del viaje ahora aparece solo (al pagar o al llegar al destino),
+/// ver `RutaNavegacionPage._showSummarySheet`.
 class NavBottomPanel extends StatelessWidget {
   final TripPhase phase;
   final String routeName;
   final String destinationName;
   final double remainingMeters;
-  final VoidCallback onFinalize;
 
   const NavBottomPanel({
     super.key,
@@ -16,7 +20,6 @@ class NavBottomPanel extends StatelessWidget {
     required this.routeName,
     required this.destinationName,
     required this.remainingMeters,
-    required this.onFinalize,
   });
 
   _PhaseDisplay _display() {
@@ -71,7 +74,6 @@ class NavBottomPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final info = _display();
-    final arrived = phase == TripPhase.arrived;
 
     return Positioned(
       left: 0,
@@ -215,29 +217,6 @@ class NavBottomPanel extends StatelessWidget {
                       ],
                     ),
                   ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: arrived ? null : onFinalize,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: arrived ? Colors.green : Colors.red.shade600,
-                    foregroundColor: Colors.white,
-                    disabledForegroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    arrived ? 'Ver resumen' : 'Finalizar viaje',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
                 ),
               ),
             ],

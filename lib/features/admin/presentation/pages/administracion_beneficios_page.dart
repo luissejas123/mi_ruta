@@ -5,6 +5,7 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/domain/entities/benefit_request.dart';
 import 'package:mi_ruta/features/user/domain/services/benefit_request_service.dart';
+import 'package:mi_ruta/features/user/domain/usecases/user_usecases.dart';
 
 class AdministracionBeneficiosPage extends StatefulWidget {
   const AdministracionBeneficiosPage({super.key});
@@ -226,8 +227,33 @@ class _AdministracionBeneficiosPageState
       builder: (_) => _RequestDetails(
         request: request,
         onDecision: (approve) => _decide(request, approve),
+        onToggleEnabled: (enabled) => _toggleBenefit(request, enabled),
       ),
     );
+  }
+
+  /// Habilita/deshabilita el beneficio ya aprobado (sin tocar su
+  /// aprobación) — ver `BenefitRequestService.setBenefitEnabled`.
+  Future<void> _toggleBenefit(BenefitRequest request, bool enabled) async {
+    try {
+      await _service.setBenefitEnabled(
+        request.userId,
+        request.benefitType,
+        enabled: enabled,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(enabled ? 'Beneficio habilitado' : 'Beneficio deshabilitado'),
+          backgroundColor: enabled ? Colors.green.shade700 : Colors.orange.shade800,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo actualizar el beneficio: $error')),
+      );
+    }
   }
 }
 
@@ -389,11 +415,44 @@ class _RequestCard extends StatelessWidget {
   }
 }
 
-class _RequestDetails extends StatelessWidget {
+class _RequestDetails extends StatefulWidget {
   final BenefitRequest request;
   final ValueChanged<bool> onDecision;
+  final ValueChanged<bool> onToggleEnabled;
 
-  const _RequestDetails({required this.request, required this.onDecision});
+  const _RequestDetails({
+    required this.request,
+    required this.onDecision,
+    required this.onToggleEnabled,
+  });
+
+  @override
+  State<_RequestDetails> createState() => _RequestDetailsState();
+}
+
+class _RequestDetailsState extends State<_RequestDetails> {
+  late Future<bool> _enabled;
+
+  BenefitRequest get request => widget.request;
+
+  @override
+  void initState() {
+    super.initState();
+    _enabled = _loadEnabled();
+  }
+
+  Future<bool> _loadEnabled() async {
+    final result = await getIt<GetUserByIdUseCase>()(request.userId);
+    return result.fold(
+      (_) => true,
+      (user) => user.activeBenefits.contains(request.benefitType),
+    );
+  }
+
+  Future<void> _toggle(bool value) async {
+    setState(() => _enabled = Future.value(value));
+    widget.onToggleEnabled(value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -439,7 +498,7 @@ class _RequestDetails extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () => onDecision(true),
+                  onPressed: () => widget.onDecision(true),
                   icon: const Icon(Icons.check_circle_outline),
                   label: const Text('Aprobar beneficio'),
                   style: ElevatedButton.styleFrom(
@@ -451,13 +510,38 @@ class _RequestDetails extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => onDecision(false),
+                  onPressed: () => widget.onDecision(false),
                   icon: const Icon(Icons.cancel_outlined),
                   label: const Text('Rechazar solicitud'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red.shade700,
                   ),
                 ),
+              ),
+            ],
+            // Deshabilitar/habilitar sin revertir la aprobación — para
+            // cortar el descuento ante un reclamo sin perder el historial de
+            // que el beneficio SÍ fue aprobado alguna vez.
+            if (request.status == 'approved') ...[
+              const SizedBox(height: 20),
+              FutureBuilder<bool>(
+                future: _enabled,
+                builder: (context, snapshot) {
+                  final enabled = snapshot.data ?? true;
+                  final loading = !snapshot.hasData;
+                  return SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Beneficio habilitado'),
+                    subtitle: Text(
+                      enabled
+                          ? 'El descuento se aplica al cobrar sus viajes.'
+                          : 'Deshabilitado — no se aplica descuento aunque la solicitud siga aprobada.',
+                    ),
+                    value: enabled,
+                    onChanged: loading ? null : _toggle,
+                    activeThumbColor: Colors.green.shade700,
+                  );
+                },
               ),
             ],
           ],

@@ -3,13 +3,11 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/driver/domain/entities/vehicle_entity.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
-import 'package:mi_ruta/features/user/domain/services/storage_service.dart';
 
 const _amarillo = Color(0xFFFFC12F);
 
@@ -40,7 +38,6 @@ class UnitQrPage extends StatefulWidget {
 
 class _UnitQrPageState extends State<UnitQrPage> {
   final _qrBoundaryKey = GlobalKey();
-  final _picker = ImagePicker();
   late String _logoUrl;
   bool _busy = false;
 
@@ -51,36 +48,6 @@ class _UnitQrPageState extends State<UnitQrPage> {
   }
 
   String get _qrData => '${widget.vehicle.ownerUid}|${widget.vehicle.vehicleId}';
-
-  Future<void> _pickLogo() async {
-    try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 80,
-        maxWidth: 1280,
-      );
-      if (picked == null) return;
-      setState(() => _busy = true);
-      final url = await getIt<StorageService>().uploadVehicleDocument(
-        ownerUid: widget.vehicle.ownerUid,
-        plate: widget.vehicle.vehicleId,
-        docKey: 'qr_logo',
-        imageFile: File(picked.path),
-      );
-      await getIt<DriverService>().updateVehicleQrLogo(widget.vehicle.vehicleId, url);
-      if (!mounted) return;
-      setState(() {
-        _logoUrl = url;
-        _busy = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _busy = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo actualizar la imagen: $e'), backgroundColor: Colors.red.shade700),
-      );
-    }
-  }
 
   Future<void> _downloadQr() async {
     setState(() => _busy = true);
@@ -152,15 +119,6 @@ class _UnitQrPageState extends State<UnitQrPage> {
               style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
             ),
             const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _busy ? null : _pickLogo,
-                icon: const Icon(Icons.image_outlined),
-                label: const Text('Elegir imagen de galería para el centro'),
-              ),
-            ),
-            const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(

@@ -358,7 +358,13 @@ class _VehicleServiceSection extends StatelessWidget {
         if (vehicle == null) return const SizedBox.shrink();
         final opsState = context.watch<DriverOperationsBloc>().state;
         final assignedRoute = opsState is DriverOperationsLoaded ? opsState.assignedRoute : null;
-        return _VehicleCard(vehicle: vehicle, isUpdating: isUpdating, assignedRoute: assignedRoute);
+        final boardedCount = opsState is DriverOperationsLoaded ? opsState.boardedCount : 0;
+        return _VehicleCard(
+          vehicle: vehicle,
+          isUpdating: isUpdating,
+          assignedRoute: assignedRoute,
+          boardedCount: boardedCount,
+        );
       },
     );
   }
@@ -406,11 +412,13 @@ class _VehicleCard extends StatelessWidget {
   final VehicleEntity vehicle;
   final bool isUpdating;
   final RouteEntity? assignedRoute;
+  final int boardedCount;
 
   const _VehicleCard({
     required this.vehicle,
     required this.isUpdating,
     this.assignedRoute,
+    this.boardedCount = 0,
   });
 
   @override
@@ -430,6 +438,10 @@ class _VehicleCard extends StatelessWidget {
           inService: vehicle.isOnDuty,
           height: 340,
         ),
+        // Oculto a pedido del usuario (2026-10): el conteo no se actualizaba
+        // en vivo durante la prueba. El stream/bloc (`boardedCount`,
+        // `DriverService.streamBoardedCount`) se deja armado para cuando se
+        // diagnostique — ver docs/DEUDA_TECNICA.md.
         if (!canOperate) ...[
           const SizedBox(height: 10),
           Text(

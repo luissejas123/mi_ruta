@@ -4,39 +4,38 @@ import 'package:mi_ruta/features/user/domain/services/rating_service.dart';
 
 const _amarillo = Color(0xFFFFC12F);
 
-/// "5.4 Calificación del pasajero" (Figma) — el chofer califica al pasajero
-/// justo después de recibir un pago de viaje. Reusa la misma colección
-/// `ratings` que ya se documentaba para pasajero→chofer (reviewer/target son
-/// genéricos en el esquema, ver RatingDatasource) en vez de inventar una
-/// colección paralela para "el otro sentido" de la calificación.
+/// El pasajero califica al chofer al finalizar su viaje — mismo flujo y
+/// misma colección `ratings` que ya usa `RatePassengerPage` (chofer→
+/// pasajero), reviewer/target son genéricos en `RatingDatasource` para no
+/// crear una colección paralela para "el otro sentido" de la calificación.
 ///
 /// 3 pantallas en un solo flujo (estrellas con opción de saltar → motivos
 /// rápidos → agradecimiento), sin bloc propio: es un formulario de un solo
 /// uso, sin estado que sobreviva la navegación.
-class RatePassengerPage extends StatefulWidget {
+class RateDriverPage extends StatefulWidget {
   final String tripId;
   final String driverUid;
-  final String passengerId;
+  final String passengerUid;
 
-  const RatePassengerPage({
+  const RateDriverPage({
     super.key,
     required this.tripId,
     required this.driverUid,
-    required this.passengerId,
+    required this.passengerUid,
   });
 
   @override
-  State<RatePassengerPage> createState() => _RatePassengerPageState();
+  State<RateDriverPage> createState() => _RateDriverPageState();
 }
 
 enum _Step { stars, tags, thanks }
 
-class _RatePassengerPageState extends State<RatePassengerPage> {
+class _RateDriverPageState extends State<RateDriverPage> {
   static const _reasonOptions = [
-    'Tarda mucho para pagar',
-    'Sube con comida',
-    'Se queda dormido',
-    'Engaña en el pasaje',
+    'Manejo brusco',
+    'No se detiene en la parada',
+    'Cobra de más',
+    'Unidad en mal estado',
   ];
 
   _Step _step = _Step.stars;
@@ -53,14 +52,14 @@ class _RatePassengerPageState extends State<RatePassengerPage> {
     try {
       await getIt<RatingService>().submitRating(
         tripId: widget.tripId,
-        reviewerUid: widget.driverUid,
-        targetUid: widget.passengerId,
+        reviewerUid: widget.passengerUid,
+        targetUid: widget.driverUid,
         stars: _stars,
         selectedTags: _selectedTags.toList(),
       );
     } catch (_) {
-      // Silencioso a propósito: es una calificación opcional post-pago, no
-      // debe bloquear ni alarmar al chofer si la escritura falla.
+      // Silencioso a propósito: es una calificación opcional post-viaje, no
+      // debe bloquear ni alarmar al pasajero si la escritura falla.
     }
     if (!mounted) return;
     setState(() {
@@ -76,7 +75,7 @@ class _RatePassengerPageState extends State<RatePassengerPage> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        title: const Text('Calificar al pasajero', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Calificar al chofer', style: TextStyle(fontWeight: FontWeight.bold)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: _skip,
@@ -130,7 +129,7 @@ class _StarsStep extends StatelessWidget {
         const Icon(Icons.emoji_emotions_outlined, size: 72, color: _amarillo),
         const SizedBox(height: 20),
         const Text(
-          '¿Cómo estuvo el pasajero en este viaje?',
+          '¿Cómo estuvo el chofer en este viaje?',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
@@ -191,7 +190,7 @@ class _TagsStep extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Reseña al pasajero',
+          'Reseña al chofer',
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 6),
@@ -200,8 +199,6 @@ class _TagsStep extends StatelessWidget {
           style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
         ),
         const SizedBox(height: 10),
-        // Columna en vez de Wrap — las opciones quedaban una al lado de
-        // otra y se veían recortadas/apretadas en pantallas angostas.
         ...options.map((tag) {
           final isSelected = selected.contains(tag);
           return CheckboxListTile(

@@ -74,3 +74,14 @@ class TripPaymentReceived extends DriverOperationsEvent {
   @override
   List<Object?> get props => [tripId, amount, passengerId];
 }
+
+/// Cambió la cantidad de pasajeros abordados sin bajar/pagar todavía —
+/// viene del stream de `DriverService.streamBoardedCount`.
+class BoardedCountUpdated extends DriverOperationsEvent {
+  final int count;
+
+  const BoardedCountUpdated(this.count);
+
+  @override
+  List<Object?> get props => [count];
+}

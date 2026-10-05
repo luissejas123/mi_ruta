@@ -260,6 +260,23 @@ class DriverDatasource {
     return _firestore.collection('trips').doc(tripId).snapshots();
   }
 
+  /// Escucha en tiempo real el último viaje cobrado de este chofer — a
+  /// diferencia de `streamTrip` (un solo viaje puntual, usado por el QR de
+  /// "cobro inmediato"), este stream es el único mecanismo que avisa al
+  /// chofer de un pago mientras está en servicio para viajes de abordaje
+  /// (QR fijo de unidad + aviso de bajada / cobro automático), que nunca
+  /// pasan por `streamTrip`.
+  Stream<DriverTripEntity?> streamLatestPaidTrip(String driverId) {
+    return _firestore
+        .collection('trips')
+        .where('driver_id', isEqualTo: driverId)
+        .where('payment_status', isEqualTo: 'paid')
+        .orderBy('paid_at', descending: true)
+        .limit(1)
+        .snapshots()
+        .map((snap) => snap.docs.isEmpty ? null : _tripFromDoc(snap.docs.first));
+  }
+
   /// Historial de viajes generados por el chofer (RQ-67), más recientes primero.
   Future<List<DriverTripEntity>> getDriverTrips(
     String driverId, {
@@ -397,6 +414,19 @@ class DriverDatasource {
         .where('payment_status', isEqualTo: 'pending')
         .get();
     return snap.docs.map(_tripFromDoc).toList();
+  }
+
+  /// Cuenta en vivo de pasajeros abordados sin pagar/bajar todavía — mismos
+  /// filtros que `getOpenBoardingTripsForVehicle`, como stream para el
+  /// contador del Home del chofer.
+  Stream<int> streamBoardedCount(String vehicleId) {
+    return _firestore
+        .collection('trips')
+        .where('vehicle_id', isEqualTo: vehicleId)
+        .where('status', isEqualTo: 'boarding')
+        .where('payment_status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snap) => snap.docs.length);
   }
 
   /// Viajes de abordaje sin cobrar de cualquier unidad de [driverId], con más

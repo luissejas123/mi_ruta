@@ -1,6 +1,7 @@
 import 'package:mi_ruta/features/tickeador/data/datasources/tickeador_datasource.dart';
 import 'package:mi_ruta/features/tickeador/domain/entities/station_log_entity.dart';
 import 'package:mi_ruta/features/tickeador/domain/entities/tickeador_entity.dart';
+import 'package:mi_ruta/features/tickeador/domain/entities/tickeador_payments_report.dart';
 import 'package:mi_ruta/features/tickeador/domain/entities/vehicle_entity.dart';
 import 'package:mi_ruta/features/tickeador/domain/repositories/tickeador_repository.dart';
 
@@ -49,5 +50,14 @@ class TickeadorRepositoryImpl implements TickeadorRepository {
     int limit = 20,
   }) {
     return _datasource.getActividadReciente(tickeadorId, limit: limit);
+  }
+
+  @override
+  Future<TickeadorPaymentsReportEntity> getPaymentsReport({
+    required String tickeadorId,
+    required DateTime from,
+    required DateTime to,
+  }) {
+    return _datasource.getPaymentsReport(tickeadorId: tickeadorId, from: from, to: to);
   }
 }

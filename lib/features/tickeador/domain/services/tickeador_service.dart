@@ -1,5 +1,6 @@
 import 'package:mi_ruta/features/tickeador/domain/entities/station_log_entity.dart';
 import 'package:mi_ruta/features/tickeador/domain/entities/tickeador_entity.dart';
+import 'package:mi_ruta/features/tickeador/domain/entities/tickeador_payments_report.dart';
 import 'package:mi_ruta/features/tickeador/domain/entities/vehicle_entity.dart';
 import 'package:mi_ruta/features/tickeador/domain/repositories/tickeador_repository.dart';
 import 'package:mi_ruta/features/driver/data/datasources/driver_datasource.dart';
@@ -154,6 +155,17 @@ class TickeadorService {
     int limit = 20,
   }) {
     return _repository.getActividadReciente(tickeadorId, limit: limit);
+  }
+
+  /// Reporte de auditoría de cobros reales de las unidades que pasaron por
+  /// la estación del tickeador en el rango [from]-[to] — ver
+  /// `TickeadorPaymentsReportEntity`.
+  Future<TickeadorPaymentsReportEntity> getPaymentsReport({
+    required String tickeadorId,
+    required DateTime from,
+    required DateTime to,
+  }) {
+    return _repository.getPaymentsReport(tickeadorId: tickeadorId, from: from, to: to);
   }
 
   /// Valida un código QR de viaje.

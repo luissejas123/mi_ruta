@@ -9,6 +9,7 @@ import 'package:mi_ruta/features/tickeador/domain/entities/vehicle_entity.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_bloc.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_event.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_state.dart';
+import 'package:mi_ruta/features/tickeador/presentation/pages/reporte_tickeador_page.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/revision_recargas_page.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_actividad_section.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_station_section.dart';
@@ -300,6 +301,14 @@ class _TickeadorHomePageState extends State<TickeadorHomePage> {
             icon: const Icon(Icons.qr_code_scanner),
             tooltip: 'Escanear código QR',
             onPressed: _mostrarQRScanner,
+          ),
+          IconButton(
+            icon: const Icon(Icons.bar_chart_outlined),
+            tooltip: 'Reporte de cobros',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ReporteTickeadorPage()),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.logout),

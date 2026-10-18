@@ -26,16 +26,39 @@ Hay tres mecanismos distintos para el mismo concepto en `users/{uid}`:
 
 ---
 
-## 2. Tickeador duplicado — dos implementaciones activas
+## 2. Tickeador duplicado — dos implementaciones activas — **RESUELTO (2026-10-18)**
 
-**Estado: conocido desde hace varias sesiones, sigue crítico y bloqueante.**
+Se decidió la base y se retiró la otra, como asignación de tarea a David Jesús Villarroel
+(`docs/Asignacion_Tareas_MiRuta.pdf`, Squad 1, Obs. 9).
 
-- `lib/features/tickeador/**` — feature completa en Clean Architecture.
-- `lib/features/driver/**` (`tickeador_operations_datasource.dart`, `tickeador_operation_register_page.dart`, `tickeador_operations_history_page.dart`) — segunda implementación paralela.
+- **Se quedó:** `lib/features/tickeador/**` — es la única registrada como home real del rol
+  (`home_router.dart` → `TickeadorHomePage`), tiene revisión de recargas (`RevisionRecargasPage`,
+  reusa `RechargeBloC`) y tickeo por QR completo (QR fijo de unidad → Salida/Llegada/Punto
+  intermedio; QR de pago de viaje → validación), los tres tipos de `log_type` en `station_logs`.
+- **Se borró:** `lib/features/driver/**tickeador_operations**` (`tickeador_operations_datasource.dart`,
+  `tickeador_operations_service.dart`, `tickeador_operations_bloc.dart`/event/state,
+  `tickeador_operation.dart`, `tickeador_operations_history_page.dart`, más su test). No tenía
+  revisión de recargas, su único camino de escritura (`RegisterTickeadorOperation`) no lo disparaba
+  ninguna pantalla, y solo era alcanzable como un ítem de menú dentro de `perfil_page.dart`
+  ("Historial de operaciones") — nunca el home del rol.
+- Sacadas sus dos entradas de `dependency_injection.dart`.
+- El ítem de Perfil "Historial de operaciones" se repuntó a una página nueva
+  (`tickeador/presentation/pages/tickeador_actividad_history_page.dart`) que lee la misma fuente
+  real (`TickeadorService.getActividadReciente`) que ya usa `TickeadorHomePage` en su sección
+  "Actividad reciente" — no quedó roto.
+- De paso se armó la consulta de auditoría de cobros que pedía la Obs. 9 del cliente. El tickeador
+  no funciona con líneas/rutas — no verifica el recorrido en el mapa, solo registra cualquier
+  vehículo que pase por SU ESTACIÓN — así que el reporte audita lo que cobraron las unidades
+  vistas en `station_logs` de ese tickeador (`TickeadorDatasource.getPaymentsReport`:
+  `station_logs` por `tickeador_id`+rango → placas distintas → `trips` por `vehicle_id`,
+  `ReporteTickeadorPage`, exportable a PDF/Excel). No hizo falta ningún índice nuevo: reutiliza el
+  índice `station_logs`(`tickeador_id`+`timestamp`) y el índice `trips`(`vehicle_id`+
+  `payment_status`+`paid_at`) que ya existían antes de esta tarea.
 
-Ambas están registradas en `dependency_injection.dart` y **ambas escriben/leen `station_logs`**. `VehicleEntity` también está definida dos veces (`driver/domain/entities/vehicle_entity.dart` y `tickeador/domain/entities/vehicle_entity.dart`).
-
-**Por qué no se arregla ahora:** requiere decidir cuál es la base y migrar la otra — trabajo de una sesión dedicada, no de limpieza de docs.
+Sigue pendiente, sin relación con esto: `VehicleEntity` todavía está definida dos veces
+(`driver/domain/entities/vehicle_entity.dart` y `tickeador/domain/entities/vehicle_entity.dart`) —
+esa duplicación es de la feature `driver` completa (registro de vehículo del chofer), no de la
+parte de Tickeador que se acaba de resolver acá.
 
 ---
 

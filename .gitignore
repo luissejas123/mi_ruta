@@ -208,3 +208,5 @@ npm-debug.log
 
 # Claude Code MCP configuration (local dev tool, not part of project)
 .mcp.json
+# Kotlin build artifacts (Android)
+android/.kotlin/

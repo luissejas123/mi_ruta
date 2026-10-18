@@ -5,7 +5,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart'
+    as auth_events;
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
@@ -42,7 +43,7 @@ class MyApp extends StatelessWidget {
         BlocProvider<ThemeCubit>(create: (context) => ThemeCubit()),
         BlocProvider<AuthBloc>(
           create: (context) =>
-              getIt<AuthBloc>()..add(const GetCurrentUserEvent()),
+              getIt<AuthBloc>()..add(const auth_events.GetCurrentUserEvent()),
         ),
         BlocProvider<UserBloc>(create: (context) => getIt<UserBloc>()),
         BlocProvider<WalletBloc>(create: (context) => getIt<WalletBloc>()),

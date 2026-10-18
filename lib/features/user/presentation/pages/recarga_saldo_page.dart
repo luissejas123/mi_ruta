@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mi_ruta/core/widgets/payment_button.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
@@ -20,6 +21,9 @@ class _RecargaSaldoPageState extends State<RecargaSaldoPage> {
   final int _currentNavIndex = 1;
   late String _userId;
 
+  /// Evita que un segundo toque abra dos veces la pantalla de recarga con QR.
+  bool _isOpeningRecargaQR = false;
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +41,16 @@ class _RecargaSaldoPageState extends State<RecargaSaldoPage> {
 
   void _onNavTap(int index) {
     navigateBottomNav(context, index);
+  }
+
+  Future<void> _openRecargaQR() async {
+    if (_isOpeningRecargaQR) return;
+    setState(() => _isOpeningRecargaQR = true);
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RecargaQRPage()),
+    );
+    if (mounted) setState(() => _isOpeningRecargaQR = false);
   }
 
   @override
@@ -108,34 +122,11 @@ class _RecargaSaldoPageState extends State<RecargaSaldoPage> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const RecargaQRPage(),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFC12F),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: const Text(
-                      'RECARGA CON QR',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                PaymentButton(
+                  label: 'RECARGA CON QR',
+                  loadingLabel: 'Abriendo...',
+                  isLoading: _isOpeningRecargaQR,
+                  onPressed: _openRecargaQR,
                 ),
               ],
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/core/widgets/payment_button.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/driver/domain/entities/vehicle_entity.dart';
@@ -38,6 +39,8 @@ class _DriverPaymentPageState extends State<DriverPaymentPage> {
   }
 
   Future<void> _generateCharge(VehicleEntity vehicle) async {
+    // Ignora toques mientras el cobro anterior sigue generándose.
+    if (_loading) return;
     final amount = double.tryParse(_amountController.text.trim());
     if (amount == null || amount <= 0) {
       setState(() => _error = 'Ingresa un monto válido.');
@@ -61,6 +64,7 @@ class _DriverPaymentPageState extends State<DriverPaymentPage> {
   }
 
   Future<void> _startService(VehicleEntity vehicle) async {
+    if (_startingService) return;
     setState(() {
       _startingService = true;
       _error = null;
@@ -110,7 +114,9 @@ class _DriverPaymentPageState extends State<DriverPaymentPage> {
                 onPressed: vehicle.inService || _startingService
                     ? null
                     : () => _startService(vehicle),
-                icon: const Icon(Icons.play_arrow),
+                icon: _startingService
+                    ? const PaymentLoadingIndicator(size: 18)
+                    : const Icon(Icons.play_arrow),
                 label: Text(
                   vehicle.inService
                       ? 'Jornada iniciada'
@@ -132,7 +138,9 @@ class _DriverPaymentPageState extends State<DriverPaymentPage> {
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: _loading ? null : () => _generateCharge(vehicle),
-                icon: const Icon(Icons.qr_code_2),
+                icon: _loading
+                    ? const PaymentLoadingIndicator(size: 18)
+                    : const Icon(Icons.qr_code_2),
                 label: Text(_loading ? 'Generando...' : 'Generar QR de cobro'),
               ),
               if (_error != null) ...[

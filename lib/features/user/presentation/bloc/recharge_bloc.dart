@@ -6,6 +6,11 @@ import 'package:mi_ruta/features/user/presentation/bloc/recharge_state.dart';
 class RechargeBloC extends Bloc<RechargeEvent, RechargeState> {
   final RechargeService _rechargeService;
 
+  /// Evita recargas duplicadas: el transformer por defecto de bloc procesa los
+  /// eventos de forma concurrente, así que un segundo envío que llegue
+  /// mientras el primero sigue en curso se descarta.
+  bool _isSubmittingRecharge = false;
+
   RechargeBloC({required RechargeService rechargeService})
     : _rechargeService = rechargeService,
       super(const RechargeInitial()) {
@@ -19,6 +24,8 @@ class RechargeBloC extends Bloc<RechargeEvent, RechargeState> {
     SubmitRechargeEvent event,
     Emitter<RechargeState> emit,
   ) async {
+    if (_isSubmittingRecharge) return;
+    _isSubmittingRecharge = true;
     emit(const RechargeLoading());
 
     try {
@@ -42,6 +49,8 @@ class RechargeBloC extends Bloc<RechargeEvent, RechargeState> {
       );
     } catch (e) {
       emit(RechargeError(message: 'Error al procesar recarga: $e'));
+    } finally {
+      _isSubmittingRecharge = false;
     }
   }
 

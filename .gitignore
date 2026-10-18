@@ -215,3 +215,6 @@ npm-debug.log
 
 # Reflexión personal, no es material de equipo/sprint
 Retrospective Personal.md
+
+# Kotlin build artifacts (Android)
+android/.kotlin/

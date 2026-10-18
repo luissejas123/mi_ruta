@@ -7,7 +7,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/pago_qr_page.dart';
-import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/movimientos_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recarga_saldo_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/balance_card.dart';
@@ -68,11 +68,19 @@ class _WalletPageState extends State<WalletPage> {
     _loadWalletData();
   }
 
-  void _navigateToMovimientos() {
-    Navigator.push(
+  void _navigateToMovimientos() async {
+    // Antes abría `HistorialViajesPage` (historial de PLANIFICACIÓN, con
+    // montos estimados) en vez del ledger real de la billetera — deuda
+    // técnica #11. Ahora muestra la colección `transactions`, que es donde
+    // quedan recargas, pagos y reembolsos de verdad.
+    await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const HistorialViajesPage()),
+      MaterialPageRoute(builder: (_) => const MovimientosPage()),
     );
+    if (!mounted) return;
+    // Desde Movimientos se puede cancelar un viaje y recuperar el saldo:
+    // al volver, la billetera tiene que mostrar el saldo nuevo.
+    _loadWalletData();
   }
 
   void _navigateToPagoQR() async {

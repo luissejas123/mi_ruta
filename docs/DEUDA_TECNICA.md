@@ -120,6 +120,10 @@ El problema real es de UI: `WalletPage` → botón "MOVIMIENTOS" → `HistorialV
 
 **Arreglado parcialmente 2026-09-15:** el label ahora dice `"Estimado: Bs X"` en vez de `"- Bs X"`, quitando la apariencia de débito real. **Sigue pendiente:** construir una vista real de "Movimientos" que use `getPaymentHistory()` (o una versión ampliada que también incluya recargas) — hoy un pasajero no tiene ninguna forma de ver su ledger real de transacciones dentro de la app, solo puede inferirlo del saldo actual.
 
+**RESUELTO 2026-10-17** (junto con la observación de reembolso al cancelar un viaje): nueva `lib/features/user/presentation/pages/movimientos_page.dart`, a la que ahora apunta el botón "MOVIMIENTOS" de `WalletPage`. Lee el ledger real (`transactions`) a través de `WalletBloc`/`WalletService.getTransactionHistory` — no `getPaymentHistory()`, que filtra solo `trip_payment` y habría dejado fuera recargas y reembolsos. `HistorialViajesPage` no se borró: sigue siendo el historial de viajes y se llega a ella desde Perfil.
+
+Ojo con el signo de `amount`: el mismo `transaction_type: 'trip_payment'` se escribe **negativo** desde `TripPaymentService._chargeTrip` y **positivo** desde `WalletDatasource.deductTripPayment`. `MovimientosPage` deduce la dirección del movimiento del TIPO y muestra el monto en absoluto, en vez de confiar en el signo. Unificar esos dos escritores sigue pendiente.
+
 ---
 
 ## 12. `RouteDatasource` mezcla rutas con y sin filtro `active`, y una de ellas rompía en silencio "ruta asignada" del chofer — RESUELTO

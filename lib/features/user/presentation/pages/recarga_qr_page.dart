@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:mi_ruta/core/widgets/payment_button.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
@@ -227,6 +228,8 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
   }
 
   void _submitRecharge() {
+    // Bloquea cualquier toque posterior mientras la recarga está en curso.
+    if (_isProcessing) return;
     final amount = double.tryParse(_amountController.text);
     final amountError = RechargeService.validateAmount(amount);
     if (amountError != null) {
@@ -517,10 +520,12 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
                             ),
                           ),
                           TextButton(
-                            onPressed: () => setState(() {
-                              _selectedImage = null;
-                              _comprobanteEnviado = false;
-                            }),
+                            onPressed: _isProcessing
+                                ? null
+                                : () => setState(() {
+                                    _selectedImage = null;
+                                    _comprobanteEnviado = false;
+                                  }),
                             child: const Text(
                               'Cambiar',
                               style: TextStyle(color: Colors.black54),
@@ -601,35 +606,11 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
     ),
   );
 
-  Widget _buildSubmitButton(bool isLoading) => SizedBox(
-    width: double.infinity,
-    height: 56,
-    child: ElevatedButton(
-      onPressed: _isProcessing || isLoading ? null : _submitRecharge,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _amarillo,
-        disabledBackgroundColor: Colors.grey.shade300,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-      child: isLoading
-          ? const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(Colors.black),
-              ),
-            )
-          : const Text(
-              'Enviar comprobante',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-    ),
+  Widget _buildSubmitButton(bool isLoading) => PaymentButton(
+    label: 'Enviar comprobante',
+    loadingLabel: 'Enviando comprobante...',
+    isLoading: _isProcessing || isLoading,
+    onPressed: _submitRecharge,
   );
 
   @override
@@ -647,7 +628,10 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
     ),
     body: BlocListener<RechargeBloC, RechargeState>(
       listener: (context, state) {
-        setState(() => _isProcessing = false);
+        // Solo al terminar (éxito o error) se libera el botón de envío.
+        if (state is RechargeSubmitted || state is RechargeError) {
+          setState(() => _isProcessing = false);
+        }
         if (state is RechargeSubmitted) {
           // No se recarga el WalletBloc acá — todavía no hay saldo nuevo que
           // reflejar, la recarga queda pendiente hasta que el tickeador la

@@ -8,6 +8,11 @@ class RechargeBloC extends Bloc<RechargeEvent, RechargeState> {
   final RechargeService _rechargeService;
   final NotificationService _notificationService;
 
+  /// Evita recargas duplicadas: el transformer por defecto de bloc procesa los
+  /// eventos de forma concurrente, así que un segundo envío que llegue
+  /// mientras el primero sigue en curso se descarta.
+  bool _isSubmittingRecharge = false;
+
   RechargeBloC({
     required RechargeService rechargeService,
     required NotificationService notificationService,
@@ -27,6 +32,8 @@ class RechargeBloC extends Bloc<RechargeEvent, RechargeState> {
     SubmitRechargeEvent event,
     Emitter<RechargeState> emit,
   ) async {
+    if (_isSubmittingRecharge) return;
+    _isSubmittingRecharge = true;
     emit(const RechargeLoading());
 
     try {
@@ -50,6 +57,8 @@ class RechargeBloC extends Bloc<RechargeEvent, RechargeState> {
       );
     } catch (e) {
       emit(RechargeError(message: 'Error al procesar recarga: $e'));
+    } finally {
+      _isSubmittingRecharge = false;
     }
   }
 

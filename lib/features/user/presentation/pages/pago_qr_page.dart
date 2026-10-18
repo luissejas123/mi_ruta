@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mi_ruta/core/widgets/payment_button.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/domain/services/pago_qr_utils_service.dart';
@@ -37,6 +38,10 @@ class _PagoQRViewState extends State<_PagoQRView> {
   File? _selectedQRImage;
   final ImagePicker _picker = ImagePicker();
 
+  /// `true` desde el primer toque en un botón de pago hasta que el BLoC
+  /// responde. Bloquea cualquier toque posterior mientras se procesa.
+  bool _isProcessing = false;
+
   @override
   void initState() {
     super.initState();
@@ -59,24 +64,34 @@ class _PagoQRViewState extends State<_PagoQRView> {
       );
 
   Future<void> _scanQr() async {
+    if (_isProcessing) return;
     final userId = _getUserId();
     if (userId == null) {
       _showError('No se pudo obtener tu información');
       return;
     }
+    // Se bloquea desde el primer toque: incluye la apertura del escáner.
+    setState(() => _isProcessing = true);
+
     final qrResult = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => const QRScannerPage(title: 'Escanear QR del viaje'),
       ),
     );
-    if (PagoQRUtilsService.isValidQrResult(qrResult) && mounted) {
-      context.read<TripPaymentBLoC>().add(
-        ProcessPaymentEvent(userId: userId, qrData: qrResult!),
-      );
+    if (!mounted) return;
+
+    if (!PagoQRUtilsService.isValidQrResult(qrResult)) {
+      // El usuario canceló el escaneo: se libera el botón.
+      setState(() => _isProcessing = false);
+      return;
     }
+    context.read<TripPaymentBLoC>().add(
+      ProcessPaymentEvent(userId: userId, qrData: qrResult!),
+    );
   }
 
   Future<void> _pickQRFromGallery() async {
+    if (_isProcessing) return;
     try {
       final picked = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -116,6 +131,7 @@ class _PagoQRViewState extends State<_PagoQRView> {
   }
 
   void _processQRFromImage() {
+    if (_isProcessing) return;
     if (_selectedQRImage == null) {
       _showError('Por favor selecciona una imagen del QR primero');
       return;
@@ -125,6 +141,7 @@ class _PagoQRViewState extends State<_PagoQRView> {
       _showError('No se pudo obtener tu información');
       return;
     }
+    setState(() => _isProcessing = true);
     context.read<TripPaymentBLoC>().add(
       ProcessPaymentEvent(userId: userId, qrData: _selectedQRImage!.path),
     );
@@ -211,7 +228,7 @@ class _PagoQRViewState extends State<_PagoQRView> {
     ),
   );
 
-  Widget _buildSelectedQRImage() => Column(
+  Widget _buildSelectedQRImage(bool isBusy) => Column(
     children: [
       const SizedBox(height: 16),
       Stack(
@@ -227,7 +244,9 @@ class _PagoQRViewState extends State<_PagoQRView> {
             ),
           ),
           GestureDetector(
-            onTap: () => setState(() => _selectedQRImage = null),
+            onTap: isBusy
+                ? null
+                : () => setState(() => _selectedQRImage = null),
             child: Container(
               margin: const EdgeInsets.all(8),
               padding: const EdgeInsets.all(4),
@@ -241,28 +260,12 @@ class _PagoQRViewState extends State<_PagoQRView> {
         ],
       ),
       const SizedBox(height: 12),
-      SizedBox(
-        width: double.infinity,
-        height: 56,
-        child: ElevatedButton.icon(
-          onPressed: _processQRFromImage,
-          icon: const Icon(Icons.payment, color: Colors.black),
-          label: const Text(
-            'Procesar pago',
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _amarillo,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-        ),
+      PaymentButton(
+        label: 'Procesar pago',
+        loadingLabel: 'Procesando pago...',
+        icon: Icons.payment,
+        isLoading: isBusy,
+        onPressed: _processQRFromImage,
       ),
     ],
   );
@@ -282,12 +285,16 @@ class _PagoQRViewState extends State<_PagoQRView> {
     ),
     body: BlocListener<TripPaymentBLoC, TripPaymentState>(
       listener: (context, state) {
+        // Solo al terminar (éxito o error) se liberan los botones.
+        if (state is TripPaymentSuccess || state is TripPaymentError) {
+          setState(() => _isProcessing = false);
+        }
         if (state is TripPaymentSuccess) _showSuccess(state);
         if (state is TripPaymentError) _showError(state.message);
       },
       child: BlocBuilder<TripPaymentBLoC, TripPaymentState>(
         builder: (context, state) {
-          final isLoading = state is TripPaymentLoading;
+          final isBusy = _isProcessing || state is TripPaymentLoading;
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             child: Column(
@@ -321,37 +328,12 @@ class _PagoQRViewState extends State<_PagoQRView> {
                   style: TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton.icon(
-                    onPressed: isLoading ? null : _scanQr,
-                    icon: isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.black,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(Icons.qr_code_scanner, color: Colors.black),
-                    label: Text(
-                      isLoading ? 'Procesando...' : 'Escanear con cámara',
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _amarillo,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
+                PaymentButton(
+                  label: 'Escanear con cámara',
+                  loadingLabel: 'Procesando pago...',
+                  icon: Icons.qr_code_scanner,
+                  isLoading: isBusy,
+                  onPressed: _scanQr,
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -375,7 +357,7 @@ class _PagoQRViewState extends State<_PagoQRView> {
                   width: double.infinity,
                   height: 56,
                   child: OutlinedButton.icon(
-                    onPressed: isLoading ? null : _pickQRFromGallery,
+                    onPressed: isBusy ? null : _pickQRFromGallery,
                     icon: const Icon(Icons.photo_library_outlined),
                     label: const Text(
                       'Subir QR desde galería',
@@ -400,7 +382,7 @@ class _PagoQRViewState extends State<_PagoQRView> {
                     color: Colors.grey.shade500,
                   ),
                 ),
-                if (_selectedQRImage != null) _buildSelectedQRImage(),
+                if (_selectedQRImage != null) _buildSelectedQRImage(isBusy),
                 if (state is TripPaymentSuccess) ...[
                   const SizedBox(height: 24),
                   _buildSuccessMessage(state),

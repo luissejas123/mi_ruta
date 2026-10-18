@@ -20,6 +20,11 @@ class _QRScannerPageState extends State<QRScannerPage> {
   final MobileScannerController _controller = MobileScannerController();
   bool _isTorchOn = false;
 
+  /// `onDetect` se dispara varias veces por segundo mientras el QR siga en
+  /// cámara: sin esta bandera se devolvería el mismo código más de una vez
+  /// (y se cerrarían pantallas de más), provocando un doble cobro.
+  bool _qrHandled = false;
+
   @override
   void dispose() {
     _controller.dispose();
@@ -31,12 +36,11 @@ class _QRScannerPageState extends State<QRScannerPage> {
     _controller.toggleTorch();
   }
 
-  bool _hasScanned = false;
-
   void _onQrDetected(Barcode barcode) {
-    if (_hasScanned) return;
-    _hasScanned = true;
+    if (_qrHandled) return;
     final qrCode = barcode.rawValue ?? '';
+    if (qrCode.isEmpty) return;
+    _qrHandled = true;
     Navigator.of(context).pop(qrCode);
   }
 

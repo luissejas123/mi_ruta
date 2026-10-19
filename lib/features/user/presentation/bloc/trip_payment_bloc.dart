@@ -52,14 +52,18 @@ class TripPaymentBLoC extends Bloc<TripPaymentEvent, TripPaymentState> {
     ProcessPaymentEvent event,
     Emitter<TripPaymentState> emit,
   ) async {
-    if (_isProcessingPayment) return;
-    _isProcessingPayment = true;
+if (_isProcessingPayment) return;
+_isProcessingPayment = true;
+
+emit(const TripPaymentLoading());
     emit(const TripPaymentLoading());
 
     try {
       final result = await _tripPaymentService.processPayment(
         userId: event.userId,
         qrData: event.qrData,
+        expectedRouteRef: event.expectedRouteRef,
+        expectedTripId: event.expectedTripId,
       );
 
       if (result['success'] == true) {

@@ -8,6 +8,7 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/driver/domain/entities/vehicle_entity.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
+import 'package:mi_ruta/features/user/domain/services/trip_line_validator.dart';
 import 'package:mi_ruta/features/user/domain/services/wallet_service.dart';
 import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
 import 'package:mi_ruta/features/user/presentation/pages/qr_scanner_page.dart';
@@ -189,6 +190,28 @@ class _ConfirmarAbordajePageState extends State<ConfirmarAbordajePage> {
 
     final driverService = getIt<DriverService>();
     final route = await driverService.getAssignedRoute(vehicle);
+    // Línea real de la unidad — misma expresión con la que
+    // `DriverService.createBoardingTrip` llena `trips.route_ref`, que es la
+    // línea contra la que después se valida el QR de cobro. Una unidad de
+    // otra línea no puede quedar registrada como el abordaje de la línea
+    // que el pasajero eligió.
+    final unitRouteRef = route?.ref ?? vehicle.lineNumber;
+    if (TripLineValidator.normalizeRef(unitRouteRef) == null) {
+      _showError(
+        'No se pudo determinar la línea de esta unidad. '
+        'Pide al chofer que verifique su línea asignada e intenta nuevamente.',
+      );
+      return;
+    }
+    if (TripLineValidator.normalizeRef(unitRouteRef) !=
+        TripLineValidator.normalizeRef(widget.plannedRouteRef)) {
+      _showError(
+        'Esta unidad es de la Línea $unitRouteRef, no de la Línea '
+        '${widget.plannedRouteRef} que seleccionaste. '
+        'Verifica la línea e intenta nuevamente.',
+      );
+      return;
+    }
     final polyline = route?.polyline;
 
     var routeMismatch = false;

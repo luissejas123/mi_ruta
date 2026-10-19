@@ -8,7 +8,38 @@ class TickeadorActividadItem extends StatelessWidget {
 
   const TickeadorActividadItem({super.key, required this.log});
 
-  String get _logTypeLabel => log.logType == 'departure' ? 'Salida' : 'Llegada';
+  String get _logTypeLabel {
+    switch (log.logType) {
+      case 'departure':
+        return 'Salida';
+      case 'intermediate':
+        return 'Punto intermedio';
+      default:
+        return 'Llegada';
+    }
+  }
+
+  IconData get _logTypeIcon {
+    switch (log.logType) {
+      case 'departure':
+        return Icons.login;
+      case 'intermediate':
+        return Icons.alt_route;
+      default:
+        return Icons.logout;
+    }
+  }
+
+  Color _logTypeColor() {
+    switch (log.logType) {
+      case 'departure':
+        return Colors.green.shade700;
+      case 'intermediate':
+        return Colors.blue.shade700;
+      default:
+        return Colors.orange.shade700;
+    }
+  }
 
   String _formatTimestamp(DateTime ts) {
     final local = ts.toLocal();
@@ -31,13 +62,7 @@ class TickeadorActividadItem extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            log.logType == 'departure' ? Icons.login : Icons.logout,
-            color: log.logType == 'departure'
-                ? Colors.green.shade700
-                : Colors.orange.shade700,
-            size: 22,
-          ),
+          Icon(_logTypeIcon, color: _logTypeColor(), size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

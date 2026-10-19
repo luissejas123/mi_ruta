@@ -87,8 +87,6 @@ import 'package:mi_ruta/features/driver/domain/repositories/vehicle_repository.d
 import 'package:mi_ruta/features/driver/domain/usecases/vehicle_usecases.dart';
 import 'package:mi_ruta/features/driver/presentation/bloc/driver_vehicle_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_active_vehicles_bloc.dart';
-import 'package:mi_ruta/features/driver/data/datasources/tickeador_operations_datasource.dart';
-import 'package:mi_ruta/features/driver/domain/services/tickeador_operations_service.dart';
 import 'package:mi_ruta/features/admin/data/datasources/admin_privileges_datasource.dart';
 import 'package:mi_ruta/features/admin/domain/services/admin_privileges_service.dart';
 import 'package:mi_ruta/features/stops/domain/services/bus_stop_service.dart';
@@ -104,6 +102,7 @@ import 'package:mi_ruta/features/tickeador/data/repositories/tickeador_repositor
 import 'package:mi_ruta/features/tickeador/domain/repositories/tickeador_repository.dart';
 import 'package:mi_ruta/features/tickeador/presentation/bloc/tickeador_bloc.dart';
 import 'package:mi_ruta/features/tickeador/domain/services/tickeador_service.dart';
+import 'package:mi_ruta/features/tickeador/domain/services/tickeador_report_export_service.dart';
 import 'package:mi_ruta/features/driver/data/repositories/driver_repository_impl.dart';
 import 'package:mi_ruta/features/driver/domain/repositories/driver_repository.dart';
 import 'package:mi_ruta/features/driver/domain/usecases/activate_driver_mode_usecase.dart';
@@ -728,15 +727,6 @@ void setupDependencies() {
   // DriverDatasource/DriverService ya se registran arriba (junto a
   // RouteService/TariffService/BenefitDiscountService, de los que dependen).
 
-  getIt.registerSingleton<TickeadorOperationsDatasource>(
-    TickeadorOperationsDatasource(firestore: getIt<FirebaseFirestore>()),
-  );
-  getIt.registerSingleton<TickeadorOperationsService>(
-    TickeadorOperationsService(
-      datasource: getIt<TickeadorOperationsDatasource>(),
-    ),
-  );
-
   // ============================================
   // ADMIN FEATURE - Unidades / supervisión (AdminService, RQ-71 a RQ-77)
   // ============================================
@@ -780,6 +770,9 @@ void setupDependencies() {
       repository: getIt<TickeadorRepository>(),
       driverDatasource: getIt<DriverDatasource>(),
     ),
+  );
+  getIt.registerSingleton<TickeadorReportExportService>(
+    TickeadorReportExportService(),
   );
 
   // ============================================

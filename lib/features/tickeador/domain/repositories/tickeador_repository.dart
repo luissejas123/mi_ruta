@@ -1,5 +1,6 @@
 import 'package:mi_ruta/features/tickeador/domain/entities/station_log_entity.dart';
 import 'package:mi_ruta/features/tickeador/domain/entities/tickeador_entity.dart';
+import 'package:mi_ruta/features/tickeador/domain/entities/tickeador_payments_report.dart';
 import 'package:mi_ruta/features/tickeador/domain/entities/vehicle_entity.dart';
 
 /// Repositorio de dominio para la feature Tickeador.
@@ -25,5 +26,13 @@ abstract class TickeadorRepository {
   Future<List<StationLogEntity>> getActividadReciente(
     String tickeadorId, {
     int limit = 20,
+  });
+
+  /// Reporte de auditoría de cobros reales (`trips`) de las unidades que
+  /// pasaron por la estación de [tickeadorId] en el rango [from]-[to].
+  Future<TickeadorPaymentsReportEntity> getPaymentsReport({
+    required String tickeadorId,
+    required DateTime from,
+    required DateTime to,
   });
 }

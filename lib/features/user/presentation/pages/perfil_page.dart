@@ -24,7 +24,7 @@ import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.d
 import 'package:mi_ruta/features/driver/presentation/pages/driver_assigned_routes_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/gestionar_unidades_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/solicitud_chofer_page.dart';
-import 'package:mi_ruta/features/driver/presentation/pages/tickeador_operations_history_page.dart';
+import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_actividad_history_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/notificaciones_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/planificar_viaje_page.dart';
 import 'package:mi_ruta/features/stops/presentation/pages/paradas_cercanas_page.dart' show ParadasCercanasPage;
@@ -492,7 +492,7 @@ class _PerfilPageState extends State<PerfilPage> {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const TickeadorOperationsHistoryPage(),
+                        builder: (_) => const TickeadorActividadHistoryPage(),
                       ),
                     ),
                   ),

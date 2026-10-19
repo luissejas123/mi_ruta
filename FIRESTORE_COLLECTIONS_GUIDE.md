@@ -332,6 +332,7 @@ Al aprobar una solicitud, `active_benefits` se agrega al documento correspondien
 ```
 
 **`transaction_type` vistos en datos:** `recharge`, `benefit_request`. Documentados en código pero también usados: `trip_payment`, `trip_income`.
+**Agregados 2026-10-17 (reembolso al cancelar un viaje):** `refund` (movimiento del pasajero, monto **positivo** — le vuelve el dinero) y `refund_issued` (movimiento espejo del chofer, monto **negativo**). Los dos los escribe `TripPaymentService.refundTrip`, dentro de la **misma** transacción que mueve los saldos. El tipo se escribe en inglés como el resto (`trip_payment`, `top_up`); "Reembolso" es solo la etiqueta que ve el usuario en `MovimientosPage`.
 **Estados:** `pending`, `approved`/`completed`, `rejected`/`failed`
 **Campo de vínculo opcional:** `recharge_id` o `benefit_request_id` según el tipo de transacción.
 
@@ -402,7 +403,9 @@ Al aprobar una solicitud, `active_benefits` se agrega al documento correspondien
 - **Cobro por QR del chofer** (`DriverDatasource.createTripCharge`, RQ-65): el chofer teclea un monto y genera el viaje con `base_fare` > 0, `status: 'pending'`, sin `passenger_id` (se completa recién cuando el pasajero escanea y `TripPaymentService.processPayment` corre). Sin campo `boarded_at`/`route_mismatch`.
 - **Abordaje del pasajero** (`DriverDatasource.createBoardingTrip`, Bloque 2 paso 3, rediseño 2026-09-14): el pasajero, antes de navegar, confirma abordaje en `ConfirmarAbordajePage` — escanea el QR fijo de la unidad (`UnitQrPage`) o escribe su placa (`DriverDatasource.getVehicleByPlate`). El viaje nace con `base_fare: 0` (todavía no hay monto), `status: 'boarding'`, `passenger_id` ya puesto desde el inicio, `boarded_at`, y `route_mismatch` (bool) — `true` si el GPS del pasajero, al confirmar, estaba a más de 150 m del trazado real de la línea de esa unidad (`DistanceUtils.distanceToPolylineMeters`); se le avisa en el momento pero no se bloquea el abordaje, solo queda registrado como observación. El monto real se resuelve después, por distancia (`TariffService`), cuando el pasajero presiona "Aviso de bajada" (`TripPaymentService.processDistanceFare`) o por el respaldo de tarifa máxima (`DriverService.chargeStaleBoardingTrips`/`stopService`) si nunca avisa.
 
-**Estados de `status`:** `pending` (cobro QR recién creado) → `completed` (pagado). `boarding` (abordaje recién creado) → `completed` (cobrado por distancia o por respaldo de tarifa máxima). **`payment_status`:** `pending` → `paid`. `payment_method` de la transacción espejo en `transactions` distingue `qr` de `distance`.
+**Estados de `status`:** `pending` (cobro QR recién creado) → `completed` (pagado). `boarding` (abordaje recién creado) → `completed` (cobrado por distancia o por respaldo de tarifa máxima). **`payment_status`:** `pending` → `paid`. `payment_method` de la transacción espejo en `transactions` distingue `qr` de `distance` — **ojo: `payment_method` NO existe en el documento de `trips`**, vive solo en `transactions`.
+
+**Cancelación con reembolso (2026-10-17):** un viaje ya pagado puede cancelarse desde "MOVIMIENTOS" de la billetera (`TripPaymentService.refundTrip`). El documento pasa a `status: 'cancelled'` / `payment_status: 'refunded'` y suma dos campos: `refund_amount` (number) y `refunded_at` (Timestamp). La relectura del viaje dentro de la transacción es la guarda contra el doble reembolso, igual que la de `_chargeTrip` lo es contra el doble cobro.
 
 ---
 

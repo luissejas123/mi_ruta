@@ -1,4 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mi_ruta/features/tickeador/domain/services/tickeador_service.dart'
+    show TripQrPayload;
+import 'package:mi_ruta/features/user/domain/services/trip_line_validator.dart';
 
 class TripPaymentService {
   final FirebaseFirestore _firestore;
@@ -8,32 +11,46 @@ class TripPaymentService {
 
   /// Procesa el pago de un viaje escaneando el QR del chofer
   /// El QR contiene: driverId|tripId|amount
+  ///
+  /// [expectedRouteRef]: `ref` de la línea que el pasajero está abordando.
+  /// Si se pasa, el cobro solo se hace si `trips/{tripId}.route_ref`
+  /// coincide (ver [TripLineValidator]) — validado antes de cobrar y de nuevo
+  /// dentro de la transacción. [expectedTripId]: si se pasa, el QR tiene que
+  /// apuntar a ese viaje exacto (el abordaje en curso).
   Future<Map<String, dynamic>> processPayment({
     required String userId,
     required String qrData,
+    String? expectedRouteRef,
+    String? expectedTripId,
   }) async {
     try {
-      // Decodificar QR: formato "driverId|tripId|amount"
-      final parts = qrData.split('|');
-      if (parts.length < 3) {
-        throw Exception('Código QR inválido');
-      }
+      // Decodificar QR: formato "driverId|tripId|amount" — mismo parser
+      // que ya usa el tickeador (rechaza campos vacíos/extra y montos
+      // NaN/Infinity, que `double.parse` dejaba pasar).
+      final payload = TripQrPayload.parse(qrData);
 
-      final String driverId = parts[0];
-      final String tripId = parts[1];
-      final double amount = double.parse(parts[2]);
-
-      if (amount <= 0) {
-        throw Exception('Monto inválido');
+      if (expectedTripId != null && payload.tripId != expectedTripId) {
+        throw const TripQrValidationException(
+          TripLineValidator.tripMismatchMessage,
+        );
       }
 
       return await _chargeTrip(
         userId: userId,
-        driverId: driverId,
-        tripId: tripId,
-        amount: amount,
+        driverId: payload.driverId,
+        tripId: payload.tripId,
+        amount: payload.amount,
         paymentMethod: 'qr',
+        validateLine: expectedRouteRef != null || expectedTripId != null,
+        expectedRouteRef: expectedRouteRef,
       );
+    } on TripQrValidationException catch (e) {
+      return {'success': false, 'message': e.message};
+    } on FormatException catch (e) {
+      return {
+        'success': false,
+        'message': '${e.message}. Escanea nuevamente el QR del chofer.',
+      };
     } catch (e) {
       return {'success': false, 'message': 'Error al procesar pago: $e'};
     }
@@ -74,6 +91,8 @@ class TripPaymentService {
     required String tripId,
     required double amount,
     required String paymentMethod,
+    bool validateLine = false,
+    String? expectedRouteRef,
   }) async {
     // Verificar que el viaje exista
     final tripDoc = await _firestore.collection('trips').doc(tripId).get();
@@ -84,6 +103,14 @@ class TripPaymentService {
     final tripData = tripDoc.data() as Map<String, dynamic>;
     if (tripData['driver_id'] != driverId) {
       throw Exception('El chofer no coincide con el viaje');
+    }
+    // Chequeo rápido para cortar antes de leer usuario/chofer; la guarda
+    // real se repite dentro de la transacción (más abajo).
+    if (validateLine) {
+      TripLineValidator.ensureSameLine(
+        boardedRouteRef: expectedRouteRef,
+        qrRouteRef: tripData['route_ref'],
+      );
     }
 
     // Obtener datos del usuario para verificar saldo
@@ -132,6 +159,15 @@ class TripPaymentService {
       final freshTripData = freshTripSnap.data() as Map<String, dynamic>;
       if (freshTripData['payment_status'] == 'paid') {
         throw Exception('Este viaje ya fue pagado');
+      }
+      // Misma validación de línea, ahora sobre la lectura transaccional —
+      // ninguna escritura de abajo corre si la línea del viaje no es la
+      // abordada.
+      if (validateLine) {
+        TripLineValidator.ensureSameLine(
+          boardedRouteRef: expectedRouteRef,
+          qrRouteRef: freshTripData['route_ref'],
+        );
       }
       // Un viaje de abordaje (`createBoardingTrip`) ya trae `passenger_id`
       // puesto desde que subió — si alguien escanea el QR equivocado (dos

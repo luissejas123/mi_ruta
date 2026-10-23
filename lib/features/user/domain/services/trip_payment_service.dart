@@ -166,17 +166,36 @@ class TripPaymentService {
       });
     });
 
-    // Registrar transacción para el usuario
+    final String? routeLine =
+        (tripData['route_line'] ?? tripData['route_number'])?.toString();
+    final String? routeName =
+        (tripData['route_name'] ?? tripData['route'])?.toString();
+    final userDesc = routeLine != null && routeLine.isNotEmpty
+        ? 'Pago Línea $routeLine${routeName != null ? ' - $routeName' : ''}'
+        : 'Pago a chofer $driverName';
+
+    // Registrar transacción para el usuario (Obs 4: modelo único de movimientos)
     await _firestore.collection('transactions').add({
       'user_id': userId,
+      'tipo': 'pago_viaje',
+      'monto': amount,
+      'linea': routeLine,
+      'ruta': routeName,
+      'viaje_id': tripId,
+      'fecha': FieldValue.serverTimestamp(),
+      'estado': 'completed',
+      'descripcion': userDesc,
+      // Retrocompatibilidad con lectores anteriores
       'transaction_type': 'trip_payment',
       'amount': -amount,
-      'description': 'Pago a chofer $driverName',
+      'description': userDesc,
       'timestamp': FieldValue.serverTimestamp(),
       'payment_method': paymentMethod,
       'status': 'completed',
       'trip_id': tripId,
       'driver_id': driverId,
+      'route_number': ?routeLine,
+      'route_name': ?routeName,
     });
 
     // Registrar transacción para el chofer
@@ -315,10 +334,24 @@ class TripPaymentService {
           'refunded_at': FieldValue.serverTimestamp(),
         });
 
+        final String? routeLine =
+            (tripData['route_line'] ?? tripData['route_number'])?.toString();
+        final String? routeName =
+            (tripData['route_name'] ?? tripData['route'])?.toString();
+
         // Movimiento del pasajero: entra dinero → monto positivo, igual que
-        // `top_up`/`recharge`.
+        // `top_up`/`recharge` (Obs 4: modelo único de movimientos).
         transaction.set(passengerTxRef, {
           'user_id': userId,
+          'tipo': 'reembolso',
+          'monto': amount,
+          'linea': routeLine,
+          'ruta': routeName,
+          'viaje_id': tripId,
+          'fecha': FieldValue.serverTimestamp(),
+          'estado': 'completed',
+          'descripcion': 'Reembolso por viaje cancelado - $driverName',
+          // Retrocompatibilidad con lectores anteriores
           'transaction_type': 'refund',
           'amount': amount,
           'description': 'Reembolso por viaje cancelado - $driverName',
@@ -327,6 +360,8 @@ class TripPaymentService {
           'status': 'completed',
           'trip_id': tripId,
           'driver_id': driverId,
+          'route_number': ?routeLine,
+          'route_name': ?routeName,
         });
 
         // Movimiento del chofer: sale dinero → monto negativo, mismo criterio

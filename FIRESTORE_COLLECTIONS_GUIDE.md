@@ -316,18 +316,33 @@ Al aprobar una solicitud, `active_benefits` se agrega al documento correspondien
 
 ## 💰 Colección: transactions
 
-**Descripción:** Ledger de todos los movimientos de dinero — recargas, beneficios, pagos de viaje.
+**Descripción:** Ledger unificado de movimientos de la billetera del pasajero (Obs 4) — recargas, pagos de viajes y reembolsos.
+
+### Modelo Único de Movimientos (Obs 4)
+
+Cada movimiento de la billetera se almacena en la colección `transactions` con los 6 campos obligatorios y sus metadatos:
 
 ```json
 {
   "user_id": "dTZKcwHInueq683GUD6xAUJklem1",
-  "transaction_type": "recharge",
-  "amount": 80,
-  "description": "Recarga con QR",
-  "payment_method": "qr_proof",
-  "status": "approved",
-  "recharge_id": "TOVzLud2gHvUNOqYCemJ",
-  "timestamp": "<Timestamp>"
+  "tipo": "pago_viaje",
+  "monto": 2.50,
+  "linea": "106",
+  "ruta": "Quillacollo - Cochabamba",
+  "viaje_id": "TRP_001",
+  "fecha": "<Timestamp>",
+  "estado": "completed",
+  "descripcion": "Pago Línea 106 - Quillacollo - Cochabamba",
+  "payment_method": "wallet",
+  
+  // Claves de retrocompatibilidad mantenidas:
+  "transaction_type": "pago_viaje",
+  "amount": 2.50,
+  "timestamp": "<Timestamp>",
+  "status": "completed",
+  "route_number": "106",
+  "route_name": "Quillacollo - Cochabamba",
+  "trip_id": "TRP_001"
 }
 ```
 
@@ -335,6 +350,26 @@ Al aprobar una solicitud, `active_benefits` se agrega al documento correspondien
 **Agregados 2026-10-17 (reembolso al cancelar un viaje):** `refund` (movimiento del pasajero, monto **positivo** — le vuelve el dinero) y `refund_issued` (movimiento espejo del chofer, monto **negativo**). Los dos los escribe `TripPaymentService.refundTrip`, dentro de la **misma** transacción que mueve los saldos. El tipo se escribe en inglés como el resto (`trip_payment`, `top_up`); "Reembolso" es solo la etiqueta que ve el usuario en `MovimientosPage`.
 **Estados:** `pending`, `approved`/`completed`, `rejected`/`failed`
 **Campo de vínculo opcional:** `recharge_id` o `benefit_request_id` según el tipo de transacción.
+
+#### Diccionario de Campos Oficial (Obs 4 - Modelo Único de Movimientos):
+
+| Campo | Tipo | Obligatorio | Valores / Descripción |
+| :--- | :--- | :--- | :--- |
+| `tipo` | String | Sí | `"recarga"` (crédito), `"pago_viaje"` (débito), `"reembolso"` (crédito), `"ajuste"`. |
+| `monto` | Number | Sí | Siempre positivo (en Bs.). El tipo define si suma o resta. |
+| `linea` | String \| null | No | Código/número de línea (ej: `"106"`, `"233"`). `null` para recargas. |
+| `ruta` | String \| null | No | Nombre del trayecto (ej: `"Quillacollo - Cochabamba"`). `null` para recargas. |
+| `viaje_id` | String \| null | No | ID del viaje registrado en Firestore (`trips`). `null` para recargas. |
+| `fecha` | Timestamp | Sí | Fecha y hora de creación de la transacción. |
+| `estado` | String | Sí | `"completed"` (completado/afecta saldo), `"pending"` (en revisión), `"rejected"`, `"cancelled"`. |
+| `descripcion` | String | Sí | Glosa descriptiva visible en la app. |
+| `user_id` | String | Sí | UID del usuario propietario de la billetera. |
+
+#### Regla de Conciliación de Saldo ("El saldo cuadra con el historial"):
+1. **Saldo Canónico:** El saldo del usuario reside en `users/{uid}.wallet.current_balance`.
+2. **Fórmula Matemática:**
+   $$\text{Saldo} = \sum_{\text{completed}} (\text{monto}_{\text{recarga}} + \text{monto}_{\text{reembolso}}) - \sum_{\text{completed}} (\text{monto}_{\text{pago\_viaje}})$$
+3. Solo los movimientos con `estado == 'completed'` alteran el saldo disponible de la billetera.
 
 ---
 

@@ -8,6 +8,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/pago_qr_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/movimientos_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/mi_reporte_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recarga_saldo_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/balance_card.dart';
@@ -160,6 +161,17 @@ class _WalletPageState extends State<WalletPage> {
           label: 'MOVIMIENTOS',
           icon: Icons.receipt_long_outlined,
           onPressed: _navigateToMovimientos,
+        ),
+        const SizedBox(height: 12),
+        _ActionButton(
+          label: 'MI REPORTE',
+          icon: Icons.description_outlined,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MiReportePage()),
+            );
+          },
         ),
         const SizedBox(height: 12),
         _ActionButton(

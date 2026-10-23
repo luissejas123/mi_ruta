@@ -42,7 +42,9 @@ import 'package:mi_ruta/features/user/domain/services/benefit_discount_service.d
 import 'package:mi_ruta/features/user/data/datasources/claim_datasource.dart';
 import 'package:mi_ruta/features/user/data/datasources/rating_datasource.dart';
 import 'package:mi_ruta/features/user/data/repositories/user_repository_impl.dart';
+import 'package:mi_ruta/features/user/data/repositories/passenger_report_repository_mock.dart';
 import 'package:mi_ruta/features/user/domain/repositories/user_repository.dart';
+import 'package:mi_ruta/features/user/domain/repositories/passenger_report_repository.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_history_service.dart';
 import 'package:mi_ruta/features/user/domain/services/cancelled_trips_pdf_service.dart';
 import 'package:mi_ruta/features/user/domain/services/wallet_service.dart';
@@ -55,6 +57,7 @@ import 'package:mi_ruta/features/user/domain/services/rating_service.dart';
 import 'package:mi_ruta/features/user/domain/usecases/user_usecases.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
+import 'package:mi_ruta/features/user/presentation/bloc/passenger_report_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/navigation_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_bloc.dart';
@@ -389,6 +392,24 @@ void setupDependencies() {
   getIt.registerSingleton<WalletBloc>(
     WalletBloc(walletService: getIt<WalletService>()),
   );
+
+  // ============================================
+  // PASAJERO REPORTE FEATURE - DATA LAYER
+  // ============================================
+  getIt.registerSingleton<PassengerReportRepository>(
+    PassengerReportRepositoryMock(),
+  );
+
+  // ============================================
+  // PASAJERO REPORTE FEATURE - PRESENTATION LAYER (BLoC)
+  // ============================================
+  getIt.registerFactory<PassengerReportBLoC>(
+    () => PassengerReportBLoC(
+      repository: getIt<PassengerReportRepository>(),
+    ),
+  );
+
+  // TODO: reemplazar por datos reales de Carlos
 
   // ============================================
   // STORAGE SERVICE - DOMAIN LAYER

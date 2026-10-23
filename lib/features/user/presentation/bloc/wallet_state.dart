@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:mi_ruta/features/user/domain/entities/passenger_wallet_report.dart';
 import 'package:mi_ruta/features/user/domain/entities/wallet.dart';
 
 sealed class WalletState extends Equatable {
@@ -80,6 +81,17 @@ class TransactionHistoryLoaded extends WalletState {
 
   @override
   List<Object?> get props => [transactions, wallet];
+}
+
+/// Reporte financiero del pasajero conciliado con su saldo actual.
+class PassengerReportLoaded extends WalletState {
+  final PassengerWalletReport report;
+  final Wallet wallet;
+
+  const PassengerReportLoaded({required this.report, required this.wallet});
+
+  @override
+  List<Object?> get props => [report, wallet];
 }
 
 /// Ganancias del chofer cargadas (transacciones trip_payment_received)

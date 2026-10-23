@@ -1,4 +1,5 @@
 import 'package:mi_ruta/features/user/data/datasources/wallet_datasource.dart';
+import 'package:mi_ruta/features/user/domain/entities/passenger_wallet_report.dart';
 import 'package:mi_ruta/features/user/domain/entities/wallet.dart';
 
 /// Servicio de dominio para operaciones de billetera
@@ -139,6 +140,27 @@ class WalletService {
       'saldo_actual': wallet.currentBalance,
       'currency': wallet.currency,
     };
+  }
+
+  /// Resume ingresos, pagos, reembolsos y cancelaciones del pasajero,
+  /// conciliando el ledger completo contra el saldo guardado en su billetera.
+  Future<({PassengerWalletReport report, Wallet wallet})> getPassengerReport(
+    String userId,
+  ) async {
+    final wallet = await _datasource.getWalletByUserId(userId);
+    if (wallet == null) {
+      throw Exception('Billetera no encontrada');
+    }
+
+    final data = await _datasource.getPassengerReportData(userId);
+    return (
+      report: PassengerWalletReport.fromLedger(
+        currentBalance: wallet.currentBalance,
+        transactions: data.transactions,
+        trips: data.trips,
+      ),
+      wallet: wallet,
+    );
   }
 
   /// Filtra transacciones por tipo

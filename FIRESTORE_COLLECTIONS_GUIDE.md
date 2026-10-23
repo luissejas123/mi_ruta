@@ -336,6 +336,16 @@ Al aprobar una solicitud, `active_benefits` se agrega al documento correspondien
 **Estados:** `pending`, `approved`/`completed`, `rejected`/`failed`
 **Campo de vínculo opcional:** `recharge_id` o `benefit_request_id` según el tipo de transacción.
 
+**Reporte privado del pasajero:** `WalletDatasource.getPassengerReportData`
+consulta el ledger completo filtrado por `user_id` y los viajes de
+`trips` filtrados por `passenger_id`. `PassengerWalletReport` suma
+`top_up`/`recharge` como ingresos, `trip_payment` como pagos y `refund` como
+reembolsos; agrupa los pagos por `route_ref` (con fallback a los campos de
+ruta del movimiento) y cuenta una sola vez cada viaje cancelado/reembolsado.
+El saldo calculado (`ingresos - pagos + reembolsos`) se compara con el saldo
+actual de `users/{uid}.wallet`; una diferencia se muestra como discrepancia,
+no se corrige ni se oculta desde el reporte.
+
 ---
 
 ## ⚙️ Colección: config

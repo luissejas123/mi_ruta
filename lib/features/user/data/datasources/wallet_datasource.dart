@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mi_ruta/core/utils/firestore_date.dart';
 import 'package:mi_ruta/features/user/domain/entities/wallet.dart';
+import 'package:mi_ruta/features/user/data/models/movement_model.dart';
 
 class WalletDatasource {
   final FirebaseFirestore _firestore;
@@ -146,9 +147,17 @@ class WalletDatasource {
 
         transaction.update(docRef, walletUpdates);
 
-        // Registrar transacción
+        // Registrar transacción con modelo único (Obs 4)
         await _firestore.collection('transactions').add({
           'user_id': userId,
+          'tipo': 'recarga',
+          'monto': amount,
+          'linea': null,
+          'ruta': null,
+          'viaje_id': null,
+          'fecha': FieldValue.serverTimestamp(),
+          'estado': 'completed',
+          'descripcion': 'Recarga de saldo',
           'transaction_type': 'top_up',
           'amount': amount,
           'description': 'Recarga de saldo',
@@ -168,6 +177,7 @@ class WalletDatasource {
     double amount, {
     required String routeNumber,
     required String routeName,
+    String? tripId,
   }) async {
     try {
       await _firestore.runTransaction((transaction) async {
@@ -204,9 +214,17 @@ class WalletDatasource {
 
         transaction.update(docRef, walletUpdates);
 
-        // Registrar transacción
+        // Registrar transacción con modelo único (Obs 4)
         await _firestore.collection('transactions').add({
           'user_id': userId,
+          'tipo': 'pago_viaje',
+          'monto': amount,
+          'linea': routeNumber,
+          'ruta': routeName,
+          'viaje_id': tripId,
+          'fecha': FieldValue.serverTimestamp(),
+          'estado': 'completed',
+          'descripcion': 'Pago Línea $routeNumber - $routeName',
           'transaction_type': 'trip_payment',
           'amount': amount,
           'description': 'Pago Línea $routeNumber - $routeName',
@@ -215,6 +233,7 @@ class WalletDatasource {
           'status': 'completed',
           'route_number': routeNumber,
           'route_name': routeName,
+          'trip_id': ?tripId,
         });
       });
     } catch (e) {
@@ -222,9 +241,8 @@ class WalletDatasource {
     }
   }
 
-  /// Obtiene el historial de transacciones del usuario
-  /// Nota: Requiere índice compuesto en Firestore (user_id + timestamp)
-  Future<List<Map<String, dynamic>>> getTransactionHistory(
+  /// Obtiene el historial de movimientos del usuario tipado con MovementModel
+  Future<List<MovementModel>> getTransactionHistory(
     String userId, {
     int limit = 50,
   }) async {
@@ -236,38 +254,29 @@ class WalletDatasource {
           .limit(limit)
           .get();
 
-      return snapshot.docs.map((doc) => doc.data()).toList();
+      return snapshot.docs
+          .map((doc) => MovementModel.fromFirestore(doc))
+          .toList();
     } catch (e) {
-      // Si el error es por índice faltante, intentar alternativa
+      // Fallback sin ordenar en servidor si falta índice compuesto
       if (e.toString().contains('failed-precondition') ||
           e.toString().contains('index')) {
-        print(
-          '⚠️ Índice compuesto requerido. Usando alternativa sin ordenar...',
-        );
         try {
-          // Fallback: obtener sin order, ordenar en memoria
           final snapshot = await _firestore
               .collection('transactions')
               .where('user_id', isEqualTo: userId)
-              .limit(limit * 2) // Obtener más documentos sin ordenar
+              .limit(limit * 2)
               .get();
 
-          final transactions = snapshot.docs.map((doc) => doc.data()).toList();
+          final movements = snapshot.docs
+              .map((doc) => MovementModel.fromFirestore(doc))
+              .toList();
 
-          // Ordenar en memoria por timestamp descendente
-          transactions.sort((a, b) {
-            final dateA = a['timestamp'] as dynamic;
-            final dateB = b['timestamp'] as dynamic;
-            return dateB.compareTo(dateA);
-          });
-
-          return transactions.take(limit).toList();
+          movements.sort((a, b) => b.fecha.compareTo(a.fecha));
+          return movements.take(limit).toList();
         } catch (fallbackError) {
           throw Exception(
-            'Error obteniendo historial. '
-            'Se requiere crear un índice compuesto en Firestore. '
-            'Consulta la documentación en WALLET_FIRESTORE_INITIALIZATION.md\n'
-            'Error: $fallbackError',
+            'Error obteniendo historial: $fallbackError',
           );
         }
       }

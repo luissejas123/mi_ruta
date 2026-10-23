@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:mi_ruta/features/user/domain/entities/movement_entity.dart';
 import 'package:mi_ruta/features/user/domain/entities/wallet.dart';
 
 sealed class WalletState extends Equatable {
@@ -21,9 +22,18 @@ class WalletLoading extends WalletState {
 /// Datos cargados exitosamente
 class WalletLoaded extends WalletState {
   final Wallet wallet;
-  final List<Map<String, dynamic>> transactions;
+  final List<MovementEntity> transactions;
 
   const WalletLoaded({required this.wallet, this.transactions = const []});
+
+  /// Saldo calculado a partir de la sumatoria de movimientos completados
+  double get calculatedBalance => transactions
+      .where((m) => m.estado == MovementStatus.completed)
+      .fold(0.0, (acc, m) => acc + m.signedAmount);
+
+  /// Indica si el saldo actual guardado cuadra con el historial de movimientos
+  bool get isBalanceReconciled =>
+      (wallet.currentBalance - calculatedBalance).abs() <= 0.01;
 
   @override
   List<Object?> get props => [wallet, transactions];
@@ -70,13 +80,22 @@ class WalletError extends WalletState {
 
 /// Historial de transacciones cargado
 class TransactionHistoryLoaded extends WalletState {
-  final List<Map<String, dynamic>> transactions;
+  final List<MovementEntity> transactions;
   final Wallet wallet;
 
   const TransactionHistoryLoaded({
     required this.transactions,
     required this.wallet,
   });
+
+  /// Saldo calculado a partir de la sumatoria de movimientos completados
+  double get calculatedBalance => transactions
+      .where((m) => m.estado == MovementStatus.completed)
+      .fold(0.0, (acc, m) => acc + m.signedAmount);
+
+  /// Indica si el saldo actual guardado cuadra con el historial de movimientos
+  bool get isBalanceReconciled =>
+      (wallet.currentBalance - calculatedBalance).abs() <= 0.01;
 
   @override
   List<Object?> get props => [transactions, wallet];

@@ -1,7 +1,8 @@
 import 'package:mi_ruta/features/user/data/datasources/wallet_datasource.dart';
+import 'package:mi_ruta/features/user/domain/entities/movement_entity.dart';
 import 'package:mi_ruta/features/user/domain/entities/wallet.dart';
 
-/// Servicio de dominio para operaciones de billetera
+/// Servicio de dominio para operaciones de billetera y movimientos (Obs 4)
 class WalletService {
   final WalletDatasource _datasource;
 
@@ -43,6 +44,7 @@ class WalletService {
     double amount, {
     required String routeNumber,
     required String routeName,
+    String? tripId,
   }) async {
     if (amount <= 0) {
       throw ArgumentError('El monto debe ser mayor a 0');
@@ -64,27 +66,42 @@ class WalletService {
       amount,
       routeNumber: routeNumber,
       routeName: routeName,
+      tripId: tripId,
     );
   }
 
-  /// Obtiene el historial de transacciones formateado
-  Future<List<Map<String, dynamic>>> getTransactionHistory(
+  /// Obtiene el historial de movimientos tipados ordenados por fecha descendente
+  Future<List<MovementEntity>> getTransactionHistory(
     String userId, {
     int limit = 50,
   }) async {
-    final transactions = await _datasource.getTransactionHistory(
+    final movements = await _datasource.getTransactionHistory(
       userId,
       limit: limit,
     );
 
-    // Ordenar por más recientes primero
-    transactions.sort((a, b) {
-      final dateA = a['timestamp'] as dynamic;
-      final dateB = b['timestamp'] as dynamic;
-      return dateB.compareTo(dateA);
-    });
+    // Ordenar por fecha más reciente primero
+    movements.sort((a, b) => b.fecha.compareTo(a.fecha));
 
-    return transactions;
+    return movements;
+  }
+
+  /// Calcula el saldo neto a partir de los movimientos completados (Obs 4):
+  /// Saldo = Σ(Ingresos Completados) - Σ(Pagos Completados)
+  double calculateBalanceFromMovements(List<MovementEntity> movements) {
+    return movements
+        .where((m) => m.estado == MovementStatus.completed)
+        .fold(0.0, (acc, m) => acc + m.signedAmount);
+  }
+
+  /// Verifica si el saldo guardado en la billetera cuadra con el historial de movimientos
+  bool verifyBalanceMatchesHistory({
+    required double currentBalance,
+    required List<MovementEntity> movements,
+    double tolerance = 0.01,
+  }) {
+    final calculated = calculateBalanceFromMovements(movements);
+    return (currentBalance - calculated).abs() <= tolerance;
   }
 
   /// Valida si el usuario tiene saldo suficiente para un viaje
@@ -100,8 +117,7 @@ class WalletService {
     return '${wallet.currency}. ${wallet.currentBalance.toStringAsFixed(2)}';
   }
 
-  /// Obtiene estadísticas de transacciones del usuario
-  /// Retorna: {total_ingreso, total_gasto, transacciones_count, saldo_actual}
+  /// Obtiene estadísticas de movimientos y verifica si el saldo cuadra (Obs 4)
   Future<Map<String, dynamic>> getWalletStats(String userId) async {
     final wallet = await _datasource.getWalletByUserId(userId);
     if (wallet == null) {
@@ -110,46 +126,48 @@ class WalletService {
         'total_gasto': 0.0,
         'transacciones_count': 0,
         'saldo_actual': 0.0,
+        'saldo_calculado': 0.0,
+        'saldo_cuadra': true,
       };
     }
 
-    final transactions = await _datasource.getTransactionHistory(
-      userId,
-      limit: 1000,
-    );
+    final movements = await getTransactionHistory(userId, limit: 1000);
 
     double totalIngreso = 0.0;
     double totalGasto = 0.0;
 
-    for (var tx in transactions) {
-      final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-      final type = tx['transaction_type'] as String?;
-
-      if (type == 'top_up') {
-        totalIngreso += amount;
-      } else if (type == 'trip_payment') {
-        totalGasto += amount;
+    for (final m in movements) {
+      if (m.estado == MovementStatus.completed) {
+        if (m.isIncome) {
+          totalIngreso += m.monto;
+        } else {
+          totalGasto += m.monto;
+        }
       }
     }
+
+    final saldoCalculado = totalIngreso - totalGasto;
+    final saldoCuadra =
+        (wallet.currentBalance - saldoCalculado).abs() <= 0.01;
 
     return {
       'total_ingreso': totalIngreso,
       'total_gasto': totalGasto,
-      'transacciones_count': transactions.length,
+      'transacciones_count': movements.length,
       'saldo_actual': wallet.currentBalance,
+      'saldo_calculado': saldoCalculado,
+      'saldo_cuadra': saldoCuadra,
       'currency': wallet.currency,
     };
   }
 
-  /// Filtra transacciones por tipo
-  Future<List<Map<String, dynamic>>> getTransactionsByType(
+  /// Filtra movimientos por tipo
+  Future<List<MovementEntity>> getTransactionsByType(
     String userId,
-    String transactionType,
+    MovementType tipo,
   ) async {
-    final allTransactions = await getTransactionHistory(userId, limit: 1000);
-    return allTransactions
-        .where((tx) => (tx['transaction_type'] as String?) == transactionType)
-        .toList();
+    final allMovements = await getTransactionHistory(userId, limit: 1000);
+    return allMovements.where((m) => m.tipo == tipo).toList();
   }
 
   /// Obtiene las ganancias del chofer a partir de las transacciones

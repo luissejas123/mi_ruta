@@ -165,8 +165,10 @@ class WalletService {
   /// Resume ingresos, pagos, reembolsos y cancelaciones del pasajero,
   /// conciliando el ledger completo contra el saldo guardado en su billetera.
   Future<({PassengerWalletReport report, Wallet wallet})> getPassengerReport(
-    String userId,
-  ) async {
+    String userId, {
+    DateTime? from,
+    DateTime? to,
+  }) async {
     final wallet = await _datasource.getWalletByUserId(userId);
     if (wallet == null) {
       throw Exception('Billetera no encontrada');
@@ -178,6 +180,8 @@ class WalletService {
         currentBalance: wallet.currentBalance,
         transactions: data.transactions,
         trips: data.trips,
+        from: from,
+        to: to,
       ),
       wallet: wallet,
     );

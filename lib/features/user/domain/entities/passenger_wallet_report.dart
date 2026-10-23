@@ -43,17 +43,34 @@ class PassengerWalletReport extends Equatable {
   bool get isReconciled =>
       reconciliationDifference.abs() <= reconciliationTolerance;
 
+  /// [from] / [to] (opcionales) limitan el reporte a un período usando el
+  /// campo `_date` (DateTime) que agrega el datasource. Sin período se
+  /// consideran todos los movimientos y la conciliación con el saldo aplica.
   factory PassengerWalletReport.fromLedger({
     required double currentBalance,
     required Iterable<Map<String, dynamic>> transactions,
     required Iterable<Map<String, dynamic>> trips,
+    DateTime? from,
+    DateTime? to,
   }) {
+    bool inPeriod(Map<String, dynamic> item) {
+      if (from == null && to == null) return true;
+      final date = item['_date'];
+      if (date is! DateTime) return false;
+      if (from != null && date.isBefore(from)) return false;
+      if (to != null && date.isAfter(to)) return false;
+      return true;
+    }
+
     final tripsById = <String, Map<String, dynamic>>{};
     var cancellationCount = 0;
 
     for (final trip in trips) {
       final id = trip['id'];
+      // El mapa por id incluye todos los viajes: un pago del período puede
+      // apuntar a un viaje creado antes.
       if (id is String) tripsById[id] = trip;
+      if (!inPeriod(trip)) continue;
       if (trip['status'] == 'cancelled' ||
           trip['payment_status'] == 'refunded') {
         cancellationCount++;
@@ -70,6 +87,7 @@ class PassengerWalletReport extends Equatable {
 
     for (final transaction in transactions) {
       if (!_isCompleted(transaction['status'])) continue;
+      if (!inPeriod(transaction)) continue;
 
       final amountValue = transaction['amount'];
       if (amountValue is! num || !amountValue.isFinite) continue;

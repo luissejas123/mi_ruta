@@ -8,7 +8,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/pago_qr_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/movimientos_page.dart';
-import 'package:mi_ruta/features/user/presentation/pages/passenger_wallet_report_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/mi_reporte_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recarga_saldo_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/balance_card.dart';
@@ -112,7 +112,7 @@ class _WalletPageState extends State<WalletPage> {
   Future<void> _navigateToPassengerReport() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const PassengerWalletReportPage()),
+      MaterialPageRoute(builder: (_) => const MiReportePage()),
     );
     if (!mounted) return;
     _loadWalletData();
@@ -175,7 +175,7 @@ class _WalletPageState extends State<WalletPage> {
         ),
         const SizedBox(height: 12),
         _ActionButton(
-          label: 'REPORTE DEL PASAJERO',
+          label: 'MI REPORTE',
           icon: Icons.analytics_outlined,
           onPressed: _navigateToPassengerReport,
         ),
@@ -268,8 +268,6 @@ class _WalletPageState extends State<WalletPage> {
           final wallet = state is WalletLoaded
               ? state.wallet
               : state is TransactionHistoryLoaded
-              ? state.wallet
-              : state is PassengerReportLoaded
               ? state.wallet
               : null;
 

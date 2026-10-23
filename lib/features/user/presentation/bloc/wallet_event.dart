@@ -56,16 +56,6 @@ class LoadTransactionHistoryEvent extends WalletEvent {
   List<Object?> get props => [userId];
 }
 
-/// Cargar la conciliación de movimientos del pasajero.
-class LoadPassengerReportEvent extends WalletEvent {
-  final String userId;
-
-  const LoadPassengerReportEvent(this.userId);
-
-  @override
-  List<Object?> get props => [userId];
-}
-
 /// Cargar las ganancias del chofer (transacciones trip_payment_received)
 class LoadDriverEarningsEvent extends WalletEvent {
   final String userId;

@@ -13,7 +13,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
     on<TopUpBalanceEvent>(_onTopUpBalance);
     on<PayTripEvent>(_onPayTrip);
     on<LoadTransactionHistoryEvent>(_onLoadTransactionHistory);
-    on<LoadPassengerReportEvent>(_onLoadPassengerReport);
     on<LoadDriverEarningsEvent>(_onLoadDriverEarnings);
     on<ClearWalletEvent>(_onClearWallet);
   }
@@ -156,19 +155,6 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       );
     } catch (e) {
       emit(WalletError(message: 'Error cargando historial: $e'));
-    }
-  }
-
-  Future<void> _onLoadPassengerReport(
-    LoadPassengerReportEvent event,
-    Emitter<WalletState> emit,
-  ) async {
-    emit(const WalletLoading());
-    try {
-      final result = await _walletService.getPassengerReport(event.userId);
-      emit(PassengerReportLoaded(report: result.report, wallet: result.wallet));
-    } catch (e) {
-      emit(WalletError(message: 'Error cargando el reporte: $e'));
     }
   }
 

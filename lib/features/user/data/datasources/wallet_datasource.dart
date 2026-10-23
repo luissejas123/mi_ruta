@@ -289,13 +289,24 @@ class WalletDatasource {
           .where('passenger_id', isEqualTo: userId)
           .get();
 
+      // `_date` es la fecha ya convertida a DateTime (los documentos mezclan
+      // Timestamp y String ISO), para que el reporte pueda filtrar por
+      // período sin depender de Firestore en la capa de dominio.
       return (
-        transactions: transactionSnapshot.docs
-            .map((doc) => doc.data())
-            .toList(),
-        trips: tripSnapshot.docs
-            .map((doc) => {...doc.data(), 'id': doc.id})
-            .toList(),
+        transactions: transactionSnapshot.docs.map((doc) {
+          final data = doc.data();
+          return {...data, '_date': parseFirestoreDate(data['timestamp'])};
+        }).toList(),
+        trips: tripSnapshot.docs.map((doc) {
+          final data = doc.data();
+          return {
+            ...data,
+            'id': doc.id,
+            '_date': parseFirestoreDate(
+              data['refunded_at'] ?? data['paid_at'] ?? data['created_at'],
+            ),
+          };
+        }).toList(),
       );
     } catch (e) {
       throw Exception('Error consultando el reporte del pasajero: $e');

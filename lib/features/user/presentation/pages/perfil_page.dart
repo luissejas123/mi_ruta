@@ -11,15 +11,11 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/auth/presentation/widgets/change_password_dialog.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_event.dart';
-import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_bloc.dart';
-import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_event.dart';
-import 'package:mi_ruta/features/user/presentation/bloc/user_preferences_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/editar_perfil_page.dart';
-import 'package:mi_ruta/features/user/presentation/pages/historial_beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_assigned_routes_page.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/gestionar_unidades_page.dart';
@@ -33,12 +29,12 @@ import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dar
 import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' show confirmLogout;
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/admin_metricas_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/consulta_pasajeros_transportados_page.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/transported_passengers_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/administracion_beneficios_page.dart';
-import 'package:mi_ruta/features/user/presentation/widgets/legal_bottom_sheet.dart';
 import 'package:mi_ruta/features/driver/presentation/pages/driver_trip_history_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/acerca_de_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/crear_reclamo_page.dart';
@@ -676,6 +672,17 @@ class _PerfilPageState extends State<PerfilPage> {
                       'presidente',
                     }.contains(user.userType.trim().toLowerCase())) ...[
                   _buildSectionTitle('SUPERVISIÓN'),
+                  _buildMenuItem(
+                    icon: Icons.insights_outlined,
+                    title: 'Métricas del administrador',
+                    subtitle: 'Resumen consolidado por filtro de fechas',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdminMetricasPage(),
+                      ),
+                    ),
+                  ),
                   _buildMenuItem(
                     icon: Icons.assessment_outlined,
                     title: 'Reportes operativos',

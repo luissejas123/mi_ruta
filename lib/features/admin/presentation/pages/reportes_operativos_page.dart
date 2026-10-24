@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
@@ -7,6 +7,7 @@ import 'package:mi_ruta/features/admin/data/datasources/operational_report_datas
 import 'package:mi_ruta/features/admin/domain/entities/operational_report.dart';
 import 'package:mi_ruta/features/admin/domain/services/operational_report_service.dart';
 import 'package:mi_ruta/features/admin/domain/services/operational_report_export_service.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/shared_date_filter.dart';
 
 class ReportesOperativosPage extends StatefulWidget {
   const ReportesOperativosPage({super.key});
@@ -20,6 +21,8 @@ class _ReportesOperativosPageState extends State<ReportesOperativosPage> {
   final _exportService = OperationalReportExportService();
   late Future<OperationalReport> _report;
   bool _isExporting = false;
+  DateTime _from = DateTime.now().subtract(const Duration(days: 7));
+  DateTime _to = DateTime.now();
 
   @override
   void initState() {
@@ -29,16 +32,59 @@ class _ReportesOperativosPageState extends State<ReportesOperativosPage> {
         firestore: FirebaseFirestore.instance,
       ),
     );
-    _report = _service.getReport();
+    _report = _service.getReport(
+      from: DateTime(_from.year, _from.month, _from.day),
+      to: DateTime(_to.year, _to.month, _to.day, 23, 59, 59),
+    );
+  }
+
+  Future<void> _pickDate({required bool isFrom}) async {
+    final initial = isFrom ? _from : _to;
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2024, 1, 1),
+      lastDate: DateTime.now(),
+    );
+
+    if (picked == null) return;
+
+    setState(() {
+      if (isFrom) {
+        _from = picked;
+      } else {
+        _to = picked;
+      }
+    });
+  }
+
+  void _applyDateFilter() {
+    if (_to.isBefore(_from)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'La fecha "hasta" no puede ser anterior a "desde".',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _report = _service.getReport(
+        from: DateTime(_from.year, _from.month, _from.day),
+        to: DateTime(_to.year, _to.month, _to.day, 23, 59, 59),
+      );
+    });
   }
 
   Future<void> _refresh() async {
-    // `() => _report = _service.getReport()` devuelve el Future asignado
-    // (valor de la expresión), no void — setState() lo rechaza en tiempo de
-    // ejecución (mismo bug que administracion_beneficios_page.dart, ver
-    // docs/Capturas QA 11).
     setState(() {
-      _report = _service.getReport();
+      _report = _service.getReport(
+        from: DateTime(_from.year, _from.month, _from.day),
+        to: DateTime(_to.year, _to.month, _to.day, 23, 59, 59),
+      );
     });
     await _report;
   }
@@ -132,6 +178,14 @@ class _ReportesOperativosPageState extends State<ReportesOperativosPage> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
                   children: [
+                    SharedDateFilter(
+                      from: _from,
+                      to: _to,
+                      onPickDate: (isFrom) => _pickDate(isFrom: isFrom),
+                      onApply: _applyDateFilter,
+                      title: 'Filtro de fechas (período operativo)',
+                    ),
+                    const SizedBox(height: 16),
                     const Text(
                       'Indicadores generales',
                       style: TextStyle(
@@ -148,6 +202,11 @@ class _ReportesOperativosPageState extends State<ReportesOperativosPage> {
                       crossAxisSpacing: 12,
                       childAspectRatio: 1.45,
                       children: [
+                        _SummaryCard(
+                          icon: Icons.alt_route_outlined,
+                          label: 'Viajes en período',
+                          value: report.totalTrips,
+                        ),
                         _SummaryCard(
                           icon: Icons.directions_bus,
                           label: 'Unidades en servicio',

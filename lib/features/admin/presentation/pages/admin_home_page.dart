@@ -9,7 +9,10 @@ import 'package:mi_ruta/features/admin/presentation/pages/actualizar_qr_recarga_
 import 'package:mi_ruta/features/admin/presentation/pages/administracion_beneficios_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/asignar_lineas_presidente_page.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/user_management_bloc.dart';
-import 'package:mi_ruta/features/admin/presentation/widgets/admin_bottom_navigation_bar.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/admin_metricas_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/consulta_pasajeros_transportados_page.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/transported_passengers_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_privileges_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/admin_route_management_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/configurar_descuentos_beneficios_page.dart';
@@ -250,6 +253,48 @@ class AdminHomePage extends StatelessWidget {
                         );
                       },
                     ),
+                  _MenuCard(
+                    icon: Icons.insights_outlined,
+                    title: 'Métricas del sistema',
+                    subtitle: 'Indicadores simples de viajes, flota y usuarios por período',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AdminMetricasPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  _MenuCard(
+                    icon: Icons.assessment_outlined,
+                    title: 'Reportes operativos',
+                    subtitle: 'Estado de la línea, calificaciones y unidades',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ReportesOperativosPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  _MenuCard(
+                    icon: Icons.groups_outlined,
+                    title: 'Pasajeros transportados',
+                    subtitle: 'Consulta por ruta y rango de fechas',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BlocProvider.value(
+                            value: getIt<TransportedPassengersBloc>(),
+                            child: const ConsultaPasajerosTransportadosPage(),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                   if (AdminAccessService.getAvailableOperations(user).isEmpty)
                     const _NoPermissionsCard(),
                   const SizedBox(height: 8),

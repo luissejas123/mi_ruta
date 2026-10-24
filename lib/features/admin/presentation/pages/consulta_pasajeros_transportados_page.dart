@@ -1,10 +1,11 @@
-import 'package:fl_chart/fl_chart.dart';
+﻿import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/transported_passengers_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/transported_passengers_event.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/transported_passengers_state.dart';
 import 'package:mi_ruta/features/admin/domain/entities/transported_passengers_report.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/shared_date_filter.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
 
 const _amarillo = Color(0xFFFFC12F);
@@ -34,10 +35,6 @@ class _ConsultaPasajerosTransportadosPageState
       const LoadRoutesForQueryEvent(),
     );
   }
-
-  String _formatDate(DateTime date) =>
-      '${date.day.toString().padLeft(2, '0')}/'
-      '${date.month.toString().padLeft(2, '0')}/${date.year}';
 
   Future<void> _pickDate({required bool isFrom}) async {
     final initial = isFrom ? _from : _to;
@@ -127,30 +124,14 @@ class _ConsultaPasajerosTransportadosPageState
                     onChanged: (route) =>
                         setState(() => _selectedRoute = route),
                   ),
+                const SizedBox(height: 16),
+                SharedDateFilter(
+                  from: _from,
+                  to: _to,
+                  onPickDate: (isFrom) => _pickDate(isFrom: isFrom),
+                  title: 'Rango de fechas',
+                ),
                 const SizedBox(height: 20),
-                const Text(
-                  'Rango de fechas',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => _pickDate(isFrom: true),
-                        child: Text('Desde: ${_formatDate(_from)}'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => _pickDate(isFrom: false),
-                        child: Text('Hasta: ${_formatDate(_to)}'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: state.isSearching ? null : _buscar,
                   style: ElevatedButton.styleFrom(

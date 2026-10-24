@@ -60,6 +60,17 @@ class GetCurrentAuthUserUseCase {
   }
 }
 
+/// TEMPORAL — modo prueba, ver [AuthRepository.loginAsDemo].
+class LoginAsDemoUseCase {
+  final AuthRepository repository;
+
+  LoginAsDemoUseCase(this.repository);
+
+  Future<Either<Failure, AuthEntity>> call({required String role}) async {
+    return await repository.loginAsDemo(role: role);
+  }
+}
+
 class ResetPasswordUseCase {
   final AuthRepository repository;
 
@@ -67,5 +78,21 @@ class ResetPasswordUseCase {
 
   Future<Either<Failure, void>> call(String email) async {
     return await repository.resetPassword(email);
+  }
+}
+
+class ChangePasswordUseCase {
+  final AuthRepository repository;
+
+  ChangePasswordUseCase(this.repository);
+
+  Future<Either<Failure, void>> call({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    return await repository.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
   }
 }

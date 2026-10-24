@@ -40,6 +40,28 @@ class BenefitHistoryLoaded extends BenefitRequestState {
   List<Object?> get props => [requests];
 }
 
+class BenefitRequestUpdated extends BenefitRequestState {
+  final String message;
+
+  const BenefitRequestUpdated({required this.message});
+
+  @override
+  List<Object?> get props => [message];
+}
+
+class BenefitDocumentDownloaded extends BenefitRequestState {
+  final String filePath;
+  final String message;
+
+  const BenefitDocumentDownloaded({
+    required this.filePath,
+    required this.message,
+  });
+
+  @override
+  List<Object?> get props => [filePath, message];
+}
+
 class BenefitRequestError extends BenefitRequestState {
   final String message;
 

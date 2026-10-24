@@ -18,6 +18,8 @@ class MiRutaBloc extends Bloc<MiRutaEvent, MiRutaState> {
     on<MiRutaGoToMyLocationRequested>(_onGoToMyLocationRequested);
     on<MiRutaPinModeToggled>(_onPinModeToggled);
     on<MiRutaCameraMoved>(_onCameraMoved);
+    on<MiRutaCameraMoveStarted>(_onCameraMoveStarted);
+    on<MiRutaLiveLocationUpdated>(_onLiveLocationUpdated);
     on<MiRutaCameraIdle>(_onCameraIdle);
     on<MiRutaPinDestinationConfirmed>(_onPinDestinationConfirmed);
     on<MiRutaClearSearch>(_onClearSearch);
@@ -42,6 +44,7 @@ class MiRutaBloc extends Bloc<MiRutaEvent, MiRutaState> {
         cameraTriggerCount: state.cameraTriggerCount + 1,
         isLocationLoading: false,
         statusText: () => null,
+        followMyLocation: true,
       )),
     );
   }
@@ -54,9 +57,40 @@ class MiRutaBloc extends Bloc<MiRutaEvent, MiRutaState> {
       emit(state.copyWith(
         cameraUpdateLocation: () => state.myLocationLatLng,
         cameraTriggerCount: state.cameraTriggerCount + 1,
+        followMyLocation: true,
       ));
     } else {
       add(const MiRutaLocationRequested());
+    }
+  }
+
+  /// El usuario arrastró el mapa: deja de perseguir su posición hasta que
+  /// vuelva a pedir "mi ubicación" — mismo patrón que ya usa el mapa en
+  /// vivo del chofer (`DriverServiceMap._autoFollow`).
+  void _onCameraMoveStarted(
+    MiRutaCameraMoveStarted event,
+    Emitter<MiRutaState> emit,
+  ) {
+    if (!state.isPinMode && state.followMyLocation) {
+      emit(state.copyWith(followMyLocation: false));
+    }
+  }
+
+  /// Nueva posición del stream de GPS en vivo: siempre mueve el marcador de
+  /// "mi ubicación"; solo re-centra la cámara si seguimos "persiguiendo" la
+  /// posición (ver [_onCameraMoveStarted]).
+  void _onLiveLocationUpdated(
+    MiRutaLiveLocationUpdated event,
+    Emitter<MiRutaState> emit,
+  ) {
+    if (state.followMyLocation && !state.isPinMode) {
+      emit(state.copyWith(
+        myLocationLatLng: () => event.position,
+        cameraUpdateLocation: () => event.position,
+        cameraTriggerCount: state.cameraTriggerCount + 1,
+      ));
+    } else {
+      emit(state.copyWith(myLocationLatLng: () => event.position));
     }
   }
 

@@ -1,4 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
+import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
+
+/// Diálogo de confirmación de cierre de sesión, único en toda la app.
+/// Antes cada pantalla (chofer, tickeador, perfil, selector super-admin)
+/// tenía su propia copia casi idéntica de este método — y Admin cerraba
+/// sesión sin preguntar nada, y el panel de dirigencia no tenía ni siquiera
+/// la opción. Todas las pantallas con logout deben llamar a esta función.
+void confirmLogout(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Cerrar sesión'),
+      content: const Text('¿Estás seguro que deseas cerrar sesión?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            context.read<AuthBloc>().add(const LogoutEvent());
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const IniciarSesionPage()),
+              (route) => false,
+            );
+          },
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+          child: const Text(
+            'Cerrar sesión',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
 class LogoutButton extends StatelessWidget {
   final VoidCallback? onPressed;

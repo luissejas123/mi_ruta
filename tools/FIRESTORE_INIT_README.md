@@ -1,5 +1,14 @@
 # Script para Inicializar Firestore - Mi Ruta
 
+> ⚠️ **NO EJECUTAR contra un proyecto Firebase real sin revisar primero — desactualizado desde 2026-06-01, verificado contra el esquema y el código reales el 2026-08-31 (ver `docs/DEUDA_TECNICA.md` para el detalle completo):**
+> - Crea la colección `transport_lines`, que `FIRESTORE_COLLECTIONS_GUIDE.md` declara explícitamente **eliminada/inexistente** en el proyecto real.
+> - El documento de `routes_bbox` que siembra usa un esquema anidado (`bbox: {north, south, east, west}`) y **no escribe el campo `active`** que el código filtra al leer (`.where('active', isEqualTo: true)`) — cualquier ruta sembrada por este script queda invisible para la app. Las coordenadas de ejemplo además son de La Paz, no de Cochabamba.
+> - El documento de `notifications` que siembra es un documento plano; el código real espera la subcolección `notifications/{uid}/items` — son incompatibles.
+> - Los `users` que siembra no incluyen `roles`/`is_super_admin`/`admin_permissions`. Si el uid de un documento sembrado coincidiera con una cuenta real, la sobrescribiría **degradando sus permisos en silencio** (el script sí sobrescribe: ver la sección de flags más abajo).
+> - Existe un **segundo script**, `tools/firestore_init_driver_collections.py` (crea `vehicles`, `trips`, `ratings`), que este README no menciona en ningún lado.
+>
+> Antes de correrlo: comparar campo por campo contra `FIRESTORE_COLLECTIONS_GUIDE.md` (fuente de verdad del esquema) y decidir si conviene reescribirlo o retirarlo.
+
 ## Descripción
 
 Script Python para inicializar Firestore con datos de ejemplo para el proyecto Mi Ruta. Crea todas las colecciones necesarias incluyendo las nuevas colecciones `claims` y `station_logs` con datos realistas.

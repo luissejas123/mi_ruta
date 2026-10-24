@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/features/routes/domain/entities/planned_trip.dart';
 import 'package:mi_ruta/features/user/domain/entities/osm_route.dart';
@@ -26,6 +25,7 @@ class MultiRoutePlanner {
     required List<OsmRoute> midRoutes,
     required String originName,
     required String destName,
+    required DateTime scheduledAt,
     int maxResults = 5,
   }) async {
     // Filter ALL SQL results whose polyline passes within maxWalk of the
@@ -41,14 +41,16 @@ class MultiRoutePlanner {
     // ── 1-leg (direct bus) ────────────────────────────────────────────────
     final directSeen = <String>{};
     for (final r in [...r1, ...r3]) {
-      await Future.delayed(Duration.zero);
       // Use name as fallback when ref is empty to avoid all routes sharing key "|null"
       final stableId = r.ref.isNotEmpty ? r.ref : r.name;
       final key = '$stableId|${r.directionId}';
       if (!directSeen.add(key)) continue;
 
       final seg = TripSegmentService.compute(
-          route: r, origin: origin, destination: destination);
+        route: r,
+        origin: origin,
+        destination: destination,
+      );
       if (seg.transitPoints.isEmpty) continue;
 
       final walkTo = _dist(origin, seg.boardingStop);
@@ -58,25 +60,28 @@ class MultiRoutePlanner {
       final transit = _crow(seg.boardingStop, seg.alightingStop) * 1.3;
       if (transit < _minTransit) continue;
 
-      options.add(_Plan(
-        score: walkTo * 4 + transit + walkFrom * 4,
-        legs: _buildLegs(
-          origin: origin,
-          destination: destination,
-          busSegments: [_BusSeg(r, seg, walkTo, walkFrom)],
-          transferPoints: [],
+      options.add(
+        _Plan(
+          score: walkTo * 4 + transit + walkFrom * 4,
+          legs: _buildLegs(
+            origin: origin,
+            destination: destination,
+            busSegments: [_BusSeg(r, seg, walkTo, walkFrom)],
+            transferPoints: [],
+          ),
+          userId: userId,
+          originName: originName,
+          originLatLng: origin,
+          destName: destName,
+          destLatLng: destination,
         ),
-        userId: userId,
-        originName: originName,
-        originLatLng: origin,
-        destName: destName,
-        destLatLng: destination,
-      ));
+      );
     }
 
     // ── 2-leg (transfer) ──────────────────────────────────────────────────
-    for (final ra in r1) {
-      await Future.delayed(Duration.zero);
+    for (var routeIndex = 0; routeIndex < r1.length; routeIndex++) {
+      if (routeIndex.isEven) await Future<void>.delayed(Duration.zero);
+      final ra = r1[routeIndex];
       for (final rb in r3) {
         if (_sameRef(ra, rb)) continue;
         final result = _findTransfer(ra, rb, origin, destination);
@@ -92,29 +97,32 @@ class MultiRoutePlanner {
         if (t1 < _minTransit || t2 < _minTransit) continue;
 
         final transferWalk = _dist(seg1.alightingStop, seg2.boardingStop);
-        options.add(_Plan(
-          score: walk1 * 4 + t1 + transferWalk * 3 + t2 + walk2 * 4,
-          legs: _buildLegs(
-            origin: origin,
-            destination: destination,
-            busSegments: [
-              _BusSeg(ra, seg1, walk1, transferWalk),
-              _BusSeg(rb, seg2, transferWalk, walk2),
-            ],
-            transferPoints: [tPt],
+        options.add(
+          _Plan(
+            score: walk1 * 4 + t1 + transferWalk * 3 + t2 + walk2 * 4,
+            legs: _buildLegs(
+              origin: origin,
+              destination: destination,
+              busSegments: [
+                _BusSeg(ra, seg1, walk1, transferWalk),
+                _BusSeg(rb, seg2, transferWalk, walk2),
+              ],
+              transferPoints: [tPt],
+            ),
+            userId: userId,
+            originName: originName,
+            originLatLng: origin,
+            destName: destName,
+            destLatLng: destination,
           ),
-          userId: userId,
-          originName: originName,
-          originLatLng: origin,
-          destName: destName,
-          destLatLng: destination,
-        ));
+        );
       }
     }
 
     // ── 3-leg (two transfers) ─────────────────────────────────────────────
-    for (final ra in r1) {
-      await Future.delayed(Duration.zero);
+    for (var routeIndex = 0; routeIndex < r1.length; routeIndex++) {
+      if (routeIndex.isEven) await Future<void>.delayed(Duration.zero);
+      final ra = r1[routeIndex];
       for (final rm in r2) {
         if (_sameRef(ra, rm)) continue;
         final res1 = _findTransfer(ra, rm, origin, destination);
@@ -145,26 +153,36 @@ class MultiRoutePlanner {
           final t1 = _crow(seg1.boardingStop, seg1.alightingStop) * 1.3;
           final tM = _crow(segM2.boardingStop, segM2.alightingStop) * 1.3;
           final t3 = _crow(seg3.boardingStop, seg3.alightingStop) * 1.3;
-          if (t1 < _minTransit || tM < _minTransit || t3 < _minTransit) continue;
+          if (t1 < _minTransit || tM < _minTransit || t3 < _minTransit)
+            continue;
 
-          options.add(_Plan(
-            score: walk1 * 4 + t1 + transfer1 * 3 + tM + transfer2 * 3 + t3 + walk3 * 4,
-            legs: _buildLegs(
-              origin: origin,
-              destination: destination,
-              busSegments: [
-                _BusSeg(ra, seg1, walk1, transfer1),
-                _BusSeg(rm, segM2, transfer1, transfer2),
-                _BusSeg(rb, seg3, transfer2, walk3),
-              ],
-              transferPoints: [tPt1, tPt2],
+          options.add(
+            _Plan(
+              score:
+                  walk1 * 4 +
+                  t1 +
+                  transfer1 * 3 +
+                  tM +
+                  transfer2 * 3 +
+                  t3 +
+                  walk3 * 4,
+              legs: _buildLegs(
+                origin: origin,
+                destination: destination,
+                busSegments: [
+                  _BusSeg(ra, seg1, walk1, transfer1),
+                  _BusSeg(rm, segM2, transfer1, transfer2),
+                  _BusSeg(rb, seg3, transfer2, walk3),
+                ],
+                transferPoints: [tPt1, tPt2],
+              ),
+              userId: userId,
+              originName: originName,
+              originLatLng: origin,
+              destName: destName,
+              destLatLng: destination,
             ),
-            userId: userId,
-            originName: originName,
-            originLatLng: origin,
-            destName: destName,
-            destLatLng: destination,
-          ));
+          );
         }
       }
     }
@@ -184,16 +202,22 @@ class MultiRoutePlanner {
     final sorted = seen.values.toList()
       ..sort((a, b) => a.score.compareTo(b.score));
 
-    return sorted.take(maxResults).map((p) => PlannedTrip(
-          id: _id(),
-          userId: p.userId,
-          originName: p.originName,
-          originLatLng: p.originLatLng,
-          destinationName: p.destName,
-          destinationLatLng: p.destLatLng,
-          legs: p.legs,
-          createdAt: DateTime.now(),
-        )).toList();
+    return sorted
+        .take(maxResults)
+        .map(
+          (p) => PlannedTrip(
+            id: _id(),
+            userId: p.userId,
+            originName: p.originName,
+            originLatLng: p.originLatLng,
+            destinationName: p.destName,
+            destinationLatLng: p.destLatLng,
+            legs: p.legs,
+            createdAt: DateTime.now(),
+            scheduledAt: scheduledAt,
+          ),
+        )
+        .toList();
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -226,31 +250,45 @@ class MultiRoutePlanner {
       if (i == 0) {
         final walkTo = _dist(origin, seg.boardingStop);
         if (walkTo > _minWalkToShow) {
-          legs.add(PlannedTripLeg.walk(
-              from: origin, to: seg.boardingStop, meters: walkTo));
+          legs.add(
+            PlannedTripLeg.walk(
+              from: origin,
+              to: seg.boardingStop,
+              meters: walkTo,
+            ),
+          );
         }
       }
 
       // ── Bus leg ──────────────────────────────────────────────────────────
       final transit = _crow(seg.boardingStop, seg.alightingStop) * 1.3;
-      legs.add(PlannedTripLeg(
-        type: LegType.bus,
-        routeId: '${route.ref}|${route.directionId}',
-        routeName: route.name,
-        routeRef: route.ref,
-        directionId: route.directionId,
-        boardingPoint: seg.boardingStop,
-        alightingPoint: seg.alightingStop,
-        transitMeters: transit,
-      ));
+      legs.add(
+        PlannedTripLeg(
+          type: LegType.bus,
+          routeId: '${route.ref}|${route.directionId}',
+          routeName: route.name,
+          routeRef: route.ref,
+          directionId: route.directionId,
+          boardingPoint: seg.boardingStop,
+          alightingPoint: seg.alightingStop,
+          transitMeters: transit,
+        ),
+      );
 
       // ── Walk FROM alighting: transfer or final walk ──────────────────────
       // The next boarding point (or destination) is the natural endpoint.
-      final walkEnd = isLast ? destination : busSegments[i + 1].seg.boardingStop;
+      final walkEnd = isLast
+          ? destination
+          : busSegments[i + 1].seg.boardingStop;
       final walkFrom = _dist(seg.alightingStop, walkEnd);
       if (walkFrom > _minWalkToShow) {
-        legs.add(PlannedTripLeg.walk(
-            from: seg.alightingStop, to: walkEnd, meters: walkFrom));
+        legs.add(
+          PlannedTripLeg.walk(
+            from: seg.alightingStop,
+            to: walkEnd,
+            meters: walkFrom,
+          ),
+        );
       }
     }
 
@@ -278,29 +316,37 @@ class MultiRoutePlanner {
       if (!_forward(origin, destination, tPt)) continue;
 
       // Find nearest point on rb to this candidate transfer point
-      double minD = double.infinity;
+      double minDistanceSquared = double.infinity;
       LatLng? nearB;
       for (int j = 0; j < bPts.length; j += _sampleStep) {
-        final d = _dist(tPt, bPts[j]);
-        if (d < minD) {
-          minD = d;
+        final distanceSquared = _distanceSquared(tPt, bPts[j]);
+        if (distanceSquared < minDistanceSquared) {
+          minDistanceSquared = distanceSquared;
           nearB = bPts[j];
-          if (minD < 30) break;
+          if (minDistanceSquared < 900) break;
         }
       }
-      if (minD > _maxTransfer || nearB == null) continue;
+      if (minDistanceSquared > _maxTransfer * _maxTransfer || nearB == null) {
+        continue;
+      }
 
       final seg1 = TripSegmentService.compute(
-          route: ra, origin: origin, destination: tPt);
+        route: ra,
+        origin: origin,
+        destination: tPt,
+      );
       if (seg1.transitPoints.isEmpty) continue;
 
       final seg2 = TripSegmentService.compute(
-          route: rb, origin: nearB, destination: destination);
+        route: rb,
+        origin: nearB,
+        destination: destination,
+      );
       if (seg2.transitPoints.isEmpty) continue;
 
       final t1 = _crow(seg1.boardingStop, seg1.alightingStop) * 1.3;
       final t2 = _crow(seg2.boardingStop, seg2.alightingStop) * 1.3;
-      final score = t1 + minD * 2 + t2;
+      final score = t1 + sqrt(minDistanceSquared) * 2 + t2;
 
       if (score < bestScore) {
         bestScore = score;
@@ -312,7 +358,11 @@ class MultiRoutePlanner {
 
   /// Routes whose polyline has at least one point within [maxM] metres.
   /// Uses fast squared-degree distance (no haversine / no trig per point).
-  static List<OsmRoute> _near(List<OsmRoute> routes, LatLng point, double maxM) {
+  static List<OsmRoute> _near(
+    List<OsmRoute> routes,
+    LatLng point,
+    double maxM,
+  ) {
     if (maxM == double.infinity) return routes;
     // Pre-compute threshold in degrees² (avoids sqrt per point)
     final cosLat = cos(point.latitude * pi / 180);
@@ -345,8 +395,18 @@ class MultiRoutePlanner {
     return (dx * px + dy * py) >= 0;
   }
 
-  static double _dist(LatLng a, LatLng b) => Geolocator.distanceBetween(
-      a.latitude, a.longitude, b.latitude, b.longitude);
+  static double _dist(LatLng a, LatLng b) => sqrt(_distanceSquared(a, b));
+
+  /// Aproximación equirectangular: precisa para distancias urbanas y mucho
+  /// más barata que ejecutar Haversine miles de veces durante la búsqueda.
+  static double _distanceSquared(LatLng a, LatLng b) {
+    const metersPerDegree = 111000.0;
+    final dLat = (b.latitude - a.latitude) * metersPerDegree;
+    final averageLatitude = (a.latitude + b.latitude) * pi / 360;
+    final dLng =
+        (b.longitude - a.longitude) * metersPerDegree * cos(averageLatitude);
+    return dLat * dLat + dLng * dLng;
+  }
 
   static double _crow(LatLng a, LatLng b) {
     final dLat = (b.latitude - a.latitude) * 111000;

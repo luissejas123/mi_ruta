@@ -1,0 +1,174 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:mi_ruta/features/admin/domain/entities/role_hierarchy.dart';
+import 'package:mi_ruta/features/user/data/models/user_model.dart';
+
+/// Acceso a Firestore para gestión de cuentas de cualquier rol (RQ-71/72).
+/// Filtra en cliente sobre `userType` (ya resuelto por UserModel.fromJson
+/// contra los dos campos legacy `role`/`userType`) para no perder cuentas
+/// que solo tengan uno de los dos escritos.
+class UserManagementDatasource {
+  final FirebaseFirestore _firestore;
+
+  UserManagementDatasource({required FirebaseFirestore firestore})
+      : _firestore = firestore;
+
+  /// Asigna una ruta/línea (por `ref`) al PERFIL del chofer — no a la unidad.
+  /// El chofer elige qué vehículo usar por su cuenta; DriverService.
+  /// getAssignedRoute() prioriza este campo sobre vehicles.line_number.
+  Future<void> assignRouteToDriver(String uid, String routeRef) async {
+    await _firestore.collection('users').doc(uid).set({
+      'assigned_route_ref': routeRef,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<List<UserModel>> getUsers({String? userTypeFilter}) async {
+    final snap = await _firestore.collection('users').get();
+    final users = _parseUsers(snap.docs);
+    if (userTypeFilter == null) return users;
+    return users.where((u) => u.userType == userTypeFilter).toList();
+  }
+
+  Future<void> setUserActiveState(String uid, bool isActive) async {
+    await _firestore.collection('users').doc(uid).set({
+      'isActive': isActive,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Cuentas con una solicitud de chofer sin resolver. Se filtra en cliente por
+  /// la misma razón que [getUsers]: los docs de `users` no son homogéneos.
+  Future<List<UserModel>> getPendingDriverRequests() async {
+    final snap = await _firestore.collection('users').get();
+    return _parseUsers(snap.docs).where((u) => u.hasPendingDriverRequest).toList();
+  }
+
+  /// Un doc de `users` con formato inesperado se omite en vez de tumbar toda
+  /// la cola (presidente/admin dependen de esta lectura para ver solicitudes).
+  List<UserModel> _parseUsers(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
+    final users = <UserModel>[];
+    for (final d in docs) {
+      try {
+        users.add(UserModel.fromJson({...d.data(), 'uid': d.data()['uid'] ?? d.id}));
+      } catch (e) {
+        debugPrint('users/${d.id} omitido por formato inválido: $e');
+      }
+    }
+    return users;
+  }
+
+  /// El propio usuario pide ser chofer. **No toca `role`**: el rol solo cambia
+  /// al aprobar, si no el ruteo lo mandaría a la pantalla de chofer antes de
+  /// tiempo.
+  Future<void> requestDriverRole(String uid) async {
+    await _firestore.collection('users').doc(uid).set({
+      'driver_request': {
+        'status': 'pending',
+        // ISO 8601: `users` usa strings, no Timestamp nativo.
+        'requested_at': DateTime.now().toIso8601String(),
+      },
+      'updated_at': DateTime.now().toIso8601String(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Roles actuales de un doc de `users`, con fallback al esquema legado
+  /// (un solo `role`/`userType`) para cuentas creadas antes de `roles`.
+  Set<String> _rolesOf(Map<String, dynamic> data) {
+    final raw = data['roles'];
+    if (raw is List && raw.isNotEmpty) {
+      return raw.map((r) => r.toString()).toSet();
+    }
+    final legacy = (data['role'] ?? data['userType']) as String? ?? RoleHierarchy.user;
+    return {legacy};
+  }
+
+  /// Resuelve una solicitud. Al aprobar, el nuevo `roles`/`role` y el
+  /// `driver_request.status` van en la **misma** escritura para que no pueda
+  /// quedar un estado a medias (rol de chofer con solicitud aún pendiente).
+  /// Otorga `driver` de forma aditiva — no le borra `user` (ni `presidente`
+  /// si ya lo tuviera) a la cuenta.
+  Future<void> resolveDriverRequest(String uid, {required bool approved}) async {
+    final ref = _firestore.collection('users').doc(uid);
+    final data = <String, dynamic>{
+      'driver_request': {'status': approved ? 'approved' : 'rejected'},
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+    if (approved) {
+      final snap = await ref.get();
+      final currentRoles = _rolesOf(snap.data() ?? {});
+      if (!RoleHierarchy.canGrant(currentRoles, RoleHierarchy.driver)) {
+        throw Exception(
+          'No se puede aprobar como chofer: la cuenta ya tiene '
+          '${currentRoles.join(", ")} y esa combinación no está permitida.',
+        );
+      }
+      final newRoles = {...currentRoles, RoleHierarchy.user, RoleHierarchy.driver};
+      data['roles'] = newRoles.toList();
+      data['role'] = RoleHierarchy.primaryRole(newRoles);
+    }
+    await ref.set(data, SetOptions(merge: true));
+  }
+
+  /// Asigna el rol `tickeador` y su información de operación, de forma
+  /// aditiva (no le borra `user` a la cuenta).
+  ///
+  /// La forma de `tickeador_info` es exactamente la que espera
+  /// `TickeadorEntity.fromJson`: `assigned_station`, `assigned_lines`,
+  /// `status`. Rol e info van en la misma escritura para que un tickeador
+  /// nunca quede sin estación/líneas asignadas.
+  Future<void> assignTickeador(
+    String uid, {
+    required String assignedStation,
+    required List<String> assignedLines,
+  }) async {
+    final ref = _firestore.collection('users').doc(uid);
+    final snap = await ref.get();
+    final currentRoles = _rolesOf(snap.data() ?? {});
+    if (!RoleHierarchy.canGrant(currentRoles, RoleHierarchy.tickeador)) {
+      throw Exception(
+        'No se puede asignar como tickeador: la cuenta ya tiene '
+        '${currentRoles.join(", ")} y esa combinación no está permitida.',
+      );
+    }
+    final newRoles = {...currentRoles, RoleHierarchy.user, RoleHierarchy.tickeador};
+    await ref.set({
+      'roles': newRoles.toList(),
+      'role': RoleHierarchy.primaryRole(newRoles),
+      'tickeador_info': {
+        'assigned_station': assignedStation,
+        'assigned_lines': assignedLines,
+        'status': 'active',
+      },
+      'updated_at': DateTime.now().toIso8601String(),
+    }, SetOptions(merge: true));
+  }
+
+  /// UIDs de los tickeadores con [routeRef] entre sus
+  /// `tickeador_info.assigned_lines` — usado para avisarles cuando una
+  /// unidad de esa línea inicia servicio.
+  Future<List<String>> getTickeadoresForLine(String routeRef) async {
+    final snap = await _firestore
+        .collection('users')
+        .where('tickeador_info.assigned_lines', arrayContains: routeRef)
+        .get();
+    return snap.docs.map((doc) => doc.id).toList();
+  }
+
+  /// Líneas que gestiona un presidente (`presidente_info.managed_lines`).
+  /// Solo admin la escribe (privilegiado en firestore.rules) — decidir qué
+  /// línea preside un dirigente es una decisión organizativa, no algo que
+  /// el propio presidente o otro presidente se auto-asigne. No toca `roles`:
+  /// a diferencia de `assignTickeador`, esto no otorga el rol `presidente`
+  /// (eso ya lo hace `AdminRemoteDataSource.updateUserRole`) — solo acota
+  /// qué líneas ve/gestiona una cuenta que YA es presidente.
+  Future<void> assignPresidenteLines(
+    String uid, {
+    required List<String> managedLines,
+  }) async {
+    await _firestore.collection('users').doc(uid).set({
+      'presidente_info': {'managed_lines': managedLines},
+      'updated_at': DateTime.now().toIso8601String(),
+    }, SetOptions(merge: true));
+  }
+}

@@ -152,6 +152,26 @@ class WalletService {
         .toList();
   }
 
+  /// Obtiene las ganancias del chofer a partir de las transacciones
+  /// `trip_payment_received` registradas por TripPaymentService.
+  /// Retorna: {total_ganancia, transacciones_count, transactions}
+  Future<Map<String, dynamic>> getDriverEarnings(String userId) async {
+    final transactions = await _datasource.getDriverEarningsTransactions(
+      userId,
+    );
+
+    double total = 0.0;
+    for (final tx in transactions) {
+      total += (tx['amount'] as num?)?.toDouble() ?? 0.0;
+    }
+
+    return {
+      'total_ganancia': total,
+      'transacciones_count': transactions.length,
+      'transactions': transactions,
+    };
+  }
+
   /// Valida si la billetera del usuario es válida y existe
   Future<bool> hasValidWallet(String userId) async {
     try {

@@ -7,9 +7,11 @@ import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/routes/domain/entities/planned_trip.dart';
+import 'package:mi_ruta/features/routes/domain/services/gtfs_schedule_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/planned_trip_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_data_sync_service.dart';
 import 'package:mi_ruta/features/routes/domain/services/route_entity_converter.dart';
+import 'package:mi_ruta/features/routes/domain/services/tariff_service.dart';
 import 'package:mi_ruta/features/user/domain/entities/osm_route.dart';
 import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
@@ -31,10 +33,15 @@ class PlanDetallePage extends StatefulWidget {
 class _PlanDetallePageState extends State<PlanDetallePage> {
   int _currentLeg = 0;
   bool _isLoading = false;
+  bool _isCancelling = false;
   final List<bool> _completedLegs = [];
 
   // Real polyline points per leg loaded from GTFS (null = not loaded yet)
   final List<List<LatLng>?> _legPolylines = [];
+
+  // Upcoming departures (RQ-36)
+  List<Map<String, dynamic>> _departures = [];
+  bool _isLoadingDepartures = false;
 
   @override
   void initState() {
@@ -42,6 +49,40 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
     _completedLegs.addAll(List.filled(widget.trip.legs.length, false));
     _legPolylines.addAll(List.filled(widget.trip.legs.length, null));
     _loadPolylines();
+    _loadUpcomingDepartures();
+  }
+
+  /// Loads upcoming departures for the first bus leg's boarding point (RQ-36).
+  Future<void> _loadUpcomingDepartures() async {
+    final busLegs = widget.trip.busLegs;
+    if (busLegs.isEmpty) return;
+
+    setState(() => _isLoadingDepartures = true);
+
+    try {
+      final service = getIt<GtfsScheduleService>();
+
+      final nearest = await service.resolveNearestStop(
+        busLegs.first.boardingPoint,
+      );
+      if (nearest == null) {
+        if (mounted) setState(() => _isLoadingDepartures = false);
+        return;
+      }
+
+      final departures = await service.getUpcomingDepartures(
+        stopId: nearest['stop_id'] ?? '',
+        now: DateTime.now(),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _departures = departures;
+        _isLoadingDepartures = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingDepartures = false);
+    }
   }
 
   /// Loads real transit polylines for each leg in the background so the
@@ -53,9 +94,7 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
     for (int i = 0; i < widget.trip.legs.length; i++) {
       final leg = widget.trip.legs[i];
       final isLast = i == widget.trip.legs.length - 1;
-      final dest = isLast
-          ? widget.trip.destinationLatLng
-          : leg.alightingPoint;
+      final dest = isLast ? widget.trip.destinationLatLng : leg.alightingPoint;
 
       try {
         final osmRoute = await _findRouteForLeg(leg, dest, syncService);
@@ -149,9 +188,9 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
     // Find the destination: the alighting point of THIS bus leg, or
     // final dest if it's the last bus leg.
     final busLegs = widget.trip.busLegs;
-    final busIdx = busLegs.indexWhere((b) =>
-        b.boardingPoint == leg.boardingPoint &&
-        b.routeRef == leg.routeRef);
+    final busIdx = busLegs.indexWhere(
+      (b) => b.boardingPoint == leg.boardingPoint && b.routeRef == leg.routeRef,
+    );
     final isLastBus = busIdx == busLegs.length - 1;
     final actualDest = isLastBus
         ? widget.trip.destinationLatLng
@@ -171,7 +210,8 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       if (matchedRoute == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('No se pudo cargar la ruta. Intenta de nuevo.')),
+            content: Text('No se pudo cargar la ruta. Intenta de nuevo.'),
+          ),
         );
         return;
       }
@@ -181,28 +221,28 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       final destName = isLastBus
           ? widget.trip.destinationName
           : nextBusAfter < widget.trip.legs.length
-              ? 'Transbordo — ${widget.trip.legs[nextBusAfter].routeName}'
-              : widget.trip.destinationName;
+          ? 'Transbordo — ${widget.trip.legs[nextBusAfter].routeName}'
+          : widget.trip.destinationName;
 
       final destination = PlaceResult(latLng: actualDest, name: destName);
 
       // Determine originName: first bus leg uses trip origin, rest use Transbordo
       final isBusLegFirst = busIdx == 0;
 
-      await Navigator.push(
+      final boarded = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
           builder: (_) => RutaLineaPage(
             route: matchedRoute,
             destination: destination,
             origin: leg.boardingPoint,
-            originName:
-                isBusLegFirst ? widget.trip.originName : 'Transbordo',
+            originName: isBusLegFirst ? widget.trip.originName : 'Transbordo',
           ),
         ),
       );
 
       if (!mounted) return;
+      if (boarded != true) return;
       setState(() {
         // Mark this bus leg and any preceding walking legs as completed
         _completedLegs[legIndex] = true;
@@ -228,9 +268,9 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -239,12 +279,23 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
     if (authState is! AuthLoaded) return;
     final userId = authState.user.uid;
 
+    double farePaid;
+    try {
+      farePaid = await getIt<TariffService>().resolvePlannedTripFare(widget.trip);
+    } catch (_) {
+      // Sin conexión u otro error al resolver tarifas reales: el respaldo
+      // plano es mejor que bloquear el cierre del viaje por esto.
+      farePaid = widget.trip.totalCostBs;
+    }
+
     await getIt<TripHistoryService>().saveTrip(
       userId: userId,
       routeName: widget.trip.routesSummary,
       originName: widget.trip.originName,
       destinationName: widget.trip.destinationName,
       elapsed: Duration(minutes: widget.trip.totalMinutes),
+      farePaid: farePaid,
+      routeRefs: widget.trip.busLegs.map((l) => l.routeRef).toList(),
     );
 
     final notifService = getIt<NotificationService>();
@@ -262,7 +313,12 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       }
     }
 
-    await getIt<PlannedTripService>().markCompleted(userId, widget.trip.id);
+    // Same as cancellation: a trip reached via "Elegir" (never "Guardar"d)
+    // has no Firestore doc yet — save first so markCompleted has one to
+    // update instead of throwing NOT_FOUND.
+    final plannedTripService = getIt<PlannedTripService>();
+    await plannedTripService.save(widget.trip);
+    await plannedTripService.markCompleted(userId, widget.trip.id);
 
     if (mounted) {
       showDialog(
@@ -278,11 +334,65 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
                 Navigator.of(context).pop();
                 Navigator.of(context).pop();
               },
-              child: const Text('OK',
-                  style: TextStyle(color: Color(0xFFFFC12F))),
+              child: const Text('OK'),
             ),
           ],
         ),
+      );
+    }
+  }
+
+  Future<void> _cancelTrip() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancelar viaje'),
+        content: const Text(
+          '¿Estás seguro que deseas cancelar este viaje? '
+          'Pasará a tu historial de viajes cancelados.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Volver'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
+            child: const Text(
+              'Sí, cancelar',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isCancelling = true);
+    try {
+      final service = getIt<PlannedTripService>();
+      // Trips reached via "Elegir" (without "Guardar" first) were never
+      // persisted, so there's no Firestore doc yet to mark cancelled.
+      // Saving first (idempotent — a no-op overwrite for already-saved
+      // trips) guarantees the doc exists before we update it.
+      await service.save(widget.trip);
+      await service.cancel(widget.userId, widget.trip.id);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Viaje cancelado'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isCancelling = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo cancelar el viaje: $e')),
       );
     }
   }
@@ -314,41 +424,47 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
       final color = isActive
           ? const Color(0xFFFFC12F)
           : isCompleted
-              ? Colors.blueGrey
-              : Colors.blueGrey.withValues(alpha: 0.5);
+          ? Colors.blueGrey
+          : Colors.blueGrey.withValues(alpha: 0.5);
 
       // Use real transit points when loaded; fall back to straight line
       final pts = _legPolylines[i];
-      final polylinePoints =
-          (pts != null && pts.length >= 2) ? pts : [leg.boardingPoint, leg.alightingPoint];
+      final polylinePoints = (pts != null && pts.length >= 2)
+          ? pts
+          : [leg.boardingPoint, leg.alightingPoint];
 
-      polylines.add(Polyline(
-        polylineId: PolylineId('leg_$i'),
-        points: polylinePoints,
-        color: color,
-        width: isActive ? 5 : 3,
-        patterns: isCompleted
-            ? [PatternItem.dash(10), PatternItem.gap(6)]
-            : [],
-      ));
+      polylines.add(
+        Polyline(
+          polylineId: PolylineId('leg_$i'),
+          points: polylinePoints,
+          color: color,
+          width: isActive ? 5 : 3,
+          patterns: isCompleted
+              ? [PatternItem.dash(10), PatternItem.gap(6)]
+              : [],
+        ),
+      );
 
-      markers.add(Marker(
-        markerId: MarkerId('board_$i'),
-        position: leg.boardingPoint,
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-            isActive
-                ? BitmapDescriptor.hueYellow
-                : BitmapDescriptor.hueCyan),
-        infoWindow: InfoWindow(title: 'Abordar ${leg.routeName}'),
-      ));
+      markers.add(
+        Marker(
+          markerId: MarkerId('board_$i'),
+          position: leg.boardingPoint,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            isActive ? BitmapDescriptor.hueYellow : BitmapDescriptor.hueCyan,
+          ),
+          infoWindow: InfoWindow(title: 'Abordar ${leg.routeName}'),
+        ),
+      );
     }
 
-    markers.add(Marker(
-      markerId: const MarkerId('destination'),
-      position: trip.destinationLatLng,
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-      infoWindow: InfoWindow(title: trip.destinationName),
-    ));
+    markers.add(
+      Marker(
+        markerId: const MarkerId('destination'),
+        position: trip.destinationLatLng,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        infoWindow: InfoWindow(title: trip.destinationName),
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -357,6 +473,20 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
           'Detalle del plan',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Cancelar viaje',
+            icon: _isCancelling
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.red),
+                  )
+                : const Icon(Icons.close, color: Colors.red),
+            onPressed: _isCancelling ? null : _cancelTrip,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -389,7 +519,9 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
                       Text(
                         trip.routesSummary,
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -405,17 +537,25 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
                   ),
                 ),
                 _InfoChip(
-                    label: '${trip.totalMinutes} min',
-                    icon: Icons.access_time),
+                  label: '${trip.totalMinutes} min',
+                  icon: Icons.access_time,
+                ),
                 const SizedBox(width: 8),
                 _InfoChip(
-                    label: 'Bs ${trip.totalCostBs.toStringAsFixed(0)}',
-                    icon: Icons.payments_outlined),
+                  label: 'Bs ${trip.totalCostBs.toStringAsFixed(0)}',
+                  icon: Icons.payments_outlined,
+                ),
               ],
             ),
           ),
 
           const Divider(height: 1),
+
+          // Upcoming departures (RQ-36)
+          _UpcomingDeparturesCard(
+            departures: _departures,
+            isLoading: _isLoadingDepartures,
+          ),
 
           // Legs list
           Expanded(
@@ -425,18 +565,12 @@ class _PlanDetallePageState extends State<PlanDetallePage> {
               itemBuilder: (context, i) {
                 final leg = trip.legs[i];
                 if (leg.isWalking) {
-                  return _WalkCard(
-                    leg: leg,
-                    isCompleted: _completedLegs[i],
-                  );
+                  return _WalkCard(leg: leg, isCompleted: _completedLegs[i]);
                 }
                 return _LegCard(
                   leg: leg,
                   legIndex: i,
-                  busIndex: trip.legs
-                      .take(i + 1)
-                      .where((l) => l.isBus)
-                      .length,
+                  busIndex: trip.legs.take(i + 1).where((l) => l.isBus).length,
                   totalBusLegs: trip.busLegs.length,
                   isActive: i == _currentLeg,
                   isCompleted: _completedLegs[i],
@@ -469,14 +603,161 @@ class _InfoChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: const Color(0xFFFFC12F)),
+          Icon(icon, size: 13, color: Colors.black),
           const SizedBox(width: 4),
           Text(
             label,
             style: const TextStyle(
-                fontSize: 12,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Upcoming departures card (RQ-36) ─────────────────────────────────────────
+
+class _UpcomingDeparturesCard extends StatelessWidget {
+  final List<Map<String, dynamic>> departures;
+  final bool isLoading;
+
+  const _UpcomingDeparturesCard({
+    required this.departures,
+    required this.isLoading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.schedule, size: 18, color: const Color(0xFFFFC12F)),
+              const SizedBox(width: 8),
+              Text(
+                'Próximas salidas',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFFFFC12F),
+                  ),
+                ),
+              ),
+            )
+          else if (departures.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                'No hay salidas próximas para esta parada.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 160),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: departures.length,
+                itemBuilder: (context, i) =>
+                    _DepartureRow(departure: departures[i]),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DepartureRow extends StatelessWidget {
+  final Map<String, dynamic> departure;
+
+  const _DepartureRow({required this.departure});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final time = departure['time'] ?? '--:--';
+    final routeId = departure['route_id'] ?? '—';
+    final headsign = departure['trip_headsign'] ?? '—';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFC12F).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '$time',
+              style: const TextStyle(
+                fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFFFFC12F)),
+                color: Colors.black,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ruta $routeId',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                Text(
+                  '$headsign',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -488,8 +769,8 @@ class _InfoChip extends StatelessWidget {
 
 class _LegCard extends StatelessWidget {
   final PlannedTripLeg leg;
-  final int legIndex;   // index in full legs list (for _currentLeg tracking)
-  final int busIndex;   // 1-based index among bus-only legs
+  final int legIndex; // index in full legs list (for _currentLeg tracking)
+  final int busIndex; // 1-based index among bus-only legs
   final int totalBusLegs;
   final bool isActive;
   final bool isCompleted;
@@ -519,15 +800,15 @@ class _LegCard extends StatelessWidget {
         color: isActive
             ? const Color(0xFFFFC12F).withValues(alpha: 0.1)
             : isCompleted
-                ? Colors.green.withValues(alpha: 0.08)
-                : colorScheme.surfaceContainerHighest,
+            ? Colors.green.withValues(alpha: 0.08)
+            : colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isActive
               ? const Color(0xFFFFC12F).withValues(alpha: 0.5)
               : isCompleted
-                  ? Colors.green.withValues(alpha: 0.3)
-                  : colorScheme.onSurface.withValues(alpha: 0.08),
+              ? Colors.green.withValues(alpha: 0.3)
+              : colorScheme.onSurface.withValues(alpha: 0.08),
         ),
       ),
       child: Row(
@@ -540,8 +821,8 @@ class _LegCard extends StatelessWidget {
               color: isCompleted
                   ? Colors.green
                   : isActive
-                      ? const Color(0xFFFFC12F)
-                      : colorScheme.onSurface.withValues(alpha: 0.1),
+                  ? const Color(0xFFFFC12F)
+                  : colorScheme.onSurface.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -593,21 +874,25 @@ class _LegCard extends StatelessWidget {
                         foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                       child: isLoading
                           ? const SizedBox(
                               height: 18,
                               width: 18,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.black),
+                                strokeWidth: 2,
+                                color: Colors.black,
+                              ),
                             )
                           : Text(
                               busIndex == 1
                                   ? 'Iniciar viaje'
                                   : 'Abordar línea $busIndex',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                     ),
                   ),

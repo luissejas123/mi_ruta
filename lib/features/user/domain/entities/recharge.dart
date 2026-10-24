@@ -9,6 +9,9 @@ class Recharge extends Equatable {
   final String? proofImageUrl;
   final DateTime createdAt;
   final DateTime? verifiedAt;
+  // Nombre del usuario que pidió la recarga — se resuelve aparte (no vive en
+  // el doc de `recharges`), solo se usa en listas de revisión del tickeador.
+  final String? userName;
 
   const Recharge({
     required this.id,
@@ -19,6 +22,7 @@ class Recharge extends Equatable {
     this.proofImageUrl,
     required this.createdAt,
     this.verifiedAt,
+    this.userName,
   });
 
   Recharge copyWith({
@@ -30,6 +34,7 @@ class Recharge extends Equatable {
     String? proofImageUrl,
     DateTime? createdAt,
     DateTime? verifiedAt,
+    String? userName,
   }) {
     return Recharge(
       id: id ?? this.id,
@@ -40,6 +45,7 @@ class Recharge extends Equatable {
       proofImageUrl: proofImageUrl ?? this.proofImageUrl,
       createdAt: createdAt ?? this.createdAt,
       verifiedAt: verifiedAt ?? this.verifiedAt,
+      userName: userName ?? this.userName,
     );
   }
 
@@ -53,5 +59,6 @@ class Recharge extends Equatable {
     proofImageUrl,
     createdAt,
     verifiedAt,
+    userName,
   ];
 }

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:mi_ruta/core/demo/demo_constants.dart';
 import 'package:mi_ruta/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:mi_ruta/features/auth/data/models/auth_model.dart';
 
@@ -10,8 +11,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   AuthRemoteDataSourceImpl({
     required FirebaseAuth firebaseAuth,
     required FirebaseFirestore firestore,
-  })  : _firebaseAuth = firebaseAuth,
-        _firestore = firestore;
+  }) : _firebaseAuth = firebaseAuth,
+       _firestore = firestore;
 
   @override
   Future<AuthModel> register({
@@ -23,8 +24,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String role,
   }) async {
     try {
-      final userCredential =
-          await _firebaseAuth.createUserWithEmailAndPassword(
+      final userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -47,9 +47,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'rating': 0.0,
         'reviewsCount': 0,
         'isActive': true,
-        'wallet': {
-          'balance': 0.0,
-          'currency': 'Bs.',
+        'wallet': {'balance': 0.0, 'currency': 'Bs.'},
+        'settings': {
+          'notifications_enabled': true,
+          'trip_notifications_enabled': true,
+          'recharge_notifications_enabled': true,
+          'gift_notifications_enabled': true,
+          'dark_mode_enabled': false,
+          'is_driver_mode': false,
         },
         'createdAt': now,
         'updatedAt': now,
@@ -84,15 +89,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String password,
   }) async {
     try {
-      final userCredential =
-          await _firebaseAuth.signInWithEmailAndPassword(
+      final userCredential = await _firebaseAuth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
       final uid = userCredential.user!.uid;
-      final userDoc =
-          await _firestore.collection('users').doc(uid).get();
+      final userDoc = await _firestore.collection('users').doc(uid).get();
 
       if (!userDoc.exists) {
         throw Exception('No se encontró el perfil del usuario.');
@@ -139,6 +142,37 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
+  Future<AuthModel> loginAsDemo({required String role}) async {
+    // 100% estático — sin Firebase Auth, sin Firestore. Uid fijo por rol.
+    // Solo 'driver'/'admin': el pasajero se prueba con login real.
+    final uid = switch (role) {
+      'driver' => kStaticDemoDriverUid,
+      'admin' => kStaticDemoAdminUid,
+      _ => throw ArgumentError('Modo prueba no soporta el rol "$role"'),
+    };
+    return AuthModel(
+      uid: uid,
+      email: '',
+      fullName: 'Demo (${_demoRoleLabel(role)})',
+      governmentId: '',
+      phoneNumber: '',
+      role: role,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  String _demoRoleLabel(String role) {
+    switch (role) {
+      case 'driver':
+        return 'Chofer';
+      case 'admin':
+        return 'Admin';
+      default:
+        return 'Pasajero';
+    }
+  }
+
+  @override
   Future<void> resetPassword(String email) async {
     try {
       await _firebaseAuth.sendPasswordResetEmail(email: email);
@@ -146,6 +180,50 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       throw Exception('Error al resetear contraseña: ${e.message}');
     } catch (e) {
       throw Exception('Error general: $e');
+    }
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final user = _firebaseAuth.currentUser;
+      if (user == null) {
+        throw Exception('No hay usuario autenticado');
+      }
+      // Firebase exige una sesión reciente para updatePassword.
+      // Reautenticamos con la contraseña actual antes de actualizar.
+      if (user.email != null && currentPassword.isNotEmpty) {
+        final credential = EmailAuthProvider.credential(
+          email: user.email!,
+          password: currentPassword,
+        );
+        await user.reauthenticateWithCredential(credential);
+      }
+      await user.updatePassword(newPassword);
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_mensajeErrorContrasena(e.code));
+    } catch (e) {
+      throw Exception('Error al cambiar la contraseña: $e');
+    }
+  }
+
+  // ✅ Mensajes de error de cambio de contraseña legibles
+  String _mensajeErrorContrasena(String code) {
+    switch (code) {
+      case 'requires-recent-login':
+        return 'Por seguridad, vuelve a iniciar sesión antes de cambiar tu contraseña.';
+      case 'weak-password':
+        return 'La contraseña es muy débil. Usa al menos 6 caracteres.';
+      case 'invalid-credential':
+      case 'wrong-password':
+        return 'La contraseña actual es incorrecta.';
+      case 'too-many-requests':
+        return 'Demasiados intentos. Intenta más tarde.';
+      default:
+        return 'Error al cambiar la contraseña. Intenta de nuevo.';
     }
   }
 
@@ -167,23 +245,30 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   // ✅ Mensajes de error de login legibles
   String _mensajeError(String code) {
-    switch (code) {
+    switch (code.toLowerCase()) {
       case 'user-not-found':
-        return 'No existe una cuenta con ese correo.';
+        return 'No existe una cuenta registrada con ese correo.';
       case 'wrong-password':
-        return 'Contraseña incorrecta.';
+        return 'La contraseña es incorrecta.';
+      // Firebase Auth con "email enumeration protection" activada (opción por
+      // defecto en proyectos nuevos) devuelve este código tanto si el correo
+      // no existe como si la contraseña está mal — no se puede distinguir
+      // desde el cliente sin filtrar qué correos están registrados. Para
+      // volver a tener el detalle, desactivar esa protección en la consola:
+      // Authentication → Settings → User account protection.
       case 'invalid-credential':
-        return 'Correo o contraseña incorrectos.';
+      case 'invalid-login-credentials':
+        return 'El correo o la contraseña son incorrectos.';
       case 'invalid-email':
         return 'El correo no tiene un formato válido.';
       case 'user-disabled':
         return 'Esta cuenta ha sido deshabilitada.';
       case 'too-many-requests':
-        return 'Demasiados intentos. Intenta más tarde.';
+        return 'Demasiados intentos fallidos. Espera un momento e intenta de nuevo.';
       case 'network-request-failed':
         return 'Sin conexión a internet.';
       default:
-        return 'Error al iniciar sesión. Intenta de nuevo.';
+        return 'No se pudo iniciar sesión. Intenta de nuevo.';
     }
   }
 }

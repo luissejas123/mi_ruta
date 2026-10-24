@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mi_ruta/core/utils/firestore_date.dart';
 import 'package:mi_ruta/features/user/domain/entities/wallet.dart';
 
 class WalletDatasource {
@@ -55,20 +56,53 @@ class WalletDatasource {
       final walletData = data['wallet'] as Map<String, dynamic>?;
       if (walletData == null) return null;
 
+      // La colección users tiene docs snake_case (wallet.current_balance) y
+      // camelCase (wallet.balance) coexistiendo: leer ambas claves.
+      final baseBalance =
+          ((walletData['current_balance'] ?? walletData['balance'] ?? 0.0)
+                  as num)
+              .toDouble();
+
+      // Las ganancias del chofer (pagos QR recibidos) YA se acreditan a
+      // `wallet.current_balance` dentro de la misma transacción atómica de
+      // `TripPaymentService.processPayment` — sumar `_sumDriverEarnings` acá
+      // duplicaba el monto (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0).
+      // `_sumDriverEarnings`/`getDriverEarningsTransactions` se dejan intactas:
+      // siguen usándose para LISTAR transacciones (GananciasChoferPage,
+      // DriverWalletPage), no para calcular saldo.
       return Wallet(
         userId: userId,
-        currentBalance:
-            (walletData['current_balance'] as num?)?.toDouble() ?? 0.0,
+        currentBalance: baseBalance,
         currency: walletData['currency'] as String? ?? 'Bs',
-        createdAt:
-            (walletData['created_at'] as Timestamp?)?.toDate() ??
-            DateTime.now(),
-        updatedAt:
-            (walletData['updated_at'] as Timestamp?)?.toDate() ??
-            DateTime.now(),
+        createdAt: parseFirestoreDate(walletData['created_at']) ?? DateTime.now(),
+        updatedAt: parseFirestoreDate(walletData['updated_at']) ?? DateTime.now(),
       );
     } catch (e) {
       throw Exception('Error obteniendo billetera: $e');
+    }
+  }
+
+  /// Obtiene las transacciones de ganancia del chofer (pagos recibidos por QR)
+  /// ordenadas de más reciente a más antigua.
+  Future<List<Map<String, dynamic>>> getDriverEarningsTransactions(
+    String userId,
+  ) async {
+    try {
+      final snapshot = await _firestore
+          .collection('transactions')
+          .where('user_id', isEqualTo: userId)
+          .where('transaction_type', isEqualTo: 'trip_payment_received')
+          .get();
+
+      final transactions = snapshot.docs.map((doc) => doc.data()).toList();
+      transactions.sort((a, b) {
+        final dateA = a['timestamp'] as dynamic;
+        final dateB = b['timestamp'] as dynamic;
+        return dateB.compareTo(dateA);
+      });
+      return transactions;
+    } catch (e) {
+      throw Exception('Error obteniendo ganancias del chofer: $e');
     }
   }
 
@@ -93,17 +127,24 @@ class WalletDatasource {
 
         if (!doc.exists) throw Exception('Usuario no encontrado');
 
+        final userData = doc.data() as Map<String, dynamic>;
+        final walletData =
+            (userData['wallet'] as Map<String, dynamic>?) ?? {};
         final currentBalance =
-            ((doc.data() as Map<String, dynamic>)['wallet']['current_balance']
-                    as num?)
-                ?.toDouble() ??
-            0.0;
+            ((walletData['current_balance'] ?? walletData['balance'] ?? 0.0)
+                    as num)
+                .toDouble();
         final newBalance = currentBalance + amount;
 
-        transaction.update(docRef, {
+        final walletUpdates = <String, dynamic>{
           'wallet.current_balance': newBalance,
           'wallet.updated_at': FieldValue.serverTimestamp(),
-        });
+        };
+        if (walletData.containsKey('balance')) {
+          walletUpdates['wallet.balance'] = newBalance;
+        }
+
+        transaction.update(docRef, walletUpdates);
 
         // Registrar transacción
         await _firestore.collection('transactions').add({
@@ -135,11 +176,13 @@ class WalletDatasource {
 
         if (!doc.exists) throw Exception('Usuario no encontrado');
 
+        final userData = doc.data() as Map<String, dynamic>;
+        final walletData =
+            (userData['wallet'] as Map<String, dynamic>?) ?? {};
         final currentBalance =
-            ((doc.data() as Map<String, dynamic>)['wallet']['current_balance']
-                    as num?)
-                ?.toDouble() ??
-            0.0;
+            ((walletData['current_balance'] ?? walletData['balance'] ?? 0.0)
+                    as num)
+                .toDouble();
 
         if (currentBalance < amount) {
           throw Exception(
@@ -151,10 +194,15 @@ class WalletDatasource {
 
         final newBalance = currentBalance - amount;
 
-        transaction.update(docRef, {
+        final walletUpdates = <String, dynamic>{
           'wallet.current_balance': newBalance,
           'wallet.updated_at': FieldValue.serverTimestamp(),
-        });
+        };
+        if (walletData.containsKey('balance')) {
+          walletUpdates['wallet.balance'] = newBalance;
+        }
+
+        transaction.update(docRef, walletUpdates);
 
         // Registrar transacción
         await _firestore.collection('transactions').add({

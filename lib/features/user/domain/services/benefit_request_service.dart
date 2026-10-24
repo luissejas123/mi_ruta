@@ -2,17 +2,21 @@ import 'dart:io';
 import 'package:mi_ruta/features/user/data/datasources/benefit_request_datasource.dart';
 import 'package:mi_ruta/features/user/domain/entities/benefit_request.dart';
 import 'package:mi_ruta/features/user/domain/services/storage_service.dart';
+import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
 
 /// Servicio de dominio para operaciones de solicitudes de beneficio
 class BenefitRequestService {
   final BenefitRequestDatasource _datasource;
   final StorageService _storageService;
+  final NotificationService _notificationService;
 
   BenefitRequestService({
     required BenefitRequestDatasource datasource,
     required StorageService storageService,
+     required NotificationService notificationService,
   }) : _datasource = datasource,
-       _storageService = storageService;
+       _storageService = storageService,
+       _notificationService = notificationService;
 
   /// Crea una solicitud de beneficio con documentos
   /// Sube los archivos a Firebase Storage y retorna el ID de la solicitud
@@ -71,6 +75,14 @@ class BenefitRequestService {
       documentUrls: documentUrls,
     );
 
+    final administratorIds = await _datasource.getAdministratorIds();
+    for (final administratorId in administratorIds) {
+      await _notificationService.saveBenefitRequestNotification(
+        administratorId,
+        benefitType,
+      );
+    }
+
     return requestId;
   }
 
@@ -84,16 +96,50 @@ class BenefitRequestService {
     return _datasource.getBenefitRequestsByUserId(userId);
   }
 
+  Future<List<BenefitRequest>> getAllBenefitRequests() {
+    return _datasource.getAllBenefitRequests();
+  }
+
   /// Aprueba una solicitud de beneficio
   Future<void> approveBenefitRequest(
     String requestId,
     String adminNotes,
+    String adminId,
   ) async {
-    return _datasource.approveBenefitRequest(requestId, adminNotes);
+    return _datasource.approveBenefitRequest(requestId, adminNotes, adminId);
   }
 
   /// Rechaza una solicitud de beneficio
-  Future<void> rejectBenefitRequest(String requestId, String adminNotes) async {
-    return _datasource.rejectBenefitRequest(requestId, adminNotes);
+  Future<void> rejectBenefitRequest(
+    String requestId,
+    String adminNotes,
+    String adminId,
+  ) async {
+    return _datasource.rejectBenefitRequest(requestId, adminNotes, adminId);
+  }
+
+  /// Habilita/deshabilita el efecto de un beneficio ya aprobado sin
+  /// revertir la aprobación — ver `BenefitRequestDatasource.setBenefitEnabled`.
+  Future<void> setBenefitEnabled(
+    String userId,
+    String benefitType, {
+    required bool enabled,
+  }) {
+    return _datasource.setBenefitEnabled(userId, benefitType, enabled: enabled);
+  }
+
+  /// Renueva una solicitud existente devolviéndola a pending.
+  Future<void> renewBenefitRequest(String requestId) async {
+    return _datasource.renewBenefitRequest(requestId);
+  }
+
+  /// Cancela una solicitud sin perder el historial.
+  Future<void> cancelBenefitRequest(String requestId) async {
+    return _datasource.cancelBenefitRequest(requestId);
+  }
+
+  /// Genera un comprobante PDF real a partir del documento asociado.
+  Future<File> downloadBenefitCertificatePdf(BenefitRequest request) async {
+    return _storageService.generateBenefitPdf(request);
   }
 }

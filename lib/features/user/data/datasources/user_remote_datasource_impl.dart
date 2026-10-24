@@ -1,18 +1,39 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mi_ruta/features/user/data/datasources/user_remote_datasource.dart';
 import 'package:mi_ruta/features/user/data/models/user_model.dart';
 
 /// Implementación de UserRemoteDataSource - Conexión real a Firestore
 class UserRemoteDataSourceImpl implements UserRemoteDataSource {
   final FirebaseFirestore _firestore;
+  final FirebaseAuth _firebaseAuth;
 
-  UserRemoteDataSourceImpl({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  UserRemoteDataSourceImpl({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? firebaseAuth,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
 
   @override
   Future<UserModel> getCurrentUser() async {
-    // TODO: Implementar con Firebase Auth
-    throw UnimplementedError('getCurrentUser no implementado');
+    try {
+      final currentUser = _firebaseAuth.currentUser;
+      if (currentUser == null) {
+        throw Exception('No hay usuario autenticado');
+      }
+
+      final docSnapshot = await _firestore
+          .collection('users')
+          .doc(currentUser.uid)
+          .get();
+      if (!docSnapshot.exists) {
+        throw Exception('Usuario no encontrado');
+      }
+
+      return UserModel.fromJson(docSnapshot.data() ?? {});
+    } catch (e) {
+      throw Exception('Error obteniendo usuario actual: $e');
+    }
   }
 
   @override

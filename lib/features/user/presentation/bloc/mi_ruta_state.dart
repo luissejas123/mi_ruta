@@ -42,6 +42,11 @@ class MiRutaState extends Equatable {
   /// Contador utilizado para disparar la animación de cámara en el BlocListener.
   final int cameraTriggerCount;
 
+  /// true mientras la cámara debe seguir la posición GPS en vivo (se pausa
+  /// si el usuario arrastra el mapa con el dedo, se reactiva al tocar
+  /// "mi ubicación").
+  final bool followMyLocation;
+
   const MiRutaState({
     this.myLocationLatLng,
     this.destinationLatLng,
@@ -56,6 +61,7 @@ class MiRutaState extends Equatable {
     this.isGeocodingLoading = false,
     this.cameraUpdateLocation,
     this.cameraTriggerCount = 0,
+    this.followMyLocation = true,
   });
 
   MiRutaState copyWith({
@@ -72,6 +78,7 @@ class MiRutaState extends Equatable {
     bool? isGeocodingLoading,
     LatLng? Function()? cameraUpdateLocation,
     int? cameraTriggerCount,
+    bool? followMyLocation,
   }) {
     return MiRutaState(
       myLocationLatLng: myLocationLatLng != null ? myLocationLatLng() : this.myLocationLatLng,
@@ -87,6 +94,7 @@ class MiRutaState extends Equatable {
       isGeocodingLoading: isGeocodingLoading ?? this.isGeocodingLoading,
       cameraUpdateLocation: cameraUpdateLocation != null ? cameraUpdateLocation() : this.cameraUpdateLocation,
       cameraTriggerCount: cameraTriggerCount ?? this.cameraTriggerCount,
+      followMyLocation: followMyLocation ?? this.followMyLocation,
     );
   }
 
@@ -105,5 +113,6 @@ class MiRutaState extends Equatable {
         isGeocodingLoading,
         cameraUpdateLocation,
         cameraTriggerCount,
+        followMyLocation,
       ];
 }

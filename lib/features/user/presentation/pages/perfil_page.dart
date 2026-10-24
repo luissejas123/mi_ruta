@@ -1,10 +1,14 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/role_switcher_page.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart';
+import 'package:mi_ruta/features/auth/presentation/bloc/auth_event.dart'
+    as auth_events;
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
-import 'package:mi_ruta/features/auth/presentation/pages/iniciar_sesion_page.dart';
+import 'package:mi_ruta/features/auth/presentation/widgets/change_password_dialog.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_state.dart';
@@ -13,14 +17,48 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/editar_perfil_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/historial_viajes_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_assigned_routes_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/gestionar_unidades_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/solicitud_chofer_page.dart';
+import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_actividad_history_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/notificaciones_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/planificar_viaje_page.dart';
+import 'package:mi_ruta/features/stops/presentation/pages/paradas_cercanas_page.dart' show ParadasCercanasPage;
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' show confirmLogout;
 import 'package:mi_ruta/features/user/presentation/widgets/profile_header.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/admin_home_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/admin_metricas_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/consulta_pasajeros_transportados_page.dart';
+import 'package:mi_ruta/features/admin/presentation/bloc/transported_passengers_bloc.dart';
+import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/administracion_beneficios_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_trip_history_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/acerca_de_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/crear_reclamo_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_page.dart';
 
 class PerfilPage extends StatefulWidget {
-  const PerfilPage({super.key});
+  /// A qué pantalla vuelve la pestaña "Inicio" del pie de navegación.
+  /// Nulo = MiRutaScreen (pasajero); los demás perfiles pasan su propio home.
+  final WidgetBuilder? homeBuilder;
+
+  /// A qué pantalla van las pestañas Billetera/Rutas del pie de navegación
+  /// **desde este Perfil**. Nulos = las del pasajero (WalletPage/
+  /// RutasInicioPage). Sin esto, un chofer/presidente/etc. que entra a
+  /// Perfil y luego toca Billetera o Rutas caía a las pantallas del
+  /// pasajero — el bug real reportado en QA.
+  final WidgetBuilder? walletBuilder;
+  final WidgetBuilder? routesBuilder;
+
+  const PerfilPage({
+    super.key,
+    this.homeBuilder,
+    this.walletBuilder,
+    this.routesBuilder,
+  });
 
   @override
   State<PerfilPage> createState() => _PerfilPageState();
@@ -30,26 +68,55 @@ class _PerfilPageState extends State<PerfilPage> {
   static const _amarillo = Color(0xFFFFC12F);
   static const _navIndexPerfil = 3;
 
+  /// `users` arrastra dos valores para una cuenta sin rol especial: 'user'
+  /// (lo que escribe el registro) y 'passenger' (default de UserModel).
+  bool _isPassenger(String userType) =>
+      userType == 'user' || userType == 'passenger';
+
+  PackageInfo? _packageInfo;
+
   @override
   void initState() {
     super.initState();
     _loadUser();
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) setState(() => _packageInfo = info);
+    });
   }
 
   void _loadUser() {
     final authState = context.read<AuthBloc>().state;
+
     if (authState is AuthLoaded) {
       context.read<UserBloc>().add(
-        GetUserByIdEvent(uid: authState.user.uid),
+        StartUserStreamEvent(uid: authState.user.uid),
       );
-      context.read<WalletBloc>().add(
-        LoadWalletEvent(authState.user.uid),
-      );
+      context.read<WalletBloc>().add(LoadWalletEvent(authState.user.uid));
     }
   }
 
   void _onNavTap(int index) {
-    navigateBottomNav(context, index);
+    navigateBottomNav(
+      context,
+      index,
+      homeBuilder: widget.homeBuilder,
+      walletBuilder: widget.walletBuilder,
+      routesBuilder: widget.routesBuilder,
+    );
+  }
+
+  // Mismo criterio que PresidentePanelPage (tabs [0,2,3]) y
+  // TickeadorHomePage (tabs [0,3]): esos roles no tienen billetera propia,
+  // así que Perfil tampoco debe ofrecer esa pestaña.
+  List<int> _tabsForRole(String role) {
+    switch (role) {
+      case 'presidente':
+        return const [0, 2, 3];
+      case 'tickeador':
+        return const [0, 3];
+      default:
+        return const [0, 1, 2, 3];
+    }
   }
 
   void _navigateToEditarPerfil(
@@ -76,41 +143,6 @@ class _PerfilPageState extends State<PerfilPage> {
     ).then((_) => _loadUser());
   }
 
-  void _cerrarSesion() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text('¿Estás seguro que deseas cerrar sesión?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              context.read<AuthBloc>().add(const LogoutEvent());
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (_) => const IniciarSesionPage(),
-                ),
-                (route) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-            ),
-            child: const Text(
-              'Cerrar sesión',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMenuItem({
     required IconData icon,
     required String title,
@@ -128,30 +160,30 @@ class _PerfilPageState extends State<PerfilPage> {
           color: (iconColor ?? _amarillo).withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, color: iconColor ?? _amarillo, size: 22),
+        child: Icon(
+          icon,
+          color: iconColor ?? _amarillo,
+          size: 22,
+        ),
       ),
       title: Text(
         title,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: titleColor,
-        ),
+        style: TextStyle(fontWeight: FontWeight.w600, color: titleColor),
       ),
-      subtitle: subtitle != null
-          ? Text(subtitle)
-          : null,
-      trailing: trailing ??
-          const Icon(
-            Icons.arrow_forward_ios,
-            size: 14,
-          ),
+      subtitle: subtitle != null ? Text(subtitle) : null,
+      trailing: trailing ?? const Icon(Icons.arrow_forward_ios, size: 14),
       onTap: onTap,
     );
   }
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        20,
+        16,
+        4,
+      ),
       child: Text(
         title,
         style: const TextStyle(
@@ -163,25 +195,100 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
+  Widget _buildNotificationToggle({
+    required IconData icon,
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return ListTile(
+      leading: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: _amarillo.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: _amarillo, size: 22),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      trailing: Switch(
+        value: value,
+        onChanged: onChanged,
+        activeThumbColor: _amarillo,
+      ),
+    );
+  }
+
+  void _updateNotificationPreference(String uid, String key, bool value) {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthLoaded) return;
+
+    final currentSettings = Map<String, dynamic>.from(
+      authState.user.settings ?? <String, dynamic>{},
+    );
+    currentSettings['notifications_enabled'] = true;
+    currentSettings[key] = value;
+
+    context.read<UserBloc>().add(
+      UpdateUserEvent(uid: uid, data: {'settings': currentSettings}),
+    );
+
+    context.read<AuthBloc>().add(const auth_events.GetCurrentUserEvent());
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode = context.watch<ThemeCubit>().state;
+    final authState = context.watch<AuthBloc>().state;
+    final notificationSettings = authState is AuthLoaded
+        ? Map<String, dynamic>.from(authState.user.settings ?? const {})
+        : const <String, dynamic>{};
+    final tripNotificationsEnabled =
+        notificationSettings['trip_notifications_enabled'] as bool? ?? true;
+    final rechargeNotificationsEnabled =
+        notificationSettings['recharge_notifications_enabled'] as bool? ?? true;
+    final giftNotificationsEnabled =
+        notificationSettings['gift_notifications_enabled'] as bool? ?? true;
+    // Rol en vivo (UserBloc, stream de Firestore) para el título y las
+    // pestañas del pie de navegación — `AuthBloc` solo se carga una vez al
+    // iniciar sesión (`GetCurrentUserEvent`) y nunca se refresca, así que si
+    // el rol cambia durante la sesión (aprobación como chofer, presidente,
+    // etc.) seguía mostrando el título/pestañas del rol viejo hasta cerrar y
+    // volver a abrir sesión. Cae a `AuthBloc` solo mientras el stream
+    // todavía no cargó ningún dato.
+    final liveUserState = context.watch<UserBloc>().state;
+    final liveUserType = liveUserState is UserLoaded
+        ? liveUserState.user.userType
+        : liveUserState is UserStreamLoaded
+        ? liveUserState.user.userType
+        : null;
+    final userRole = (liveUserType ??
+            (authState is AuthLoaded ? authState.user.role : ''))
+        .trim()
+        .toLowerCase();
+    final isLeadershipRole = {
+      'admin',
+      'administrador',
+      'dirigente',
+      'presidente',
+    }.contains(userRole);
+    final profileTitle = userRole == 'dirigente' || userRole == 'presidente'
+        ? 'Perfil de dirigencia'
+        : isLeadershipRole
+        ? 'Perfil administrativo'
+        : 'Mi Perfil';
 
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         centerTitle: true,
-        title: const Text(
-          'Mi Perfil',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+        title: Text(
+          profileTitle,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
       ),
       body: BlocConsumer<UserBloc, UserState>(
-        // No redibujar cuando llega UserOperationSuccess para no perder
-        // los datos del usuario que ya estaban visibles.
         buildWhen: (previous, current) => current is! UserOperationSuccess,
         listener: (context, state) {
           if (state is UserOperationSuccess) {
@@ -213,18 +320,17 @@ class _PerfilPageState extends State<PerfilPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline,
-                      size: 60, color: Colors.red),
+                  const Icon(Icons.error_outline, size: 60, color: Colors.red),
                   const SizedBox(height: 16),
                   Text(state.message),
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: _loadUser,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _amarillo,
+                    style: ElevatedButton.styleFrom(backgroundColor: _amarillo),
+                    child: const Text(
+                      'Reintentar',
+                      style: TextStyle(color: Colors.black),
                     ),
-                    child: const Text('Reintentar',
-                        style: TextStyle(color: Colors.black)),
                   ),
                 ],
               ),
@@ -234,78 +340,158 @@ class _PerfilPageState extends State<PerfilPage> {
           final user = state is UserLoaded
               ? state.user
               : state is UserStreamLoaded
-                  ? state.user
-                  : null;
+              ? state.user
+              : null;
 
-          if (user == null) {
-            return const Center(
-              child: Text('No se encontraron datos del usuario'),
-            );
-          }
+            if (user == null) {
+              return const Center(
+                child: Text(
+                  'No se encontraron datos del usuario',
+                ),
+              );
+            }
 
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ProfileHeader(
-                  name: user.fullName,
-                  email: user.email,
-                  imageUrl: user.profileImageUrl,
-                  onEditTap: () => _navigateToEditarPerfil(
-                    user.uid,
-                    user.fullName,
-                    user.email,
-                    user.phoneNumber,
-                    user.profileImageUrl,
-                  ),
-                ),
-                const Divider(height: 1),
-
-                // ── Mi cuenta ──
-                _buildSectionTitle('MI CUENTA'),
-                _buildMenuItem(
-                  icon: Icons.person_outline,
-                  title: 'Nombre completo',
-                  subtitle: user.fullName,
-                  onTap: () => _navigateToEditarPerfil(
-                    user.uid,
-                    user.fullName,
-                    user.email,
-                    user.phoneNumber,
-                    user.profileImageUrl,
-                  ),
-                ),
-                _buildMenuItem(
-                  icon: Icons.phone_outlined,
-                  title: 'Teléfono',
-                  subtitle: user.phoneNumber.isNotEmpty
-                      ? user.phoneNumber
-                      : 'No registrado',
-                  onTap: () => _navigateToEditarPerfil(
-                    user.uid,
-                    user.fullName,
-                    user.email,
-                    user.phoneNumber,
-                    user.profileImageUrl,
-                  ),
-                ),
-                _buildMenuItem(
-                  icon: Icons.email_outlined,
-                  title: 'Correo electrónico',
-                  subtitle: user.email,
-                  onTap: () {},
-                ),
-                _buildMenuItem(
-                  icon: Icons.history,
-                  title: 'Historial de viajes',
-                  subtitle: 'Ver todos tus viajes',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const HistorialViajesPage(),
+            return SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  ProfileHeader(
+                    name: user.fullName,
+                    email: user.email,
+                    imageUrl: user.profileImageUrl,
+                    onEditTap: () =>
+                        _navigateToEditarPerfil(
+                      user.uid,
+                      user.fullName,
+                      user.email,
+                      user.phoneNumber,
+                      user.profileImageUrl,
                     ),
                   ),
+
+                  const Divider(height: 1),
+
+                  // ==================================================
+                  // MI CUENTA
+                  // ==================================================
+
+                  _buildSectionTitle('MI CUENTA'),
+
+                  _buildMenuItem(
+                    icon: Icons.person_outline,
+                    title: 'Información personal',
+                    subtitle: user.fullName,
+                    onTap: () =>
+                        _navigateToEditarPerfil(
+                      user.uid,
+                      user.fullName,
+                      user.email,
+                      user.phoneNumber,
+                      user.profileImageUrl,
+                    ),
+                  ),
+
+                  _buildMenuItem(
+                    icon: Icons.phone_outlined,
+                    title: 'Teléfono',
+                    subtitle: user.phoneNumber.isNotEmpty
+                        ? user.phoneNumber
+                        : 'No registrado',
+                    onTap: () =>
+                        _navigateToEditarPerfil(
+                      user.uid,
+                      user.fullName,
+                      user.email,
+                      user.phoneNumber,
+                      user.profileImageUrl,
+                    ),
+                  ),
+
+                  _buildMenuItem(
+                    icon: Icons.email_outlined,
+                    title: 'Correo electrónico',
+                    subtitle: user.email,
+                    onTap: () {},
+                  ),
+                _buildMenuItem(
+                  icon: Icons.lock_outline,
+                  title: 'Cambiar contraseña',
+                  subtitle: 'Actualiza tu contraseña de acceso',
+                  onTap: () => showChangePasswordDialog(context),
                 ),
+
+                  _buildMenuItem(
+                    icon: Icons.history,
+                    // `user` (UserBloc, en vivo) en vez de releer AuthBloc
+                    // (foto vieja de al iniciar sesión) — antes un chofer
+                    // recién aprobado seguía viendo "Historial de viajes" del
+                    // pasajero hasta cerrar y volver a abrir sesión.
+                    title: user.userType == 'driver'
+                        ? 'Historial del conductor'
+                        : 'Historial de viajes',
+                    subtitle: 'Ver todos tus viajes',
+                    onTap: () {
+                      if (user.userType == 'driver') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DriverTripHistoryPage(driverId: user.uid),
+                          ),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const HistorialViajesPage(),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                if (user.userType == 'driver') ...[
+                  _buildMenuItem(
+                    icon: Icons.alt_route_outlined,
+                    title: 'Ruta asignada',
+                    subtitle: 'Elegir la línea que operas',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const DriverAssignedRoutesPage(),
+                      ),
+                    ),
+                  ),
+                  _buildMenuItem(
+                    icon: Icons.directions_bus_outlined,
+                    title: 'Gestionar Unidades',
+                    subtitle: 'Editar tu unidad y su estado de servicio',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const GestionarUnidadesPage(),
+                      ),
+                    ),
+                  ),
+                ],
+                // Antes había una segunda tarjeta "Ruta asignada" acá
+                // (visible también para pasajero) que iba a la misma
+                // pantalla que la de arriba — duplicada de verdad, no solo
+                // parecida. "Ver recorrido y línea del chofer" es una
+                // herramienta del dirigente, no del propio chofer/pasajero:
+                // ver `_ActionTile` "Ver ruta de un chofer" en
+                // PresidentePanelPage.
+                if (user.userType == 'tickeador')
+                  _buildMenuItem(
+                    icon: Icons.history,
+                    title: 'Historial de operaciones',
+                    subtitle: 'Salidas y llegadas registradas',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TickeadorActividadHistoryPage(),
+                      ),
+                    ),
+                  ),
                 _buildMenuItem(
                   icon: Icons.notifications_outlined,
                   title: 'Notificaciones',
@@ -317,17 +503,105 @@ class _PerfilPageState extends State<PerfilPage> {
                     ),
                   ),
                 ),
+                // No aplica al chofer: no planifica un viaje propio, opera
+                // la ruta que le asignaron (ver "Gestionar Unidades" arriba).
+                if (user.userType != 'driver')
+                  _buildMenuItem(
+                    icon: Icons.map_outlined,
+                    title: 'Planificar viaje',
+                    subtitle: 'Combina líneas para llegar a tu destino',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PlanificarViajePage(),
+                      ),
+                    ),
+                  ),
                 _buildMenuItem(
-                  icon: Icons.map_outlined,
-                  title: 'Planificar viaje',
-                  subtitle: 'Combina líneas para llegar a tu destino',
+                  icon: Icons.pin_drop_outlined,
+                  title: 'Paradas cercanas',
+                  subtitle: 'Encuentra paradas de bus cerca de ti',
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const PlanificarViajePage(),
+                      builder: (_) => const ParadasCercanasPage(),
                     ),
                   ),
                 ),
+
+                // ── Registrarme como chofer ──
+                // Solo para pasajeros. El `role` no cambia al solicitar: se
+                // queda en 'user' hasta que un presidente/admin aprueba.
+                if (_isPassenger(user.userType)) ...[
+                  _buildSectionTitle('SER CHOFER'),
+                  if (user.hasPendingDriverRequest)
+                    _buildMenuItem(
+                      icon: Icons.hourglass_top_outlined,
+                      title: 'Solicitud enviada',
+                      subtitle: 'Esperando aprobación del dirigente',
+                      onTap: () {},
+                    )
+                  else
+                    _buildMenuItem(
+                      icon: Icons.directions_bus_outlined,
+                      title: 'Registrarme como chofer',
+                      subtitle: 'Enviar solicitud al dirigente de tu línea',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SolicitudChoferPage(uid: user.uid),
+                        ),
+                      ),
+                    ),
+                ],
+
+                // ── Panel administrativo (solo admins) ──
+                // `user` viene del stream en vivo de UserBloc (arriba) — antes
+                // esto leía `roles` desde AuthBloc, que solo se carga una vez
+                // al iniciar sesión y no se refresca si el rol cambia durante
+                // la sesión (bug real: un admin recién otorgado no veía esta
+                // sección hasta cerrar y volver a abrir sesión).
+                if (user.isAdmin)
+                  _buildSectionTitle('PANEL ADMINISTRATIVO'),
+                if (user.isAdmin)
+                  _buildMenuItem(
+                    icon: Icons.admin_panel_settings_outlined,
+                    title: 'Panel administrativo',
+                    subtitle: 'Gestión de usuarios y privilegios',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdminHomePage(),
+                      ),
+                    ),
+                  ),
+
+                // ── Cambiar de perfil (cuentas con más de un rol real) ──
+                // Reemplaza el viejo switch binario "Modo conductor": una
+                // cuenta puede tener hasta 3 roles a la vez (ej. chofer +
+                // presidente + user) y un on/off no alcanza para eso.
+                if (user.roles.length > 1) ...[
+                  _buildSectionTitle('PERFILES'),
+                  _buildMenuItem(
+                    icon: Icons.switch_account_outlined,
+                    title: 'Cambiar de perfil',
+                    subtitle: 'Esta cuenta tiene ${user.roles.length} roles',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RoleSwitcherPage(ownedRoles: user.roles),
+                      ),
+                    ),
+                  ),
+                ],
+
+                // "Convertirme en chofer" (RQ-68, ConvertirseChoferPage) se
+                // ocultó a pedido del usuario — era un segundo camino
+                // duplicado para lo mismo que ya hace "Registrarme como
+                // chofer" (SER CHOFER, arriba), y ese es el que funciona de
+                // verdad (`ModoChoferPage` sigue siendo un placeholder "Próx-
+                // imamente" sin gestión de viajes/ganancias real). La página
+                // queda sin usar a propósito (ver docs/DEUDA_TECNICA.md).
 
                 // ── Billetera ──
                 _buildSectionTitle('BILLETERA'),
@@ -348,63 +622,203 @@ class _PerfilPageState extends State<PerfilPage> {
                       icon: Icons.account_balance_wallet_outlined,
                       title: 'Saldo disponible',
                       subtitle: saldo,
-                      onTap: () => navigateBottomNav(context, 1),
+                      onTap: () => navigateBottomNav(
+                        context,
+                        1,
+                        homeBuilder: widget.homeBuilder,
+                        walletBuilder: widget.walletBuilder,
+                        routesBuilder: widget.routesBuilder,
+                      ),
                     );
                   },
                 ),
-                _buildMenuItem(
-                  icon: Icons.star_outline,
-                  title: 'Acceder a beneficios',
-                  subtitle: 'Estudiante, Universitario, Adulto mayor',
-                  onTap: () => navigateBottomNav(context, 1),
-                ),
+                // "Acceder a beneficios" es un trámite exclusivo del
+                // pasajero — un chofer/tickeador/presidente/admin no aplica.
+                // Va directo al formulario, no a la Billetera (antes había
+                // que tocar "Acceder a beneficios" dos veces para llegar).
+                if (_isPassenger(user.userType))
+                  _buildMenuItem(
+                    icon: Icons.star_outline,
+                    title: 'Acceder a beneficios',
+                    subtitle: 'Estudiante, Universitario, Adulto mayor',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SolicitudBeneficioPage(),
+                      ),
+                    ),
+                  ),
+                // "Reportar un problema" (reclamo) — igual que beneficios,
+                // solo pasajero: es quien reporta, el presidente lo gestiona
+                // desde su propio panel (PresidenteReclamosPage).
+                if (_isPassenger(user.userType))
+                  _buildMenuItem(
+                    icon: Icons.report_gmailerrorred_outlined,
+                    title: 'Reportar un problema',
+                    subtitle: 'Reclamo sobre un chofer, pasajero o el servicio',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CrearReclamoPage(),
+                      ),
+                    ),
+                  ),
+
+                if (isLeadershipRole ||
+                    {
+                      'admin',
+                      'administrador',
+                      'dirigente',
+                      'presidente',
+                    }.contains(user.userType.trim().toLowerCase())) ...[
+                  _buildSectionTitle('SUPERVISIÓN'),
+                  _buildMenuItem(
+                    icon: Icons.insights_outlined,
+                    title: 'Métricas del administrador',
+                    subtitle: 'Resumen consolidado por filtro de fechas',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdminMetricasPage(),
+                      ),
+                    ),
+                  ),
+                  _buildMenuItem(
+                    icon: Icons.assessment_outlined,
+                    title: 'Reportes operativos',
+                    subtitle: 'Estado de la línea y sus unidades',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ReportesOperativosPage(),
+                      ),
+                    ),
+                  ),
+                  _buildMenuItem(
+                    icon: Icons.groups_outlined,
+                    title: 'Pasajeros transportados',
+                    subtitle: 'Consulta por ruta y rango de fechas',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BlocProvider.value(
+                          value: getIt<TransportedPassengersBloc>(),
+                          child: const ConsultaPasajerosTransportadosPage(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                if ({
+                  'admin',
+                  'administrador',
+                }.contains(user.userType.trim().toLowerCase())) ...[
+                  _buildMenuItem(
+                    icon: Icons.school_outlined,
+                    title: 'Administración de beneficios',
+                    subtitle: 'Revisar y aprobar solicitudes',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AdministracionBeneficiosPage(),
+                      ),
+                    ),
+                  ),
+                ],
 
                 // ── Apariencia ──
                 _buildSectionTitle('APARIENCIA'),
                 // ✅ Botón modo oscuro con switch
                 _buildMenuItem(
-                  icon: isDarkMode
-                      ? Icons.dark_mode
-                      : Icons.light_mode,
+                  icon: isDarkMode ? Icons.dark_mode : Icons.light_mode,
                   title: 'Modo oscuro',
                   subtitle: isDarkMode ? 'Activado' : 'Desactivado',
                   onTap: () => context.read<ThemeCubit>().toggleTheme(),
                   trailing: Switch(
                     value: isDarkMode,
-                    onChanged: (_) =>
-                        context.read<ThemeCubit>().toggleTheme(),
-                    activeColor: _amarillo,
+                    onChanged: (_) => context.read<ThemeCubit>().toggleTheme(),
+                    activeThumbColor: _amarillo,
                   ),
                 ),
 
-                // ── Aplicación ──
-                _buildSectionTitle('APLICACIÓN'),
-                _buildMenuItem(
-                  icon: Icons.info_outline,
-                  title: 'Acerca de MiRuta',
-                  subtitle: 'Versión 1.0.0',
-                  onTap: () {},
+                _buildSectionTitle('NOTIFICACIONES'),
+                _buildNotificationToggle(
+                  icon: Icons.route_outlined,
+                  title: 'Viajes',
+                  value: tripNotificationsEnabled,
+                  onChanged: (value) => _updateNotificationPreference(
+                    user.uid,
+                    'trip_notifications_enabled',
+                    value,
+                  ),
+                ),
+                _buildNotificationToggle(
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: 'Recargas',
+                  value: rechargeNotificationsEnabled,
+                  onChanged: (value) => _updateNotificationPreference(
+                    user.uid,
+                    'recharge_notifications_enabled',
+                    value,
+                  ),
+                ),
+                _buildNotificationToggle(
+                  icon: Icons.card_giftcard_outlined,
+                  title: 'Regalos',
+                  value: giftNotificationsEnabled,
+                  onChanged: (value) => _updateNotificationPreference(
+                    user.uid,
+                    'gift_notifications_enabled',
+                    value,
+                  ),
                 ),
 
-                // ── Sesión ──
-                _buildSectionTitle('SESIÓN'),
-                _buildMenuItem(
-                  icon: Icons.logout,
-                  title: 'Cerrar sesión',
-                  iconColor: Colors.red.shade400,
-                  titleColor: Colors.red.shade400,
-                  onTap: _cerrarSesion,
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
-          );
-        },
-      ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: _navIndexPerfil,
-        onTap: _onNavTap,
-      ),
-    );
+                  _buildSectionTitle('APLICACIÓN'),
+
+                  _buildMenuItem(
+                    icon: Icons.info_outline,
+                    title: 'Acerca de MiRuta',
+                    subtitle: _packageInfo == null
+                        ? 'Versión…'
+                        : 'Versión ${_packageInfo!.version}',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AcercaDePage()),
+                    ),
+                  ),
+
+                  // ==================================================
+                  // SESIÓN
+                  // ==================================================
+
+                  _buildSectionTitle('SESIÓN'),
+
+                  _buildMenuItem(
+                    icon: Icons.logout,
+                    title: 'Cerrar sesión',
+                    iconColor: Colors.red.shade400,
+                    titleColor: Colors.red.shade400,
+                    onTap: () => confirmLogout(context),
+                  ),
+
+                  const SizedBox(height: 24),
+                ],
+              ),
+            );
+          },
+        ),
+        bottomNavigationBar: CustomBottomNav(
+          currentIndex: _navIndexPerfil,
+          // PerfilPage es compartida por todos los roles (se llega igual
+          // desde cualquier "Inicio"), así que antes siempre mostraba las 4
+          // pestañas — incluida Billetera para dirigente/tickeador, que no
+          // tienen billetera en sus propios paneles de inicio
+          // (PresidentePanelPage: tabs [0,2,3], TickeadorHomePage: tabs
+          // [0,3]). Mismo criterio acá para que Perfil no "readquiera" una
+          // pestaña que el resto de las pantallas del rol ya esconde.
+          tabs: _tabsForRole(userRole),
+          onTap: _onNavTap,
+        ),
+      );
   }
 }

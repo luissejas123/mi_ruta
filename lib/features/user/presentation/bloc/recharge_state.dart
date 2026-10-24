@@ -58,3 +58,24 @@ class RechargeError extends RechargeState {
   @override
   List<Object?> get props => [message, lastRecharges];
 }
+
+/// Lista de recargas pendientes para la pantalla de revisión del tickeador.
+class PendingRechargesLoaded extends RechargeState {
+  final List<Recharge> recharges;
+
+  const PendingRechargesLoaded(this.recharges);
+
+  @override
+  List<Object?> get props => [recharges];
+}
+
+/// El tickeador aprobó o rechazó una recarga — mensaje genérico para mostrar
+/// y recargar la lista de pendientes.
+class RechargeActionSuccess extends RechargeState {
+  final String message;
+
+  const RechargeActionSuccess(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}

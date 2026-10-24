@@ -27,6 +27,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     on<NavigationResumed>(_onNavigationResumed);
     on<NavigationStopped>(_onNavigationStopped);
     on<TimerTick>(_onTimerTick);
+    on<FareCharged>(_onFareCharged);
   }
 
   /// Inicia el tracking GPS y el timer
@@ -34,6 +35,11 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     NavigationStarted event,
     Emitter<NavigationState> emit,
   ) async {
+    // Ya hay un viaje en curso (p.ej. se reabrió `RutaNavegacionPage` desde
+    // el banner de "Rutas") — no reiniciar el GPS/timer, que ya están
+    // corriendo en este mismo bloc singleton (C3).
+    if (state.isTracking) return;
+
     _startTime = DateTime.now();
     _boardingStop = event.boardingStop;
     _alightingStop = event.alightingStop;
@@ -43,7 +49,29 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
         ? TripPhase.walkStart
         : TripPhase.onBus;
 
-    emit(state.copyWith(phase: initialPhase, isTracking: true));
+    // Estado nuevo de cero (no `state.copyWith`) — el bloc es singleton y
+    // sobrevive entre viajes, así que campos del viaje ANTERIOR como
+    // `farePaid`/`elapsed`/`error` se quedaban pegados en el nuevo viaje.
+    // Eso hacía que el resumen (disparado por `farePaid != null`) se
+    // mostrara de más o se saltara según cuándo se re-renderizara la
+    // pantalla — el pasajero terminaba sin ver "viaje finalizado" ni
+    // "calificar al chofer" en su viaje real.
+    emit(NavigationState(
+      phase: initialPhase,
+      isTracking: true,
+      boardingTripId: event.initialBoardingTripId,
+      boardingDriverId: event.initialBoardingDriverId,
+      boardingRouteRef: event.initialBoardingRouteRef,
+      activeOrigin: event.origin,
+      activeBoardingStop: event.boardingStop,
+      activeAlightingStop: event.alightingStop,
+      activeRoute: event.route,
+      activeDestination: event.destinationInfo,
+      activeOriginName: event.originName,
+      activeTransitSegment: event.transitSegment,
+      activeWalkStartPoints: event.walkStartPoints,
+      activeWalkEndPoints: event.walkEndPoints,
+    ));
 
     _startTimer();
     await _startGpsTracking();
@@ -109,7 +137,7 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
     Emitter<NavigationState> emit,
   ) async {
     await _cleanup();
-    emit(state.copyWith(isTracking: false));
+    emit(state.clearActiveTrip());
   }
 
   /// Handler del tick periódico del temporizador
@@ -119,6 +147,13 @@ class NavigationBloc extends Bloc<NavigationEvent, NavigationState> {
   ) async {
     final elapsed = DateTime.now().difference(_startTime);
     emit(state.copyWith(elapsed: elapsed));
+  }
+
+  Future<void> _onFareCharged(
+    FareCharged event,
+    Emitter<NavigationState> emit,
+  ) async {
+    emit(state.copyWith(farePaid: event.amount).clearBoardingData());
   }
 
   /// Inicia el stream que despacha TimerTick cada segundo

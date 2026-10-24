@@ -7,6 +7,7 @@ import 'package:mi_ruta/features/auth/presentation/pages/insertar_correo_page.da
 import 'package:mi_ruta/features/user/presentation/pages/registration_success_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_textfield.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/register_button.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/legal_bottom_sheet.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -22,6 +23,7 @@ class _RegisterPageState extends State<RegisterPage> {
   late TextEditingController _emailController;
   late TextEditingController _passwordController;
   bool _obscurePassword = true;
+  bool _acceptedTerms = false;
 
   @override
   void initState() {
@@ -61,6 +63,9 @@ class _RegisterPageState extends State<RegisterPage> {
     final phoneRegex = RegExp(r'^\d{7,15}$');
     if (!phoneRegex.hasMatch(_phoneController.text.trim())) {
       return 'Ingresa un número de teléfono válido';
+    }
+    if (!_acceptedTerms) {
+      return 'Debes aceptar los Términos y Condiciones para registrarte';
     }
     return null;
   }
@@ -116,6 +121,18 @@ class _RegisterPageState extends State<RegisterPage> {
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           return Scaffold(
+            // Se llega acá empujando desde IniciarSesionPage/
+            // InsertarCorreoPage (predecesor real) — antes no tenía ningún
+            // botón de regreso.
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            extendBodyBehindAppBar: true,
             body: SafeArea(
               child: Center(
                 child: SingleChildScrollView(
@@ -126,7 +143,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 4),
                       const Text(
                         'MiRuta',
                         style: TextStyle(
@@ -193,6 +210,35 @@ class _RegisterPageState extends State<RegisterPage> {
                             });
                           },
                         ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Checkbox(
+                            value: _acceptedTerms,
+                            activeColor: const Color(0xFFFFC12F),
+                            onChanged: (value) {
+                              setState(() {
+                                _acceptedTerms = value ?? false;
+                              });
+                            },
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                LegalBottomSheet.show(context, isDriver: false);
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.only(top: 12.0),
+                                child: Text(
+                                  'He leído y acepto los Términos y Condiciones y la Política de Privacidad.',
+                                  style: TextStyle(color: Colors.blue),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 30),
                       if (state is AuthLoading)

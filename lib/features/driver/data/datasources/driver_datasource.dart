@@ -1,0 +1,564 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mi_ruta/core/utils/firestore_date.dart';
+import 'package:mi_ruta/features/driver/data/models/vehicle_model.dart';
+import 'package:mi_ruta/features/driver/domain/entities/driver_trip_entity.dart';
+import 'package:mi_ruta/features/driver/domain/entities/vehicle_entity.dart';
+
+/// Acceso directo a Firestore para el módulo de conductores: unidades
+/// (`vehicles`) y viajes/cobros (`trips`, `transactions`). La gestión de
+/// cuentas de usuario vive en UserManagementDatasource (feature admin).
+class DriverDatasource {
+  final FirebaseFirestore _firestore;
+
+  DriverDatasource({required FirebaseFirestore firestore})
+    : _firestore = firestore;
+
+  VehicleEntity _vehicleFromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data()!;
+    final legal = d['legal_documentation'] as Map<String, dynamic>? ?? const {};
+    return VehicleEntity(
+      vehicleId: doc.id,
+      ownerUid: d['owner_uid'] as String? ?? '',
+      vehicleType: d['vehicle_type'] as String? ?? '',
+      lineNumber: d['line_number'] as String? ?? '',
+      internalNumber: d['internal_number'] as String? ?? '',
+      brand: d['brand'] as String? ?? '',
+      model: d['model'] as String? ?? '',
+      color: d['color'] as String? ?? '',
+      passengerCapacity: (d['passenger_capacity'] as num?)?.toInt() ?? 0,
+      status: d['status'] as String? ?? 'pending_review',
+      legalDocumentation: legal.map((k, v) => MapEntry(k, v as String?)),
+      isOnDuty: d['is_on_duty'] as bool? ?? false,
+      isOnDutyUpdatedAt: parseFirestoreDate(d['is_on_duty_updated_at']),
+      updatedAt: parseFirestoreDate(d['updated_at']) ?? DateTime.now(),
+    );
+  }
+
+  DriverTripEntity _tripFromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data()!;
+    return DriverTripEntity(
+      tripId: doc.id,
+      driverId: d['driver_id'] as String? ?? '',
+      vehicleId: d['vehicle_id'] as String? ?? '',
+      routeRef: d['route_ref'] as String? ?? '',
+      routeName: d['route_name'] as String? ?? '',
+      baseFare: (d['base_fare'] as num?)?.toDouble() ?? 0,
+      status: d['status'] as String? ?? 'pending',
+      paymentStatus: d['payment_status'] as String? ?? 'pending',
+      passengerId: d['passenger_id'] as String?,
+      paymentAmount: (d['payment_amount'] as num?)?.toDouble(),
+      createdAt: parseFirestoreDate(d['created_at']),
+      paidAt: parseFirestoreDate(d['paid_at']),
+      verifiedBy: d['verified_by'] as String?,
+      verifiedAt: parseFirestoreDate(d['verified_at']),
+    );
+  }
+
+  /// Ruta asignada al PERFIL del chofer (RQ4-PRE: el presidente asigna rutas
+  /// al chofer, no a la unidad). Vive en users/{uid}.assigned_route_ref.
+  Future<String?> getAssignedRouteRef(String uid) async {
+    final doc = await _firestore.collection('users').doc(uid).get();
+    final ref = doc.data()?['assigned_route_ref'] as String?;
+    return (ref != null && ref.isNotEmpty) ? ref : null;
+  }
+
+  /// Unidad asignada a un chofer (owner_uid = uid del chofer).
+  Future<VehicleEntity?> getVehicleForOwner(String ownerUid) async {
+    final snap = await _firestore
+        .collection('vehicles')
+        .where('owner_uid', isEqualTo: ownerUid)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return _vehicleFromDoc(snap.docs.first);
+  }
+
+  /// Crea una unidad de demostración ya aprobada para una cuenta que todavía
+  /// no tiene ninguna asignada. Solo la usa el selector de perfiles de la
+  /// cuenta super-admin (ver SuperAdminSwitcherPage) — no forma parte del
+  /// alta real de un chofer.
+  Future<VehicleEntity> createDemoVehicle({
+    required String ownerUid,
+    required String lineNumber,
+  }) async {
+    final data = {
+      'owner_uid': ownerUid,
+      'vehicle_type': 'micro',
+      'line_number': lineNumber,
+      'internal_number': 'DEMO-1',
+      'brand': 'Demo',
+      'model': 'Sprinter',
+      'color': 'Blanco',
+      'passenger_capacity': 20,
+      'status': 'approved',
+      'is_on_duty': false,
+      'created_at': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
+    };
+    final doc = await _firestore.collection('vehicles').add(data);
+    final snap = await doc.get();
+    return _vehicleFromDoc(snap);
+  }
+
+  /// Alta de una unidad nueva con sus documentos (parte del flujo
+  /// "Registrarme como chofer"): el propio solicitante la registra antes de
+  /// ser aprobado, no el dirigente. ID del documento = placa (mismo criterio
+  /// documentado en FIRESTORE_COLLECTIONS_GUIDE.md). Queda en
+  /// `pending_review` hasta que `DriverApprovalPage` la revise junto con la
+  /// solicitud de chofer.
+  Future<VehicleEntity> registerVehicle({
+    required String ownerUid,
+    required String vehicleType,
+    required String plate,
+    required String lineNumber,
+    required String internalNumber,
+    required String brand,
+    required String color,
+    required int passengerCapacity,
+    required Map<String, String?> legalDocumentation,
+  }) async {
+    final vehicleId = plate.trim().toUpperCase();
+    final docRef = _firestore.collection('vehicles').doc(vehicleId);
+    await docRef.set({
+      // `vehicle_id` no se usaba como filtro de identidad (el ID del
+      // documento ya es la placa), pero `getVehicleByPlate` lo necesita
+      // como respaldo cuando busca por campo — sin esto, esa segunda vía
+      // de búsqueda nunca encontraba unidades dadas de alta por acá.
+      'vehicle_id': vehicleId,
+      'owner_uid': ownerUid,
+      'vehicle_type': vehicleType,
+      'line_number': lineNumber,
+      'internal_number': internalNumber,
+      'brand': brand,
+      'model': '',
+      'color': color,
+      'passenger_capacity': passengerCapacity,
+      'status': 'pending_review',
+      'legal_documentation': legalDocumentation,
+      'is_on_duty': false,
+      'created_at': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+    final snap = await docRef.get();
+    return _vehicleFromDoc(snap);
+  }
+
+  Future<void> setVehicleServiceStatus(String vehicleId, bool isOnDuty) async {
+    await _firestore.collection('vehicles').doc(vehicleId).set({
+      'is_on_duty': isOnDuty,
+      'is_on_duty_updated_at': DateTime.now().toIso8601String(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Actualiza datos editables de la unidad (RQ-64): datos generales y
+  /// URLs de documentación legal (ya subidas a Storage por el caller).
+  ///
+  /// Vuelve a poner la unidad en `pending_review` en **toda** edición — el
+  /// presidente ya la había revisado con los datos/documentos anteriores, y
+  /// tiene que volver a verificarla con los nuevos antes de que siga
+  /// operando como aprobada. Es la misma cuenta la que puede pedir esta
+  /// revuelta a revisión (ver `firestore.rules`: el dueño solo puede mover
+  /// `status` a `pending_review`, nunca a `approved`).
+  Future<void> updateVehicleInfo(
+    String vehicleId, {
+    String? brand,
+    String? model,
+    String? color,
+    String? internalNumber,
+    String? soatUrl,
+    String? vehicleInspectionUrl,
+    String? driverLicenseUrl,
+    String? municipalOperationCardUrl,
+    String? ruatUrl,
+  }) async {
+    final data = <String, dynamic>{
+      'updated_at': FieldValue.serverTimestamp(),
+      'status': 'pending_review',
+    };
+    if (brand != null) data['brand'] = brand;
+    if (model != null) data['model'] = model;
+    if (color != null) data['color'] = color;
+    if (internalNumber != null) data['internal_number'] = internalNumber;
+
+    final legal = <String, dynamic>{};
+    if (soatUrl != null) legal['soat_url'] = soatUrl;
+    if (vehicleInspectionUrl != null) {
+      legal['vehicle_inspection_url'] = vehicleInspectionUrl;
+    }
+    if (driverLicenseUrl != null)
+      legal['driver_license_url'] = driverLicenseUrl;
+    if (municipalOperationCardUrl != null) {
+      legal['municipal_operation_card_url'] = municipalOperationCardUrl;
+    }
+    if (ruatUrl != null) legal['ruat_url'] = ruatUrl;
+    if (legal.isNotEmpty) data['legal_documentation'] = legal;
+
+    await _firestore
+        .collection('vehicles')
+        .doc(vehicleId)
+        .set(data, SetOptions(merge: true));
+  }
+
+  /// El logo que el chofer elige de galería para el centro de su QR fijo de
+  /// unidad ("7.2 Gestión de unidades"/billetera) se guarda en la misma
+  /// `legal_documentation` que ya usa `updateVehicleInfo` — mismo mapa
+  /// key→url, sin campo paralelo — pero por un método aparte: a diferencia
+  /// de SOAT/RUAT/licencia, un logo decorativo no es documentación legal y
+  /// no debe reenviar la unidad a `pending_review` cada vez que se cambia.
+  Future<void> updateVehicleQrLogo(String vehicleId, String qrLogoUrl) async {
+    await _firestore.collection('vehicles').doc(vehicleId).set({
+      'updated_at': FieldValue.serverTimestamp(),
+      'legal_documentation': {'qr_logo_url': qrLogoUrl},
+    }, SetOptions(merge: true));
+  }
+
+  /// Unidades esperando revisión del presidente/admin — ya sea de alta o
+  /// porque el dueño la editó (`updateVehicleInfo` la vuelve a poner acá).
+  /// Filtro de un solo campo: no necesita índice compuesto.
+  Future<List<VehicleEntity>> getVehiclesPendingReview() async {
+    final snap = await _firestore
+        .collection('vehicles')
+        .where('status', isEqualTo: 'pending_review')
+        .get();
+    return snap.docs.map(_vehicleFromDoc).toList();
+  }
+
+  /// Resuelve la revisión de una unidad. Solo staff (`isStaffManager` en
+  /// firestore.rules) puede aprobar o rechazar — el dueño no puede tocar
+  /// `status` hacia ninguno de estos dos valores.
+  Future<void> resolveVehicleReview(String vehicleId, {required bool approved}) async {
+    await _firestore.collection('vehicles').doc(vehicleId).set({
+      'status': approved ? 'approved' : 'rejected',
+      'updated_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Crea un viaje pendiente de cobro (RQ-65). El QR que el chofer muestra
+  /// al pasajero se arma con `driverId|tripId|amount` (ver TripPaymentService).
+  Future<String> createTripCharge({
+    required String driverId,
+    required String vehicleId,
+    required String routeRef,
+    required String routeName,
+    required double baseFare,
+  }) async {
+    final doc = await _firestore.collection('trips').add({
+      'driver_id': driverId,
+      'vehicle_id': vehicleId,
+      'route_ref': routeRef,
+      'route_name': routeName,
+      'base_fare': baseFare,
+      'status': 'pending',
+      'payment_status': 'pending',
+      'created_at': FieldValue.serverTimestamp(),
+    });
+    return doc.id;
+  }
+
+  /// Escucha en tiempo real los cambios de un viaje (ej. para saber cuando se pagó)
+  Stream<DocumentSnapshot> streamTrip(String tripId) {
+    return _firestore.collection('trips').doc(tripId).snapshots();
+  }
+
+  /// Escucha en tiempo real el último viaje cobrado de este chofer — a
+  /// diferencia de `streamTrip` (un solo viaje puntual, usado por el QR de
+  /// "cobro inmediato"), este stream es el único mecanismo que avisa al
+  /// chofer de un pago mientras está en servicio para viajes de abordaje
+  /// (QR fijo de unidad + aviso de bajada / cobro automático), que nunca
+  /// pasan por `streamTrip`.
+  Stream<DriverTripEntity?> streamLatestPaidTrip(String driverId) {
+    return _firestore
+        .collection('trips')
+        .where('driver_id', isEqualTo: driverId)
+        .where('payment_status', isEqualTo: 'paid')
+        .orderBy('paid_at', descending: true)
+        .limit(1)
+        .snapshots()
+        .map((snap) => snap.docs.isEmpty ? null : _tripFromDoc(snap.docs.first));
+  }
+
+  /// Historial de viajes generados por el chofer (RQ-67), más recientes primero.
+  Future<List<DriverTripEntity>> getDriverTrips(
+    String driverId, {
+    int limit = 50,
+  }) async {
+    final snap = await _firestore
+        .collection('trips')
+        .where('driver_id', isEqualTo: driverId)
+        .orderBy('created_at', descending: true)
+        .limit(limit)
+        .get();
+    return snap.docs.map(_tripFromDoc).toList();
+  }
+
+  /// Ingresos acreditados al chofer (RQ-69), tal como los registra
+  /// TripPaymentService.processPayment en `transactions`.
+  Future<List<Map<String, dynamic>>> getDriverIncomeTransactions(
+    String driverId, {
+    int limit = 50,
+  }) async {
+    final snap = await _firestore
+        .collection('transactions')
+        .where('user_id', isEqualTo: driverId)
+        .where('transaction_type', isEqualTo: 'trip_payment_received')
+        .orderBy('timestamp', descending: true)
+        .limit(limit)
+        .get();
+    return snap.docs.map((d) => {...d.data(), 'id': d.id}).toList();
+  }
+
+  /// Pasajeros que abordaron esta unidad recientemente (viaje pagado en las
+  /// últimas [withinHours] horas, sin marca explícita de fin de viaje en el
+  /// modelo actual) — usado para el aviso operacional de parada (RQ-66).
+  Future<List<String>> getRecentPassengerIdsForVehicle(
+    String vehicleId, {
+    int withinHours = 3,
+  }) async {
+    final since = DateTime.now().subtract(Duration(hours: withinHours));
+    final snap = await _firestore
+        .collection('trips')
+        .where('vehicle_id', isEqualTo: vehicleId)
+        .where('payment_status', isEqualTo: 'paid')
+        .where('paid_at', isGreaterThan: Timestamp.fromDate(since))
+        .get();
+    return snap.docs
+        .map((d) => d.data()['passenger_id'] as String?)
+        .whereType<String>()
+        .toSet()
+        .toList();
+  }
+
+  /// Crea el viaje al ABORDAR (no al pagar) — a diferencia de
+  /// [createTripCharge] (chofer teclea un monto y genera un QR de cobro
+  /// inmediato), acá el pasajero ya escaneó el QR fijo de la unidad
+  /// (`UnitQrPage`) o escribió la placa para confirmar que subió;
+  /// `passenger_id` queda puesto desde el inicio y el monto se resuelve
+  /// después, por distancia, cuando el pasajero avise que baja (o por el
+  /// respaldo de tarifa máxima si nunca avisa). `base_fare: 0` marca
+  /// "todavía no hay monto preestablecido" — a diferencia de un cobro por
+  /// QR, que siempre nace con un monto > 0.
+  /// [routeMismatch] queda registrado si el GPS del pasajero al confirmar
+  /// el abordaje estaba lejos del trazado real de la línea de la unidad —
+  /// observación silenciosa, no bloquea el abordaje (ver
+  /// `ConfirmarAbordajePage`).
+  /// docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 2, paso 3.
+  Future<String> createBoardingTrip({
+    required String driverId,
+    required String vehicleId,
+    required String routeRef,
+    required String routeName,
+    required String passengerId,
+    bool routeMismatch = false,
+  }) async {
+    final doc = await _firestore.collection('trips').add({
+      'driver_id': driverId,
+      'vehicle_id': vehicleId,
+      'route_ref': routeRef,
+      'route_name': routeName,
+      'base_fare': 0,
+      'status': 'boarding',
+      'payment_status': 'pending',
+      'passenger_id': passengerId,
+      'route_mismatch': routeMismatch,
+      'boarded_at': FieldValue.serverTimestamp(),
+      'created_at': FieldValue.serverTimestamp(),
+    });
+    return doc.id;
+  }
+
+  /// Busca TODAS las unidades registradas con esta placa (`vehicle_id`) —
+  /// segunda forma de confirmar abordaje además de escanear el QR fijo de
+  /// la unidad. Mismo patrón que `TickeadorDatasource.buscarVehiculoPorPlaca`
+  /// (trim + mayúsculas), pero sin `.limit(1)`: dos flujos de alta distintos
+  /// (`registerVehicle` clásico, `createVehicleApplication` RQ-68) pueden
+  /// terminar creando dos documentos separados para la misma placa física
+  /// (ej. si un chofer se registró por los dos caminos) — antes esto se
+  /// resolvía arbitrariamente con el primero que devolviera Firestore; ahora
+  /// el caller (`ConfirmarAbordajePage`) puede mostrarle ambos al pasajero
+  /// para que elija cuál abordó.
+  Future<List<VehicleEntity>> getVehiclesByPlate(String plate) async {
+    final placaTrim = plate.trim().toUpperCase();
+    if (placaTrim.isEmpty) return const [];
+    final results = <String, VehicleEntity>{};
+
+    // ID del documento = placa (ambos flujos de alta la usan como ID).
+    final byId = await _firestore.collection('vehicles').doc(placaTrim).get();
+    if (byId.exists) {
+      final vehicle = _vehicleFromDoc(byId);
+      results[vehicle.vehicleId] = vehicle;
+    }
+    // Respaldo por campo `vehicle_id` — cubre cualquier documento cuyo ID
+    // real no sea la placa (no debería pasar hoy, pero antes `registerVehicle`
+    // no escribía este campo en absoluto).
+    final snapshot = await _firestore
+        .collection('vehicles')
+        .where('vehicle_id', isEqualTo: placaTrim)
+        .get();
+    for (final doc in snapshot.docs) {
+      final vehicle = _vehicleFromDoc(
+        doc as DocumentSnapshot<Map<String, dynamic>>,
+      );
+      results[vehicle.vehicleId] = vehicle;
+    }
+    return results.values.toList();
+  }
+
+  /// Viajes de abordaje todavía sin cobrar de una unidad — usado para cobrar
+  /// la tarifa máxima automáticamente si el chofer detiene servicio antes de
+  /// que el pasajero avise que bajó.
+  Future<List<DriverTripEntity>> getOpenBoardingTripsForVehicle(String vehicleId) async {
+    final snap = await _firestore
+        .collection('trips')
+        .where('vehicle_id', isEqualTo: vehicleId)
+        .where('status', isEqualTo: 'boarding')
+        .where('payment_status', isEqualTo: 'pending')
+        .get();
+    return snap.docs.map(_tripFromDoc).toList();
+  }
+
+  /// Cuenta en vivo de pasajeros abordados sin pagar/bajar todavía — mismos
+  /// filtros que `getOpenBoardingTripsForVehicle`, como stream para el
+  /// contador del Home del chofer.
+  Stream<int> streamBoardedCount(String vehicleId) {
+    return _firestore
+        .collection('trips')
+        .where('vehicle_id', isEqualTo: vehicleId)
+        .where('status', isEqualTo: 'boarding')
+        .where('payment_status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snap) => snap.docs.length);
+  }
+
+  /// Viajes de abordaje sin cobrar de cualquier unidad de [driverId], con más
+  /// de [staleAfter] desde que abordaron — respaldo si el pasajero nunca
+  /// avisa que bajó y el chofer tampoco detiene servicio.
+  Future<List<DriverTripEntity>> getStaleBoardingTrips(
+    String driverId, {
+    Duration staleAfter = const Duration(hours: 2),
+  }) async {
+    final cutoff = DateTime.now().subtract(staleAfter);
+    final snap = await _firestore
+        .collection('trips')
+        .where('driver_id', isEqualTo: driverId)
+        .where('status', isEqualTo: 'boarding')
+        .where('payment_status', isEqualTo: 'pending')
+        .where('boarded_at', isLessThan: Timestamp.fromDate(cutoff))
+        .get();
+    return snap.docs.map(_tripFromDoc).toList();
+  }
+
+  /// Viaje puntual por id, usado por el tickeador para validar un cobro (RQ-78).
+  Future<DriverTripEntity?> getTripById(String tripId) async {
+    final doc = await _firestore.collection('trips').doc(tripId).get();
+    if (!doc.exists) return null;
+    return _tripFromDoc(doc);
+  }
+
+  /// Marca un viaje como verificado en ruta por un tickeador (RQ-78).
+  Future<void> markTripVerified(String tripId, String tickeadorUid) async {
+    await _firestore.collection('trips').doc(tripId).set({
+      'verified_by': tickeadorUid,
+      'verified_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Confirma y marca un pago en una única transacción para evitar que el
+  /// mismo viaje sea validado simultáneamente por dos tickeadores.
+  Future<DriverTripEntity> verifyPaidTrip({
+    required String tripId,
+    required String expectedDriverId,
+    required double expectedAmount,
+    required String tickeadorUid,
+  }) async {
+    final tripRef = _firestore.collection('trips').doc(tripId);
+
+    return _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(tripRef);
+      if (!snapshot.exists) {
+        throw StateError('Viaje no encontrado');
+      }
+
+      final trip = _tripFromDoc(snapshot);
+      if (trip.driverId != expectedDriverId) {
+        throw StateError('El chofer del QR no coincide con el viaje');
+      }
+      if (!trip.isPaid) {
+        throw StateError('El pago todavía no fue realizado');
+      }
+      if (trip.paymentAmount == null ||
+          (trip.paymentAmount! - expectedAmount).abs() > 0.01) {
+        throw StateError('El monto del QR no coincide con el pago registrado');
+      }
+      if (trip.verifiedBy != null && trip.verifiedBy!.isNotEmpty) {
+        throw StateError('Este pago ya fue verificado');
+      }
+
+      transaction.update(tripRef, {
+        'verified_by': tickeadorUid,
+        'verified_at': FieldValue.serverTimestamp(),
+      });
+      return trip;
+    });
+  }
+
+  /// Historial de validaciones de un tickeador (RQ-79).
+  Future<List<DriverTripEntity>> getTripsVerifiedBy(
+    String tickeadorUid, {
+    int limit = 50,
+  }) async {
+    final snap = await _firestore
+        .collection('trips')
+        .where('verified_by', isEqualTo: tickeadorUid)
+        .orderBy('verified_at', descending: true)
+        .limit(limit)
+        .get();
+    return snap.docs.map(_tripFromDoc).toList();
+  }
+
+  /// Unidades actualmente en servicio (RQ-75, panel de administración).
+  Future<List<VehicleEntity>> getActiveVehicles() async {
+    final snap = await _firestore
+        .collection('vehicles')
+        .where('is_on_duty', isEqualTo: true)
+        .get();
+    return snap.docs.map(_vehicleFromDoc).toList();
+  }
+
+  /// Todas las unidades registradas (para reportes operativos, RQ-77).
+  Future<List<VehicleEntity>> getAllVehicles() async {
+    final snap = await _firestore.collection('vehicles').get();
+    return snap.docs.map(_vehicleFromDoc).toList();
+  }
+
+  // ── RQ-68: "Convertirme en chofer" ──────────────────────────────────────
+  // Mismos campos/colección que el resto de este datasource (`vehicles`,
+  // doc id = placa) — solo un `VehicleApplicationModel` distinto porque
+  // `DriverRepository` (RQ-68) trabaja con la entidad `Vehicle`, más simple
+  // que `VehicleEntity` (sin `isOnDuty`).
+
+  /// Crea (o sobrescribe) la solicitud de vehículo — doc id = placa.
+  Future<void> createVehicleApplication(VehicleApplicationModel vehicle) async {
+    await _firestore.collection('vehicles').doc(vehicle.id).set({
+      ...vehicle.toJson(),
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Todas las solicitudes de vehículo del usuario (`owner_uid == userId`),
+  /// más recientes primero. Sin `orderBy` para no requerir un índice
+  /// compuesto (mismo criterio que `PlannedTripDatasource.getCancelled()`);
+  /// se ordena en memoria.
+  Future<List<VehicleApplicationModel>> getVehicleApplicationsByOwner(
+    String userId,
+  ) async {
+    final snap = await _firestore
+        .collection('vehicles')
+        .where('owner_uid', isEqualTo: userId)
+        .get();
+    final vehicles = snap.docs
+        .map((d) => VehicleApplicationModel.fromJson(d.id, d.data()))
+        .toList();
+    vehicles.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return vehicles;
+  }
+}

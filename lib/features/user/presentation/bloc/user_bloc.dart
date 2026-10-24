@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/user/domain/usecases/user_usecases.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/user_event.dart';
@@ -11,6 +13,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   final UpdateUserUseCase updateUserUseCase;
   final GetUserRatingUseCase getUserRatingUseCase;
   final GetUserStreamUseCase getUserStreamUseCase;
+  StreamSubscription? _userStreamSubscription;
 
   UserBloc({
     required this.getCurrentUserUseCase,
@@ -27,6 +30,13 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     on<UpdateUserEvent>(_onUpdateUser);
     on<GetUserRatingEvent>(_onGetUserRating);
     on<StartUserStreamEvent>(_onStartUserStream);
+    on<StopUserStreamEvent>(_onStopUserStream);
+    on<UserStreamUpdatedEvent>(
+      (event, emit) => emit(UserStreamLoaded(user: event.user)),
+    );
+    on<UserStreamFailedEvent>(
+      (event, emit) => emit(UserError(message: event.message)),
+    );
   }
 
   /// Handler: Obtener usuario actual
@@ -103,17 +113,29 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     StartUserStreamEvent event,
     Emitter<UserState> emit,
   ) async {
-    await emit.forEach(
-      getUserStreamUseCase(event.uid),
-      onData: (result) {
-        return result.fold(
-          (failure) => UserError(message: failure.message),
-          (user) => UserStreamLoaded(user: user),
-        );
-      },
-      onError: (error, stackTrace) {
-        return UserError(message: 'Error en stream: ${error.toString()}');
+    await _userStreamSubscription?.cancel();
+    _userStreamSubscription = getUserStreamUseCase(event.uid).listen(
+      (result) => result.fold(
+        (failure) => add(UserStreamFailedEvent(failure.message)),
+        (user) => add(UserStreamUpdatedEvent(user)),
+      ),
+      onError: (Object error, StackTrace stackTrace) {
+        add(UserStreamFailedEvent('Error sincronizando datos: $error'));
       },
     );
+  }
+
+  Future<void> _onStopUserStream(
+    StopUserStreamEvent event,
+    Emitter<UserState> emit,
+  ) async {
+    await _userStreamSubscription?.cancel();
+    _userStreamSubscription = null;
+  }
+
+  @override
+  Future<void> close() async {
+    await _userStreamSubscription?.cancel();
+    return super.close();
   }
 }

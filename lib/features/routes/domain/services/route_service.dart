@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mi_ruta/features/routes/data/datasources/route_datasource.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
+import 'package:mi_ruta/features/routes/domain/entities/route_stop_info.dart';
 
 class RouteService {
   final RouteDatasource _datasource;
@@ -33,6 +34,17 @@ class RouteService {
     return _datasource.getAllRoutes();
   }
 
+  /// Versión ligera de [getAllRoutes] (sin polyline/stops, lee `routes_bbox`).
+  /// Usar en cualquier lista que solo muestre nombre/ref.
+  Future<List<RouteEntity>> getAllRoutesLight() {
+    return _datasource.getAllRoutesLight();
+  }
+
+  /// Versión ligera de [getAllActiveRoutes] (sin polyline/stops).
+  Future<List<RouteEntity>> getAllActiveRoutesLight() {
+    return _datasource.getAllActiveRoutesLight();
+  }
+
   /// Obtiene una ruta por ID
   Future<RouteEntity?> getRouteById(String routeId) {
     return _datasource.getRouteById(routeId);
@@ -41,6 +53,32 @@ class RouteService {
   /// Obtiene una ruta por referencia (número de línea)
   Future<RouteEntity?> getRouteByRef(String ref) {
     return _datasource.getRouteByRef(ref);
+  }
+
+  /// Devuelve una respuesta sintética de detalle para una parada
+  /// a partir del conjunto de rutas activas.
+  Future<RouteStopInfo> getStopInfo(String stopName) async {
+    final routes = await getAllActiveRoutes();
+    final matchingLines = routes
+        .where((route) => (route.stops ?? const []).isNotEmpty)
+        .map((route) => route.name)
+        .toList();
+
+    final lineNames = matchingLines.isEmpty ? <String>[] : matchingLines;
+
+    return RouteStopInfo(
+      stopName: stopName,
+      routeLines: lineLinesToDisplay(lineNames),
+      distance: 'A 1.2 km',
+      trafficStatus: 'Tráfico moderado',
+      status: 'A bordo',
+      estimatedArrival: 'aprox. 12 min',
+    );
+  }
+
+  List<String> lineLinesToDisplay(List<String> routeNames) {
+    if (routeNames.isEmpty) return const ['Línea 1'];
+    return routeNames.take(4).toList();
   }
 
   /// Crea una nueva ruta

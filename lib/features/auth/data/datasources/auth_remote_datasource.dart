@@ -16,5 +16,13 @@ abstract class AuthRemoteDataSource {
 
   Future<AuthModel> getCurrentUser();
 
+  /// TEMPORAL — modo prueba, ver [AuthRemoteDataSourceImpl.loginAsDemo].
+  Future<AuthModel> loginAsDemo({required String role});
+
   Future<void> resetPassword(String email);
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
 }

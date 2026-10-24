@@ -34,6 +34,24 @@ class MiRutaCameraMoved extends MiRutaEvent {
   List<Object?> get props => [position];
 }
 
+/// El usuario empezó a arrastrar el mapa con el dedo: deja de seguir su
+/// posición en vivo hasta que vuelva a tocar "mi ubicación"
+/// ([MiRutaGoToMyLocationRequested]).
+class MiRutaCameraMoveStarted extends MiRutaEvent {
+  const MiRutaCameraMoveStarted();
+}
+
+/// Nueva posición recibida del stream de GPS en vivo (Geolocator.getPositionStream,
+/// iniciado por la propia pantalla mientras está montada).
+class MiRutaLiveLocationUpdated extends MiRutaEvent {
+  final LatLng position;
+
+  const MiRutaLiveLocationUpdated(this.position);
+
+  @override
+  List<Object?> get props => [position];
+}
+
 /// Ejecuta geocodificación inversa cuando la cámara se detiene en modo PIN.
 class MiRutaCameraIdle extends MiRutaEvent {
   const MiRutaCameraIdle();

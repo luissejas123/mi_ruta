@@ -1,22 +1,22 @@
 // ignore_for_file: use_build_context_synchronously
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:mi_ruta/core/widgets/payment_button.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/recharge_state.dart';
-import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
-import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
+import 'package:mi_ruta/features/user/domain/services/recharge_service.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
@@ -31,12 +31,17 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
   static const _navIndexWallet = 1;
   static const _amarillo = Color(0xFFFFC12F);
   static const _maxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
+  // Tope de monto por recarga — antes solo se validaba `amount > 0`, sin
+  // límite superior, lo que dejaba corromper el saldo mostrado con un
+  // monto absurdo (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0).
+  static const _maxRechargeAmount = 5000.0;
 
   late String _userId;
   File? _selectedImage;
   final _amountController = TextEditingController();
   bool _isProcessing = false;
   bool _comprobanteEnviado = false;
+  double? _lastRechargeAmount;
   bool _isDownloading = false;
   String? _qrUrl;
   bool _loadingQR = true;
@@ -91,14 +96,20 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
         final photosStatus = await Permission.photos.request();
         final storageStatus = await Permission.storage.request();
         if (!photosStatus.isGranted && !storageStatus.isGranted) {
-          _showSnackBar('Permiso denegado para guardar imágenes', isError: true);
+          _showSnackBar(
+            'Permiso denegado para guardar imágenes',
+            isError: true,
+          );
           setState(() => _isDownloading = false);
           return;
         }
       } else {
         final status = await Permission.photos.request();
         if (!status.isGranted) {
-          _showSnackBar('Permiso denegado para guardar imágenes', isError: true);
+          _showSnackBar(
+            'Permiso denegado para guardar imágenes',
+            isError: true,
+          );
           setState(() => _isDownloading = false);
           return;
         }
@@ -132,19 +143,33 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
 
   Future<void> _pickImage() async {
     try {
-      final pickedFile = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 90,
-      );
+      final pickedFile = await _pickImageWithRetry();
       if (pickedFile == null) return;
 
       final file = File(pickedFile.path);
       final fileName = pickedFile.name.toLowerCase();
-      final extension = fileName.split('.').last;
+      final extension = fileName.contains('.') ? fileName.split('.').last : '';
 
-      if (!['jpg', 'jpeg', 'png'].contains(extension)) {
-        _showSnackBar('Solo se permiten archivos JPG o PNG', isError: true);
-        return;
+      final isJpgName = ['jpg', 'jpeg'].contains(extension);
+      final isPngName = extension == 'png';
+
+      if (!isJpgName && !isPngName) {
+        // El nombre puede llegar sin extensión según el dispositivo/plataforma.
+        // Validar el contenido real del archivo (magic bytes) antes de rechazar.
+        final bytes = await file.readAsBytes();
+        final isJpegMagic = bytes.length > 3 &&
+            bytes[0] == 0xFF &&
+            bytes[1] == 0xD8 &&
+            bytes[2] == 0xFF;
+        final isPngMagic = bytes.length > 8 &&
+            bytes[0] == 0x89 &&
+            bytes[1] == 0x50 &&
+            bytes[2] == 0x4E &&
+            bytes[3] == 0x47;
+        if (!isJpegMagic && !isPngMagic) {
+          _showSnackBar('Solo se permiten archivos JPG o PNG', isError: true);
+          return;
+        }
       }
 
       final fileSize = await file.length();
@@ -165,10 +190,57 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
     }
   }
 
+  /// Abre el selector de galería. En Android algunos dispositivos/álbumes
+  /// fallan al leer los metadatos completos de la imagen
+  /// (PlatformException metadata_fetch_failed, _Namespace) aunque sea un JPG normal:
+  /// se reintenta sin solicitar metadatos.
+  Future<XFile?> _pickImageWithRetry() async {
+    final picker = ImagePicker();
+    try {
+      return await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1280,
+      );
+    } on PlatformException catch (e) {
+      if (e.code == 'metadata_fetch_failed' || e.code == 'no_activity') {
+        return await picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 80,
+          maxWidth: 1280,
+          requestFullMetadata: false,
+        );
+      }
+      rethrow;
+    } catch (e) {
+      // Captura el error "_Namespace" que ocurre en algunos dispositivos Android
+      // cuando hay problemas al parsear metadatos XML de imágenes
+      if (e.toString().contains('_Namespace') || e.toString().contains('metadata')) {
+        return await picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 80,
+          maxWidth: 1280,
+          requestFullMetadata: false,
+        );
+      }
+      rethrow;
+    }
+  }
+
   void _submitRecharge() {
+    // Bloquea cualquier toque posterior mientras la recarga está en curso.
+    if (_isProcessing) return;
     final amount = double.tryParse(_amountController.text);
-    if (amount == null || amount <= 0) {
-      _showSnackBar('Ingresa un monto válido', isError: true);
+    final amountError = RechargeService.validateAmount(amount);
+    if (amountError != null) {
+      _showSnackBar(amountError, isError: true);
+      return;
+    }
+    if (amount! > _maxRechargeAmount) {
+      _showSnackBar(
+        'El monto máximo por recarga es Bs. ${_maxRechargeAmount.toStringAsFixed(2)}',
+        isError: true,
+      );
       return;
     }
     if (_selectedImage == null) {
@@ -190,8 +262,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
       SnackBar(
         content: Text(message),
         duration: Duration(seconds: isError ? 4 : 3),
-        backgroundColor:
-            isError ? Colors.red.shade700 : Colors.green.shade700,
+        backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
       ),
     );
   }
@@ -249,9 +320,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
                 errorBuilder: (context, error, stack) => const SizedBox(
                   width: 200,
                   height: 200,
-                  child: Center(
-                    child: Icon(Icons.error_outline, size: 48),
-                  ),
+                  child: Center(child: Icon(Icons.error_outline, size: 48)),
                 ),
               ),
             )
@@ -326,10 +395,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 13),
-            ),
+            child: Text(text, style: const TextStyle(fontSize: 13)),
           ),
         ),
       ],
@@ -347,7 +413,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
       _buildStep('1', 'Descarga o escanea el QR con tu app bancaria'),
       _buildStep('2', 'Realiza la transferencia del monto deseado'),
       _buildStep('3', 'Ingresa el monto y sube el comprobante'),
-      _buildStep('4', 'Tu solicitud pasará a revisión en 24 horas hábiles'),
+      _buildStep('4', 'Un tickeador revisará tu comprobante antes de acreditar el saldo'),
     ],
   );
 
@@ -362,12 +428,17 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
       TextField(
         controller: _amountController,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^\d{0,7}(\.\d{0,2})?$')),
+        ],
+        maxLength: 8,
         decoration: InputDecoration(
           hintText: '0.00',
           prefixText: 'Bs. ',
           prefixStyle: const TextStyle(
             fontWeight: FontWeight.bold,
           ),
+          counterText: '',
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -431,8 +502,11 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
-                          Icon(Icons.check_circle,
-                              color: Colors.green.shade600, size: 18),
+                          Icon(
+                            Icons.check_circle,
+                            color: Colors.green.shade600,
+                            size: 18,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -446,10 +520,12 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
                             ),
                           ),
                           TextButton(
-                            onPressed: () => setState(() {
-                              _selectedImage = null;
-                              _comprobanteEnviado = false;
-                            }),
+                            onPressed: _isProcessing
+                                ? null
+                                : () => setState(() {
+                                    _selectedImage = null;
+                                    _comprobanteEnviado = false;
+                                  }),
                             child: const Text(
                               'Cambiar',
                               style: TextStyle(color: Colors.black54),
@@ -464,8 +540,11 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
                   padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Column(
                     children: [
-                      Icon(Icons.cloud_upload_outlined,
-                          size: 32, color: Colors.grey.shade600),
+                      Icon(
+                        Icons.cloud_upload_outlined,
+                        size: 32,
+                        color: Colors.grey.shade600,
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         'Toca para subir comprobante',
@@ -486,23 +565,23 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Colors.blue.shade50,
+      color: Colors.orange.shade50,
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: Colors.blue.shade300, width: 1.5),
+      border: Border.all(color: Colors.orange.shade300, width: 1.5),
     ),
     child: Column(
       children: [
         Row(
           children: [
-            Icon(Icons.info_outline, color: Colors.blue.shade700, size: 24),
+            Icon(Icons.hourglass_top, color: Colors.orange.shade800, size: 24),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Comprobante enviado',
+                'Comprobante en revisión',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: Colors.blue.shade700,
+                  color: Colors.orange.shade900,
                 ),
               ),
             ),
@@ -510,12 +589,16 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Tu comprobante ha sido recibido y pasará a revisión. '
-          'Verificaremos tus datos y actualizaremos tu saldo '
-          'en un plazo de 24 horas hábiles.',
+          _lastRechargeAmount != null
+              ? 'Recibimos tu comprobante por Bs. '
+                    '${_lastRechargeAmount!.toStringAsFixed(2)}. '
+                    'Un tickeador lo verificará antes de acreditar el saldo '
+                    'a tu billetera — no está disponible todavía.'
+              : 'Recibimos tu comprobante. Un tickeador lo verificará antes '
+                    'de acreditar el saldo a tu billetera.',
           style: TextStyle(
             fontSize: 13,
-            color: Colors.blue.shade700,
+            color: Colors.orange.shade900,
             height: 1.4,
           ),
         ),
@@ -523,37 +606,11 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
     ),
   );
 
-  Widget _buildSubmitButton(bool isLoading) => SizedBox(
-    width: double.infinity,
-    height: 56,
-    child: ElevatedButton(
-      onPressed: _isProcessing || isLoading ? null : _submitRecharge,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _amarillo,
-        disabledBackgroundColor: Colors.grey.shade300,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-      ),
-      child: isLoading
-          ? const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(Colors.black),
-              ),
-            )
-          : const Text(
-              'Enviar comprobante',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-    ),
+  Widget _buildSubmitButton(bool isLoading) => PaymentButton(
+    label: 'Enviar comprobante',
+    loadingLabel: 'Enviando comprobante...',
+    isLoading: _isProcessing || isLoading,
+    onPressed: _submitRecharge,
   );
 
   @override
@@ -571,13 +628,23 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
     ),
     body: BlocListener<RechargeBloC, RechargeState>(
       listener: (context, state) {
-        setState(() => _isProcessing = false);
+        // Solo al terminar (éxito o error) se libera el botón de envío.
+        if (state is RechargeSubmitted || state is RechargeError) {
+          setState(() => _isProcessing = false);
+        }
         if (state is RechargeSubmitted) {
-          context.read<WalletBloc>().add(LoadWalletEvent(_userId));
+          // No se recarga el WalletBloc acá — todavía no hay saldo nuevo que
+          // reflejar, la recarga queda pendiente hasta que el tickeador la
+          // verifique (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 0). Antes
+          // esto llamaba `saveRechargeNotification` (el mensaje de "saldo
+          // acreditado") y recargaba la billetera de inmediato, prometiendo
+          // un saldo que todavía no existía — el mismo bug de auto-
+          // aprobación que ese bloque ya había cerrado.
           getIt<NotificationService>()
-              .saveRechargeNotification(_userId, state.amount);
+              .saveRechargeSubmittedNotification(_userId, state.amount);
           setState(() {
             _comprobanteEnviado = true;
+            _lastRechargeAmount = state.amount;
             _amountController.clear();
             _selectedImage = null;
           });

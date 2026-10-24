@@ -1,4 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/foundation.dart';
 import 'package:mi_ruta/features/routes/data/datasources/planned_trip_datasource.dart';
 import 'package:mi_ruta/features/routes/domain/entities/planned_trip.dart';
 import 'package:mi_ruta/features/routes/domain/services/multi_route_planner.dart';
@@ -13,8 +14,8 @@ class PlannedTripService {
   PlannedTripService({
     required PlannedTripDatasource datasource,
     required RouteDataSyncService syncService,
-  })  : _datasource = datasource,
-        _syncService = syncService;
+  }) : _datasource = datasource,
+       _syncService = syncService;
 
   Future<List<PlannedTrip>> searchOptions({
     required String userId,
@@ -22,8 +23,11 @@ class PlannedTripService {
     required LatLng destination,
     required String originName,
     required String destinationName,
+    required DateTime scheduledAt,
   }) async {
+    final totalTimer = Stopwatch()..start();
     await _syncService.ensureDataReady();
+    final dataReadyMs = totalTimer.elapsedMilliseconds;
 
     // Midpoint between origin and destination — needed for 3-leg combos
     final midLat = (origin.latitude + destination.latitude) / 2;
@@ -32,20 +36,27 @@ class PlannedTripService {
 
     final results = await Future.wait([
       _syncService.getRoutesNearPoint(
-          latitude: origin.latitude, longitude: origin.longitude),
+        latitude: origin.latitude,
+        longitude: origin.longitude,
+      ),
       _syncService.getRoutesNearPoint(
-          latitude: destination.latitude, longitude: destination.longitude),
+        latitude: destination.latitude,
+        longitude: destination.longitude,
+      ),
       _syncService.getRoutesNearPoint(
-          latitude: midpoint.latitude, longitude: midpoint.longitude),
+        latitude: midpoint.latitude,
+        longitude: midpoint.longitude,
+      ),
     ]);
 
     final originRoutes = _toOsmRoutes(results[0]);
     final destRoutes = _toOsmRoutes(results[1]);
     final midRoutes = _toOsmRoutes(results[2]);
+    final routeLookupMs = totalTimer.elapsedMilliseconds - dataReadyMs;
 
     if (originRoutes.isEmpty && destRoutes.isEmpty) return [];
 
-    return MultiRoutePlanner.planAsync(
+    final plans = await MultiRoutePlanner.planAsync(
       userId: userId,
       origin: origin,
       destination: destination,
@@ -54,16 +65,37 @@ class PlannedTripService {
       midRoutes: midRoutes,
       originName: originName,
       destName: destinationName,
+      scheduledAt: scheduledAt,
     );
+    if (kDebugMode) {
+      debugPrint(
+        '[Rendimiento] planificar viaje: ${totalTimer.elapsedMilliseconds} ms '
+        '(datos: $dataReadyMs ms, rutas: $routeLookupMs ms, '
+        'calculo: ${totalTimer.elapsedMilliseconds - dataReadyMs - routeLookupMs} ms)',
+      );
+    }
+    return plans;
   }
 
   Future<void> save(PlannedTrip trip) => _datasource.save(trip);
 
-  Future<List<PlannedTrip>> getMyPlans(String userId) =>
-      _datasource.getAll(userId);
+  /// Saved plans excluding cancelled ones — those live in
+  /// [getCancelledTrips] / the "Cancelados" history instead.
+  Future<List<PlannedTrip>> getMyPlans(String userId) async {
+    final all = await _datasource.getAll(userId);
+    return all.where((t) => !t.isCancelled).toList();
+  }
 
   Future<void> markCompleted(String userId, String tripId) =>
       _datasource.markCompleted(userId, tripId);
+
+  /// Cancels a scheduled trip: keeps the record (for the cancelled-trips
+  /// history / PDF export) instead of hard-deleting it like [delete] does.
+  Future<void> cancel(String userId, String tripId) =>
+      _datasource.markCancelled(userId, tripId);
+
+  Future<List<PlannedTrip>> getCancelledTrips(String userId) =>
+      _datasource.getCancelled(userId);
 
   Future<void> delete(String userId, String tripId) =>
       _datasource.delete(userId, tripId);

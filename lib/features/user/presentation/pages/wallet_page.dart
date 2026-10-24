@@ -5,8 +5,9 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_event.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
-import 'package:mi_ruta/features/user/presentation/pages/movimientos_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/pago_qr_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/movimientos_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recarga_saldo_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/balance_card.dart';
@@ -14,7 +15,11 @@ import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dar
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 
 class WalletPage extends StatefulWidget {
-  const WalletPage({super.key});
+  /// A qué pantalla vuelve la pestaña "Inicio" del pie de navegación.
+  /// Nulo = MiRutaScreen (pasajero); los demás perfiles pasan su propio home.
+  final WidgetBuilder? homeBuilder;
+
+  const WalletPage({super.key, this.homeBuilder});
 
   @override
   State<WalletPage> createState() => _WalletPageState();
@@ -51,34 +56,53 @@ class _WalletPageState extends State<WalletPage> {
   }
 
   void _onNavTap(int index) {
-    navigateBottomNav(context, index);
+    navigateBottomNav(context, index, homeBuilder: widget.homeBuilder);
   }
 
-  void _navigateToRecargaSaldo() {
-    Navigator.push(
+  void _navigateToRecargaSaldo() async {
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const RecargaSaldoPage()),
     );
+    if (!mounted) return;
+    _loadWalletData();
   }
 
-  void _navigateToMovimientos() {
-    Navigator.push(
+  void _navigateToMovimientos() async {
+    // Antes abría `HistorialViajesPage` (historial de PLANIFICACIÓN, con
+    // montos estimados) en vez del ledger real de la billetera — deuda
+    // técnica #11. Ahora muestra la colección `transactions`, que es donde
+    // quedan recargas, pagos y reembolsos de verdad.
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const MovimientosPage()),
     );
+    if (!mounted) return;
+    // Desde Movimientos se puede cancelar un viaje y recuperar el saldo:
+    // al volver, la billetera tiene que mostrar el saldo nuevo.
+    _loadWalletData();
   }
 
-  void _navigateToPagoQR() {
-    Navigator.push(
+  void _navigateToPagoQR() async {
+    await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const PagoQRPage()),
+      MaterialPageRoute(builder: (_) => PagoQRPage(homeBuilder: widget.homeBuilder)),
     );
+    if (!mounted) return;
+    _loadWalletData();
   }
 
   void _navigateToSolicitudBeneficio() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const SolicitudBeneficioPage()),
+    );
+  }
+
+  void _navigateToMisSolicitudesBeneficio() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const BeneficiosPage()),
     );
   }
 
@@ -149,11 +173,17 @@ class _WalletPageState extends State<WalletPage> {
           icon: Icons.star_outline,
           onPressed: _navigateToSolicitudBeneficio,
         ),
+        const SizedBox(height: 12),
+        _ActionButton(
+          label: 'MIS SOLICITUDES DE BENEFICIO',
+          icon: Icons.history,
+          onPressed: _navigateToMisSolicitudesBeneficio,
+        ),
       ],
     );
   }
 
-  Widget _buildMainContent(dynamic wallet) {
+  Widget _buildMainContent(dynamic wallet, WalletState state) {
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -164,6 +194,10 @@ class _WalletPageState extends State<WalletPage> {
               balance: wallet.currentBalance,
               currency: wallet.currency,
             ),
+            // Las ganancias del chofer ya no viven en la billetera del
+            // pasajero — tienen su propia billetera (DriverWalletPage,
+            // botón MOVIMIENTOS → GananciasChoferPage). Esta pantalla es
+            // exclusivamente la del pasajero.
             const SizedBox(height: 32),
             const Text(
               'Acciones',
@@ -216,14 +250,14 @@ class _WalletPageState extends State<WalletPage> {
           final wallet = state is WalletLoaded
               ? state.wallet
               : state is TransactionHistoryLoaded
-                  ? state.wallet
-                  : null;
+              ? state.wallet
+              : null;
 
           if (wallet == null) {
             return const Center(child: Text('No hay datos de billetera'));
           }
 
-          return _buildMainContent(wallet);
+          return _buildMainContent(wallet, state);
         },
       ),
       bottomNavigationBar: CustomBottomNav(

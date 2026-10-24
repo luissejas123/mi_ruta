@@ -1,0 +1,484 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/features/admin/domain/services/admin_service.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/switch_profile_button.dart';
+import 'package:mi_ruta/features/presidente/presentation/bloc/presidente_panel_bloc.dart';
+import 'package:mi_ruta/features/presidente/presentation/bloc/presidente_panel_event.dart';
+import 'package:mi_ruta/features/presidente/presentation/bloc/presidente_panel_state.dart';
+import 'package:mi_ruta/features/routes/domain/services/route_service.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_approval_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/vehicle_review_page.dart';
+import 'package:mi_ruta/features/driver/presentation/pages/driver_home_page.dart';
+import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
+import 'package:mi_ruta/features/presidente/presentation/pages/asignar_ruta_chofer_page.dart';
+import 'package:mi_ruta/features/presidente/presentation/pages/ver_ruta_chofer_page.dart';
+import 'package:mi_ruta/features/presidente/presentation/pages/presidente_reclamos_page.dart';
+import 'package:mi_ruta/features/presidente/presentation/pages/tarifas_page.dart';
+import 'package:mi_ruta/features/presidente/presentation/pages/ruta_mapa_desvio_page.dart';
+import 'package:mi_ruta/features/presidente/presentation/pages/presidente_rutas_page.dart';
+import 'package:mi_ruta/features/tickeador/presentation/pages/asignar_tickeador_page.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/bottom_nav_router.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
+import 'package:mi_ruta/features/user/presentation/widgets/logout_button.dart' show confirmLogout;
+
+const _amarillo = Color(0xFFFFC12F);
+
+/// Panel de solo lectura para el dirigente (RQ-76 control de rutas/unidades,
+/// RQ-77 reportes operativos, RQ-80 panel de presidente). La aprobación de
+/// usuarios (RQ-71/72) ya es accesible desde el home de chofer/dirigente.
+class PresidentePanelPage extends StatelessWidget {
+  const PresidentePanelPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => PresidentePanelBloc(
+        adminService: getIt<AdminService>(),
+        routeService: getIt<RouteService>(),
+      )..add(const LoadPresidentePanel()),
+      child: const _PresidentePanelView(),
+    );
+  }
+}
+
+class _PresidentePanelView extends StatelessWidget {
+  const _PresidentePanelView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text(
+          'Panel de dirigencia',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        ),
+        actions: [
+          const SwitchProfileButton(),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Cerrar sesión',
+            onPressed: () => confirmLogout(context),
+          ),
+        ],
+      ),
+      body: BlocBuilder<PresidentePanelBloc, PresidentePanelState>(
+        builder: (context, state) {
+          if (state is PresidentePanelLoading) {
+            return const Center(child: CircularProgressIndicator(color: _amarillo));
+          }
+          if (state is PresidentePanelError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(state.message, textAlign: TextAlign.center),
+              ),
+            );
+          }
+          if (state is PresidentePanelLoaded) {
+            return RefreshIndicator(
+              onRefresh: () async =>
+                  context.read<PresidentePanelBloc>().add(const LoadPresidentePanel()),
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  const Text('Reporte operativo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 12),
+                  _StatsGrid(state: state),
+                  const SizedBox(height: 24),
+                  const Text('Gestión de personal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 12),
+                  _ActionTile(
+                    icon: Icons.how_to_reg_outlined,
+                    title: 'Aprobar choferes',
+                    subtitle: 'Solicitudes de registro pendientes',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const DriverApprovalPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.directions_bus_outlined,
+                    title: 'Revisar unidades',
+                    subtitle: 'Unidades nuevas o editadas, con sus documentos',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const VehicleReviewPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.alt_route_outlined,
+                    title: 'Asignar ruta a chofer',
+                    subtitle: 'El chofer elige la unidad; acá se asigna la línea',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AsignarRutaChoferPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.route_outlined,
+                    title: 'Ver ruta de un chofer',
+                    subtitle: 'Recorrido y línea asignada, de solo lectura',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const VerRutaChoferPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.confirmation_num_outlined,
+                    title: 'Asignar tickeador',
+                    subtitle: 'Estación y líneas de operación',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AsignarTickeadorPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.report_gmailerrorred_outlined,
+                    title: 'Reclamos',
+                    subtitle: 'Ver y resolver reclamos de pasajeros',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PresidenteReclamosPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.star_outline,
+                    title: 'Calificación de choferes',
+                    // Filtra por users.presidente_info.managed_lines si
+                    // admin ya le asignó línea a este presidente; si no,
+                    // ReportesOperativosPage cae a mostrar todo el sistema.
+                    subtitle: 'Desempeño y rating de tus choferes',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ReportesOperativosPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.payments_outlined,
+                    title: 'Tarifas',
+                    subtitle: 'Configura la tarifa por distancia de tu línea',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TarifasPage(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        },
+      ),
+      // Sin Billetera — el dirigente no tiene (pidió explícitamente quitarla).
+      // "Rutas" va a su propia pantalla (PresidenteRutasPage, "Control de
+      // rutas en vivo") en vez de redibujar este mismo panel.
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: 0,
+        tabs: const [0, 2, 3],
+        onTap: (index) => navigateBottomNav(
+          context,
+          index,
+          homeBuilder: (_) => const DriverHomePage(roleOverride: 'presidente'),
+          routesBuilder: (_) => const PresidenteRutasPage(),
+        ),
+      ),
+    );
+  }
+}
+
+/// Fila de acción del panel (aprobar choferes, asignar tickeador).
+class _ActionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _ActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Icon(icon, size: 22, color: colorScheme.onSurface.withValues(alpha: 0.7)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatsGrid extends StatelessWidget {
+  final PresidentePanelLoaded state;
+
+  const _StatsGrid({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      (Icons.directions_bus, 'Unidades en servicio', '${state.activeVehicles.length}'),
+      (Icons.check_circle_outline, 'Unidades aprobadas', '${state.approvedVehicles}'),
+      (Icons.pending_outlined, 'Unidades en revisión', '${state.pendingVehicles}'),
+      (Icons.cancel_outlined, 'Unidades rechazadas', '${state.rejectedVehicles}'),
+      (Icons.people_outline, 'Choferes registrados', '${state.totalDrivers}'),
+      (Icons.groups_outlined, 'Pasajeros registrados', '${state.totalPassengers}'),
+      (Icons.confirmation_num_outlined, 'Tickeadores', '${state.totalTickeadores}'),
+      (Icons.block_outlined, 'Cuentas bloqueadas', '${state.blockedUsers}'),
+    ];
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: items.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 1.6,
+      ),
+      itemBuilder: (context, i) {
+        final (icon, label, value) = items[i];
+        final colorScheme = Theme.of(context).colorScheme;
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 20, color: colorScheme.onSurface.withValues(alpha: 0.7)),
+              const Spacer(),
+              Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+              Text(
+                label,
+                style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.6)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Movida a su propia pestaña ("Rutas" → PresidenteRutasPage) — se deja
+/// pública porque ya no vive en el mismo archivo que la usa.
+class RouteControlSection extends StatefulWidget {
+  final PresidentePanelLoaded state;
+
+  /// false (default): la lista se limita a 320px — es una sección más
+  /// dentro del scroll largo de `PresidentePanelPage` (stats + gestión de
+  /// personal + esto). true: la lista ocupa todo el alto disponible —
+  /// úsalo cuando esta sección es el contenido completo de la pantalla
+  /// (`PresidenteRutasPage`), si no queda un contenedor chico con un montón
+  /// de espacio en blanco debajo (bug real reportado).
+  final bool expand;
+
+  const RouteControlSection({super.key, required this.state, this.expand = false});
+
+  @override
+  State<RouteControlSection> createState() => RouteControlSectionState();
+}
+
+class RouteControlSectionState extends State<RouteControlSection> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    if (widget.state.activeRoutes.isEmpty) {
+      return Text(
+        'No hay rutas activas registradas.',
+        style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withValues(alpha: 0.6)),
+      );
+    }
+    final byLine = widget.state.activeVehiclesByLine;
+    final query = _query.trim().toLowerCase();
+    final routes = query.isEmpty
+        ? widget.state.activeRoutes
+        : widget.state.activeRoutes
+            .where((r) =>
+                r.name.toLowerCase().contains(query) ||
+                r.ref.toLowerCase().contains(query))
+            .toList();
+
+    final searchField = TextField(
+      controller: _searchCtrl,
+      onChanged: (v) => setState(() => _query = v),
+      decoration: InputDecoration(
+        hintText: 'Buscar por línea o nombre de ruta',
+        prefixIcon: const Icon(Icons.search, size: 20),
+        isDense: true,
+        filled: true,
+        fillColor: colorScheme.surfaceContainerHighest,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+
+    if (routes.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          searchField,
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'Ninguna ruta activa coincide con "$_query".',
+              style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withValues(alpha: 0.6)),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final list = ListView.separated(
+      shrinkWrap: !widget.expand,
+      physics: widget.expand ? null : const NeverScrollableScrollPhysics(),
+      itemCount: routes.length,
+      separatorBuilder: (context, i) => const SizedBox(height: 10),
+      itemBuilder: (context, i) {
+        final route = routes[i];
+        final count = byLine[route.ref] ?? 0;
+        return InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RutaMapaDesvioPage(routeRef: route.ref, routeName: route.name),
+            ),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: count > 0 ? Colors.green : Colors.grey,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${route.name} · Línea ${route.ref}',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  '$count unidad${count == 1 ? '' : 'es'} en ruta',
+                  style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6)),
+                ),
+                const SizedBox(width: 6),
+                Icon(Icons.chevron_right, size: 18, color: colorScheme.onSurface.withValues(alpha: 0.4)),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!widget.expand) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          searchField,
+          const SizedBox(height: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: list,
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        searchField,
+        const SizedBox(height: 10),
+        Expanded(child: list),
+      ],
+    );
+  }
+}

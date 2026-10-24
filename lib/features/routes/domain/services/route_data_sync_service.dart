@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:mi_ruta/core/local_db/route_local_database.dart';
 import 'package:mi_ruta/features/routes/data/datasources/gtfs_datasource.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
@@ -24,6 +25,17 @@ class RouteDataSyncService {
 
   static const _keyVersion = 'routes_version';
   static const _firestoreVersionDoc = 'config/routes_meta';
+  final ValueNotifier<RouteSyncStatus> _syncStatus = ValueNotifier(
+    RouteSyncStatus.idle,
+  );
+  Timer? _updatedMessageTimer;
+  Future<void>? _initializationFuture;
+  Future<void>? _versionCheckFuture;
+  bool _isInitialized = false;
+  final Map<String, _CachedRoute> _routeCache = {};
+
+  /// Estado observable para informar una actualización real de rutas.
+  ValueListenable<RouteSyncStatus> get syncStatus => _syncStatus;
 
   RouteDataSyncService({
     required RouteLocalDatabase localDb,
@@ -40,7 +52,21 @@ class RouteDataSyncService {
   /// Punto de entrada principal. Llamar en initState antes de buscar rutas.
   /// - Si SQLite está vacío O no tiene polylines: parsea GTFS y puebla la BD.
   /// - Luego verifica si hay una versión más nueva en Firestore (en background).
-  Future<void> ensureDataReady() async {
+  Future<void> ensureDataReady() {
+    if (_isInitialized) return Future.value();
+    final pendingInitialization = _initializationFuture;
+    if (pendingInitialization != null) return pendingInitialization;
+
+    final initialization = _ensureDataReady()
+        .then((_) => _isInitialized = true)
+        .whenComplete(() {
+          _initializationFuture = null;
+        });
+    _initializationFuture = initialization;
+    return initialization;
+  }
+
+  Future<void> _ensureDataReady() async {
     final withPolyline = await _localDb.countRoutesWithPolyline();
     if (withPolyline == 0) {
       print(
@@ -52,8 +78,15 @@ class RouteDataSyncService {
       print('✅ SQLite ya tiene $withPolyline rutas con polyline');
     }
 
+    final stopCount = await _localDb.countStops();
+    if (stopCount == 0) {
+      await _seedStopsFromGtfs();
+    } else {
+      print('✅ SQLite ya tiene $stopCount paradas');
+    }
+
     // Verificar actualización del admin panel en background (no bloquea la búsqueda)
-    unawaited(_checkAndSyncVersion());
+    unawaited(_versionCheckFuture ??= _checkAndSyncVersion());
   }
 
   // ──────────────────────────────────────────────────────────────────────
@@ -95,6 +128,28 @@ class RouteDataSyncService {
     return routes;
   }
 
+  /// Rutas cuya polilínea pasa dentro de [radiusMeters] del punto dado —
+  /// "qué trufis pasan cerca de mí". No hay paradas GTFS sembradas hoy (ver
+  /// `stops_meta`/`countStops`), así que en vez de buscar paradas puntuales
+  /// se mide la intersección ruta↔radio contra las polylines ya
+  /// sincronizadas. A diferencia de [getRoutesNearPoint] (solo bbox), mide
+  /// la distancia real segmento a segmento. Devuelve pares (ruta, distancia
+  /// en metros) ordenados de más cerca a más lejos.
+  Future<List<(RouteEntity, double)>> getRoutesWithinRadius({
+    required double latitude,
+    required double longitude,
+    required double radiusMeters,
+  }) async {
+    final rows = await _localDb.getRoutesNearPoint(
+      latitude,
+      longitude,
+      radiusMeters: radiusMeters,
+    );
+    return rows
+        .map((row) => (_rowToEntity(row), row['distance_meters'] as double))
+        .toList();
+  }
+
   // ──────────────────────────────────────────────────────────────────────
   // Seed inicial desde GTFS
   // ──────────────────────────────────────────────────────────────────────
@@ -113,8 +168,20 @@ class RouteDataSyncService {
     );
 
     await _localDb.upsertRoutes(routes);
+    _routeCache.clear();
     await _localDb.setConfig(_keyVersion, 'gtfs_seed');
     print('✅ ${routes.length} rutas sembradas desde GTFS en SQLite');
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Seed inicial de paradas desde GTFS
+  // ──────────────────────────────────────────────────────────────────────
+
+  Future<void> _seedStopsFromGtfs() async {
+    print('🌱 Primera vez: cargando paradas desde GTFS...');
+    final stops = await _gtfsDatasource.parseStopsForLocalDb();
+    await _localDb.upsertStops(stops);
+    print('✅ ${stops.length} paradas sembradas desde GTFS en SQLite');
   }
 
   // ──────────────────────────────────────────────────────────────────────
@@ -123,7 +190,10 @@ class RouteDataSyncService {
 
   Future<void> _checkAndSyncVersion() async {
     try {
-      final snap = await _firestore.doc(_firestoreVersionDoc).get();
+      // Si no hay conexión, Source.server falla y se conserva el caché SQLite.
+      final snap = await _firestore
+          .doc(_firestoreVersionDoc)
+          .get(const GetOptions(source: Source.server));
       if (!snap.exists) return; // Admin panel no configurado aún
 
       final firestoreVersion = snap.data()?['version']?.toString();
@@ -138,8 +208,11 @@ class RouteDataSyncService {
       print(
         '🔄 Nueva versión detectada: $localVersion → $firestoreVersion. Sincronizando...',
       );
+      _setSyncStatus(RouteSyncStatus.syncing);
       await _syncFromFirestore(firestoreVersion);
+      _setSyncStatus(RouteSyncStatus.updated);
     } catch (e) {
+      _setSyncStatus(RouteSyncStatus.idle);
       // No bloquear la app si hay problemas de red
       print('⚠️ No se pudo verificar versión de rutas: $e');
     }
@@ -152,7 +225,7 @@ class RouteDataSyncService {
     final snap = await _firestore
         .collection('routes_bbox')
         .where('active', isEqualTo: true)
-        .get();
+        .get(const GetOptions(source: Source.server));
 
     if (snap.docs.isEmpty) {
       print('⚠️ routes_bbox vacía en Firestore, cancelando sync');
@@ -177,11 +250,22 @@ class RouteDataSyncService {
 
     // Upsert solo bbox — NO toca polyline_json de rutas ya cargadas por GTFS
     await _localDb.upsertBboxOnly(rows.cast<Map<String, dynamic>>());
+    _routeCache.clear();
     await _localDb.setConfig(_keyVersion, version);
     final withPoly = await _localDb.countRoutesWithPolyline();
     print(
       '✅ ${rows.length} rutas sincronizadas desde Firestore (v$version), $withPoly con polyline preservadas',
     );
+  }
+
+  void _setSyncStatus(RouteSyncStatus status) {
+    _updatedMessageTimer?.cancel();
+    _syncStatus.value = status;
+    if (status == RouteSyncStatus.updated) {
+      _updatedMessageTimer = Timer(const Duration(seconds: 2), () {
+        _syncStatus.value = RouteSyncStatus.idle;
+      });
+    }
   }
 
   // ──────────────────────────────────────────────────────────────────────
@@ -190,6 +274,19 @@ class RouteDataSyncService {
 
   RouteEntity _rowToEntity(Map<String, dynamic> row) {
     final polylineJson = row['polyline_json'] as String?;
+    final id = row['id'] as String;
+    final signature = Object.hash(
+      polylineJson,
+      row['name'],
+      row['ref'],
+      row['direction_id'],
+      row['color'],
+    );
+    final cached = _routeCache[id];
+    if (cached != null && cached.signature == signature) {
+      return cached.route;
+    }
+
     List<Map<String, double>>? polyline;
     if (polylineJson != null) {
       final raw = jsonDecode(polylineJson) as List;
@@ -203,8 +300,8 @@ class RouteDataSyncService {
           .toList();
     }
 
-    return RouteEntity(
-      id: row['id'] as String,
+    final route = RouteEntity(
+      id: id,
       name: row['name'] as String? ?? '',
       ref: row['ref'] as String? ?? '',
       color: row['color'] as String?,
@@ -215,49 +312,17 @@ class RouteDataSyncService {
       lngMin: row['lng_min'] as double?,
       lngMax: row['lng_max'] as double?,
     );
+    _routeCache[id] = _CachedRoute(signature, route);
+    return route;
   }
 
-  RouteEntity _firestoreDocToEntity(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+}
 
-    List<Map<String, double>> stops = [];
-    if (data['stops'] is List) {
-      stops = (data['stops'] as List)
-          .whereType<Map<String, dynamic>>()
-          .map(
-            (s) => {
-              'lat': ((s['lat'] ?? 0.0) as num).toDouble(),
-              'lng': ((s['lng'] ?? 0.0) as num).toDouble(),
-            },
-          )
-          .toList();
-    }
+enum RouteSyncStatus { idle, syncing, updated }
 
-    List<Map<String, double>> polyline = [];
-    if (data['polyline'] is List) {
-      polyline = (data['polyline'] as List)
-          .whereType<Map<String, dynamic>>()
-          .map(
-            (c) => {
-              'lat': ((c['lat'] ?? 0.0) as num).toDouble(),
-              'lng': ((c['lng'] ?? 0.0) as num).toDouble(),
-            },
-          )
-          .toList();
-    }
+class _CachedRoute {
+  final int signature;
+  final RouteEntity route;
 
-    return RouteEntity(
-      id: doc.id,
-      name: data['name'] ?? '',
-      ref: data['ref'] ?? '',
-      color: data['color'] as String?,
-      directionId: data['direction_id'] as String?,
-      stops: stops,
-      polyline: polyline,
-      latMin: (data['lat_min'] as num?)?.toDouble(),
-      latMax: (data['lat_max'] as num?)?.toDouble(),
-      lngMin: (data['lng_min'] as num?)?.toDouble(),
-      lngMax: (data['lng_max'] as num?)?.toDouble(),
-    );
-  }
+  const _CachedRoute(this.signature, this.route);
 }

@@ -9,6 +9,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final LogoutUseCase logoutUseCase;
   final GetCurrentAuthUserUseCase getCurrentUserUseCase;
   final ResetPasswordUseCase resetPasswordUseCase;
+  final LoginAsDemoUseCase loginAsDemoUseCase;
 
   AuthBloc({
     required this.registerUseCase,
@@ -16,12 +17,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.logoutUseCase,
     required this.getCurrentUserUseCase,
     required this.resetPasswordUseCase,
+    required this.loginAsDemoUseCase,
   }) : super(const AuthInitial()) {
     on<RegisterEvent>(_onRegisterEvent);
     on<LoginEvent>(_onLoginEvent);
     on<LogoutEvent>(_onLogoutEvent);
     on<GetCurrentUserEvent>(_onGetCurrentUserEvent);
     on<ResetPasswordEvent>(_onResetPasswordEvent);
+    on<LoginAsDemoEvent>(_onLoginAsDemoEvent);
   }
 
   Future<void> _onRegisterEvent(
@@ -38,8 +41,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       role: event.role,
     );
     result.fold(
-      (failure) => emit(AuthError(message: failure.toString())),
-      (user) => emit(const AuthSuccess(message: 'Registro exitoso')),
+      (failure) => emit(AuthError(message: failure.message)),
+      (user) {
+        // AuthSuccess dispara la navegación a RegistrationSuccessPage (ver
+        // RegisterPage); AuthLoaded deja el estado global correcto de una
+        // vez, para que el resto de la app (perfil, wallet, etc.) no se
+        // quede esperando una sesión "cerrada" hasta el próximo reinicio.
+        emit(const AuthSuccess(message: 'Registro exitoso'));
+        emit(AuthLoaded(user: user));
+      },
     );
   }
 
@@ -53,7 +63,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       password: event.password,
     );
     result.fold(
-      (failure) => emit(AuthError(message: failure.toString())),
+      (failure) => emit(AuthError(message: failure.message)),
       (user) => emit(AuthLoaded(user: user)),
     );
   }
@@ -65,7 +75,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthLoading());
     final result = await logoutUseCase.call();
     result.fold(
-      (failure) => emit(AuthError(message: failure.toString())),
+      (failure) => emit(AuthError(message: failure.message)),
       (_) => emit(const AuthUnauthenticated()),
     );
   }
@@ -82,6 +92,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
   }
 
+  /// TEMPORAL — modo prueba 100% estático: sin Firebase ni Firestore.
+  Future<void> _onLoginAsDemoEvent(
+    LoginAsDemoEvent event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+    final result = await loginAsDemoUseCase(role: event.role);
+    result.fold(
+      (failure) => emit(AuthError(message: failure.message)),
+      (user) => emit(AuthLoaded(user: user)),
+    );
+  }
+
   Future<void> _onResetPasswordEvent(
     ResetPasswordEvent event,
     Emitter<AuthState> emit,
@@ -89,7 +112,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthLoading());
     final result = await resetPasswordUseCase.call(event.email);
     result.fold(
-      (failure) => emit(AuthError(message: failure.toString())),
+      (failure) => emit(AuthError(message: failure.message)),
       (_) => emit(
         const AuthSuccess(
           message: 'Verifica tu email para resetear la contraseña',

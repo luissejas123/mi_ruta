@@ -8,6 +8,7 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/driver/domain/entities/vehicle_entity.dart';
 import 'package:mi_ruta/features/driver/domain/services/driver_service.dart';
+import 'package:mi_ruta/features/user/domain/services/notification_service.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_line_validator.dart';
 import 'package:mi_ruta/features/user/domain/services/wallet_service.dart';
 import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
@@ -268,6 +269,12 @@ class _ConfirmarAbordajePageState extends State<ConfirmarAbordajePage> {
         routeMismatch: routeMismatch,
       );
       if (!mounted) return;
+      _notifyBoarding(
+        passengerId: authState.user.uid,
+        passengerName: authState.user.fullName,
+        vehicle: vehicle,
+        tripId: tripId,
+      );
       Navigator.pop<BoardingConfirmationResult>(context, (
         tripId: tripId,
         driverId: vehicle.ownerUid,
@@ -275,6 +282,49 @@ class _ConfirmarAbordajePageState extends State<ConfirmarAbordajePage> {
       ));
     } catch (e) {
       _showError('No se pudo confirmar el abordaje: $e');
+    }
+  }
+
+  /// Obs. 6 — notificación de abordado.
+  ///
+  /// Aviso inmediato en pantalla (el SnackBar del ScaffoldMessenger de la
+  /// app sigue visible en la pantalla de navegación) y registro en la
+  /// bandeja de notificaciones del pasajero y del chofer. Las notificaciones
+  /// se guardan sin bloquear el abordaje: si fallan, el viaje ya quedó
+  /// creado y no se interrumpe al pasajero.
+  void _notifyBoarding({
+    required String passengerId,
+    required String passengerName,
+    required VehicleEntity vehicle,
+    required String tripId,
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '¡Abordaste! Unidad ${vehicle.vehicleId} · ${widget.plannedRouteName}',
+        ),
+        backgroundColor: Colors.green.shade700,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+    final notifications = getIt<NotificationService>();
+    notifications
+        .saveBoardingNotification(
+          passengerId,
+          routeName: widget.plannedRouteName,
+          vehicleId: vehicle.vehicleId,
+          tripId: tripId,
+        )
+        .catchError((Object e) => debugPrint('[Abordaje] aviso pasajero: $e'));
+    if (vehicle.ownerUid.isNotEmpty) {
+      notifications
+          .savePassengerBoardedNotification(
+            vehicle.ownerUid,
+            passengerName: passengerName.isEmpty ? 'Un pasajero' : passengerName,
+            vehicleId: vehicle.vehicleId,
+            tripId: tripId,
+          )
+          .catchError((Object e) => debugPrint('[Abordaje] aviso chofer: $e'));
     }
   }
 

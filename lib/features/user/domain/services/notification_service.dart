@@ -200,6 +200,51 @@ class NotificationService {
     );
   }
 
+  /// Obs. 6 — el pasajero confirmó que subió a la unidad. Queda en su
+  /// bandeja de notificaciones como comprobante del abordaje.
+  Future<void> saveBoardingNotification(
+    String passengerId, {
+    required String routeName,
+    required String vehicleId,
+    required String tripId,
+  }) async {
+    if (!await _isNotificationEnabled(passengerId, 'trip')) return;
+    await _datasource.save(
+      AppNotification(
+        id: _id(),
+        userId: passengerId,
+        type: NotificationType.trip,
+        title: 'Abordaste tu micro',
+        body: 'Subiste a la unidad $vehicleId de $routeName. '
+            'Avisa tu bajada desde la app para pagar tu pasaje.',
+        isRead: false,
+        createdAt: DateTime.now(),
+        relatedTripId: tripId,
+      ),
+    );
+  }
+
+  /// Obs. 6 — le avisa al chofer que un pasajero abordó su unidad.
+  Future<void> savePassengerBoardedNotification(
+    String driverId, {
+    required String passengerName,
+    required String vehicleId,
+    required String tripId,
+  }) async {
+    await _datasource.save(
+      AppNotification(
+        id: _id(),
+        userId: driverId,
+        type: NotificationType.operational,
+        title: 'Pasajero a bordo',
+        body: '$passengerName abordó tu unidad $vehicleId.',
+        isRead: false,
+        createdAt: DateTime.now(),
+        relatedTripId: tripId,
+      ),
+    );
+  }
+
   /// Avisa a un tickeador que una unidad de su línea inició servicio —
   /// para que sepa que puede escanear el QR fijo de la unidad (`UnitQrPage`)
   /// y marcar Salida/Llegada/Intermedio.

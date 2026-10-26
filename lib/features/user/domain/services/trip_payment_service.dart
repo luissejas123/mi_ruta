@@ -195,16 +195,29 @@ class TripPaymentService {
         'paid_at': FieldValue.serverTimestamp(),
       });
 
+      // Línea y ruta del viaje en el movimiento (Obs. 4): se reusan los
+      // nombres de campo que ya existían en `transactions` (route_number /
+      // route_name), sin duplicarlos en otro idioma.
+      final String? routeLine =
+          (freshTripData['route_ref'] ?? freshTripData['route_number'])
+              ?.toString();
+      final String? routeName = freshTripData['route_name']?.toString();
+      final userDesc = routeLine != null && routeLine.isNotEmpty
+          ? 'Pago Línea $routeLine${routeName != null && routeName.isNotEmpty ? ' - $routeName' : ''}'
+          : 'Pago a chofer $driverName';
+
       transaction.set(passengerTransactionRef, {
         'user_id': userId,
         'transaction_type': 'trip_payment',
         'amount': -amount,
-        'description': 'Pago a chofer $driverName',
+        'description': userDesc,
         'timestamp': FieldValue.serverTimestamp(),
         'payment_method': paymentMethod,
         'status': 'completed',
         'trip_id': tripId,
         'driver_id': driverId,
+        'route_number': ?routeLine,
+        'route_name': ?routeName,
       });
 
       transaction.set(driverTransactionRef, {
@@ -343,8 +356,13 @@ class TripPaymentService {
           'refunded_at': FieldValue.serverTimestamp(),
         });
 
+        final String? routeLine =
+            (tripData['route_line'] ?? tripData['route_number'])?.toString();
+        final String? routeName =
+            (tripData['route_name'] ?? tripData['route'])?.toString();
+
         // Movimiento del pasajero: entra dinero → monto positivo, igual que
-        // `top_up`/`recharge`.
+        // `top_up`/`recharge` (Obs 4: modelo único de movimientos).
         transaction.set(passengerTxRef, {
           'user_id': userId,
           'transaction_type': 'refund',
@@ -355,6 +373,8 @@ class TripPaymentService {
           'status': 'completed',
           'trip_id': tripId,
           'driver_id': driverId,
+          'route_number': ?routeLine,
+          'route_name': ?routeName,
         });
 
         // Movimiento del chofer: sale dinero → monto negativo, mismo criterio

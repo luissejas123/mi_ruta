@@ -316,18 +316,26 @@ Al aprobar una solicitud, `active_benefits` se agrega al documento correspondien
 
 ## 💰 Colección: transactions
 
-**Descripción:** Ledger de todos los movimientos de dinero — recargas, beneficios, pagos de viaje.
+**Descripción:** Ledger unificado de movimientos de la billetera del pasajero (Obs 4) — recargas, pagos de viajes y reembolsos.
+
+### Modelo Único de Movimientos (Obs 4)
+
+Cada movimiento de la billetera se guarda en `transactions` con estos campos
+(los mismos nombres que ya usaba la colección; `MovementModel` los lee y los
+expone en la app como tipo, monto, línea, ruta, viaje_id y fecha):
 
 ```json
 {
   "user_id": "dTZKcwHInueq683GUD6xAUJklem1",
-  "transaction_type": "recharge",
-  "amount": 80,
-  "description": "Recarga con QR",
-  "payment_method": "qr_proof",
-  "status": "approved",
-  "recharge_id": "TOVzLud2gHvUNOqYCemJ",
-  "timestamp": "<Timestamp>"
+  "transaction_type": "trip_payment",
+  "amount": -2.50,
+  "description": "Pago Línea 106 - Quillacollo - Cochabamba",
+  "timestamp": "<Timestamp>",
+  "status": "completed",
+  "payment_method": "qr",
+  "trip_id": "TRP_001",
+  "route_number": "106",
+  "route_name": "Quillacollo - Cochabamba"
 }
 ```
 
@@ -335,6 +343,24 @@ Al aprobar una solicitud, `active_benefits` se agrega al documento correspondien
 **Agregados 2026-10-17 (reembolso al cancelar un viaje):** `refund` (movimiento del pasajero, monto **positivo** — le vuelve el dinero) y `refund_issued` (movimiento espejo del chofer, monto **negativo**). Los dos los escribe `TripPaymentService.refundTrip`, dentro de la **misma** transacción que mueve los saldos. El tipo se escribe en inglés como el resto (`trip_payment`, `top_up`); "Reembolso" es solo la etiqueta que ve el usuario en `MovimientosPage`.
 **Estados:** `pending`, `approved`/`completed`, `rejected`/`failed`
 **Campo de vínculo opcional:** `recharge_id` o `benefit_request_id` según el tipo de transacción.
+
+#### Diccionario de Campos Oficial (Obs 4 - Modelo Único de Movimientos):
+
+| Campo del modelo (app) | Campo en Firestore | Descripción |
+| :--- | :--- | :--- |
+| tipo | `transaction_type` | `top_up`/`recharge` (recarga), `trip_payment` (pago), `refund` (reembolso). |
+| monto | `amount` | En Bs. La app usa el valor absoluto; el tipo define si suma o resta. |
+| línea | `route_number` | Línea del viaje. Vacío en recargas. |
+| ruta | `route_name` | Nombre de la ruta. Vacío en recargas. |
+| viaje_id | `trip_id` | Viaje en `trips`. Vacío en recargas. |
+| fecha | `timestamp` | Fecha y hora del movimiento. |
+| estado | `status` | `completed`/`approved` afectan el saldo; `pending`, `rejected` no. |
+
+#### Regla de Conciliación de Saldo ("El saldo cuadra con el historial"):
+1. **Saldo Canónico:** El saldo del usuario reside en `users/{uid}.wallet.current_balance`.
+2. **Fórmula Matemática:**
+   $$\text{Saldo} = \sum_{\text{completed}} (\text{monto}_{\text{recarga}} + \text{monto}_{\text{reembolso}}) - \sum_{\text{completed}} (\text{monto}_{\text{pago\_viaje}})$$
+3. Solo los movimientos con `estado == 'completed'` alteran el saldo disponible de la billetera.
 
 ---
 

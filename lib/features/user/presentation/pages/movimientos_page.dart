@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
+import 'package:mi_ruta/features/user/domain/entities/movement_entity.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_payment_service.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/trip_payment_event.dart';
@@ -14,13 +15,11 @@ import 'package:mi_ruta/features/user/presentation/widgets/period_filter_button.
 import 'package:mi_ruta/features/user/presentation/widgets/transaction_card.dart';
 
 /// "MOVIMIENTOS" del pasajero: el ledger REAL de la billetera (colección
-/// `transactions` — recargas, pagos de viaje, reembolsos), no el historial
-/// de planificación con montos estimados que mostraba `HistorialViajesPage`
-/// (deuda técnica #11).
+/// `transactions` — recargas, pagos de viaje, reembolsos).
 ///
-/// Desde acá el pasajero también puede cancelar un viaje que ya pagó: el
-/// reembolso vuelve a su saldo y aparece como un movimiento más de esta
-/// misma lista.
+/// Implementa Obs 4 (modelo único de movimientos con tipo, monto, línea, ruta,
+/// viaje_id, fecha, y conciliación de saldo con el historial), además de permitir
+/// al pasajero cancelar un viaje elegible y recibir el reembolso inmediato.
 class MovimientosPage extends StatefulWidget {
   const MovimientosPage({super.key});
 
@@ -48,28 +47,24 @@ class _MovimientosPageState extends State<MovimientosPage> {
     context.read<WalletBloc>().add(LoadWalletEvent(_userId));
   }
 
-  DateTime _parseDate(dynamic timestamp) {
-    try {
-      if (timestamp != null) return timestamp.toDate();
-    } catch (_) {
-      // Un movimiento recién escrito puede llegar con el serverTimestamp
-      // todavía nulo: se muestra con la hora local hasta que Firestore lo
-      // resuelva.
-    }
-    return DateTime.now();
+  void _selectFilter(String filter) {
+    setState(() => _selectedFilter = filter);
   }
 
-  List<Map<String, dynamic>> _filterByPeriod(
-    List<Map<String, dynamic>> transactions,
-  ) {
+  List<MovementEntity> _extractTransactionsFromState(WalletState state) {
+    if (state is WalletLoaded) return state.transactions;
+    if (state is TransactionHistoryLoaded) return state.transactions;
+    return [];
+  }
+
+  List<MovementEntity> _filterTransactions(List<MovementEntity> transactions) {
     if (_selectedFilter == 'Todos') return transactions;
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    return transactions.where((tx) {
-      final date = _parseDate(tx['timestamp']);
-      final day = DateTime(date.year, date.month, date.day);
+    return transactions.where((m) {
+      final day = DateTime(m.fecha.year, m.fecha.month, m.fecha.day);
 
       switch (_selectedFilter) {
         case 'Hoy':
@@ -78,129 +73,11 @@ class _MovimientosPageState extends State<MovimientosPage> {
           final weekAgo = today.subtract(const Duration(days: 7));
           return day.isAfter(weekAgo) || day.isAtSameMomentAs(weekAgo);
         case 'Mensual':
-          return date.year == now.year && date.month == now.month;
+          return m.fecha.year == now.year && m.fecha.month == now.month;
         default:
           return true;
       }
     }).toList();
-  }
-
-  /// El signo de `amount` no es confiable como fuente de verdad: el mismo
-  /// tipo `trip_payment` se escribe en negativo desde `TripPaymentService`
-  /// y en positivo desde `WalletDatasource.deductTripPayment`. La dirección
-  /// del movimiento se deduce del TIPO, y el monto se muestra en absoluto.
-  bool _isIncome(String type) {
-    switch (type) {
-      case 'recharge':
-      case 'top_up':
-      case 'refund':
-      case 'trip_payment_received':
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  String _labelFor(String type) {
-    switch (type) {
-      case 'recharge':
-      case 'top_up':
-        return 'Recarga de saldo';
-      case 'trip_payment':
-        return 'Pago de viaje';
-      case 'trip_payment_received':
-        return 'Cobro recibido';
-      case 'refund':
-        return 'Reembolso';
-      case 'refund_issued':
-        return 'Reembolso emitido';
-      case 'benefit_request':
-        return 'Solicitud de beneficio';
-      default:
-        return 'Movimiento';
-    }
-  }
-
-  IconData _iconFor(String type) {
-    switch (type) {
-      case 'recharge':
-      case 'top_up':
-        return Icons.add_card;
-      case 'refund':
-        return Icons.undo;
-      case 'benefit_request':
-        return Icons.school_outlined;
-      default:
-        return Icons.directions_bus_filled_outlined;
-    }
-  }
-
-  Future<void> _openDetail(Map<String, dynamic> tx) async {
-    final type = tx['transaction_type']?.toString() ?? '';
-    final tripId = tx['trip_id']?.toString();
-
-    // Solo un pago de viaje con `trip_id` puede cancelarse; el servicio
-    // decide si ese viaje todavía es reembolsable (no reembolsado antes,
-    // pagado, y de este pasajero).
-    var refundable = false;
-    if (type == 'trip_payment' && tripId != null && tripId.isNotEmpty) {
-      refundable = await getIt<TripPaymentService>().isTripRefundable(
-        userId: _userId,
-        tripId: tripId,
-      );
-    }
-
-    if (!mounted) return;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _labelFor(type),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(tx['description']?.toString() ?? 'Movimiento de billetera'),
-            const SizedBox(height: 8),
-            Text(
-              'Bs. ${((tx['amount'] ?? 0) as num).toDouble().abs().toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            if (refundable) ...[
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade700,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  icon: const Icon(Icons.undo),
-                  label: const Text('Cancelar viaje y reembolsar'),
-                  onPressed: () {
-                    Navigator.pop(sheetContext);
-                    _confirmRefund(tripId!);
-                  },
-                ),
-              ),
-            ] else if (type == 'trip_payment') ...[
-              const SizedBox(height: 16),
-              Text(
-                'Este viaje ya no se puede cancelar.',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
   }
 
   Future<void> _confirmRefund(String tripId) async {
@@ -234,6 +111,89 @@ class _MovimientosPageState extends State<MovimientosPage> {
 
     context.read<TripPaymentBLoC>().add(
       RefundTripEvent(userId: _userId, tripId: tripId),
+    );
+  }
+
+  Future<void> _openDetail(MovementEntity movement) async {
+    final tripId = movement.viajeId;
+    final isTrip = movement.tipo == MovementType.pagoViaje;
+
+    var refundable = false;
+    if (isTrip && tripId != null && tripId.isNotEmpty) {
+      refundable = await getIt<TripPaymentService>().isTripRefundable(
+        userId: _userId,
+        tripId: tripId,
+      );
+    }
+
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              movement.tipoLabel,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(movement.descripcion),
+            if (movement.linea != null && movement.linea!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Línea: ${movement.linea}${movement.ruta != null ? ' • Ruta: ${movement.ruta}' : ''}',
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+              ),
+            ],
+            if (movement.viajeId != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'ID de viaje: ${movement.viajeId}',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Text(
+              '${movement.isIncome ? '+' : '-'} Bs. ${movement.monto.toStringAsFixed(2)}',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: movement.isIncome ? Colors.green.shade700 : Colors.black87,
+              ),
+            ),
+            if (refundable) ...[
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  icon: const Icon(Icons.undo),
+                  label: const Text('Cancelar viaje y reembolsar'),
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    _confirmRefund(tripId!);
+                  },
+                ),
+              ),
+            ] else if (isTrip) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Este viaje ya no se puede cancelar.',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -275,22 +235,119 @@ class _MovimientosPageState extends State<MovimientosPage> {
     );
   }
 
-  Widget _buildItem(Map<String, dynamic> tx) {
-    final type = tx['transaction_type']?.toString() ?? '';
-    final amount = ((tx['amount'] ?? 0) as num).toDouble().abs();
-    final isIncome = _isIncome(type);
-    final color = isIncome ? Colors.green.shade700 : Colors.red.shade700;
+  /// Banner que valida si el saldo cuadra con el historial (Obs 4)
+  Widget _buildReconciliationBanner(WalletState state) {
+    final double? currentBalance = state is WalletLoaded
+        ? state.wallet.currentBalance
+        : state is TransactionHistoryLoaded
+            ? state.wallet.currentBalance
+            : null;
+
+    final double? calculatedBalance = state is WalletLoaded
+        ? state.calculatedBalance
+        : state is TransactionHistoryLoaded
+            ? state.calculatedBalance
+            : null;
+
+    final bool isReconciled = state is WalletLoaded
+        ? state.isBalanceReconciled
+        : state is TransactionHistoryLoaded
+            ? state.isBalanceReconciled
+            : true;
+
+    if (currentBalance == null || calculatedBalance == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 14, bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isReconciled
+            ? const Color(0xFFE8F5E9)
+            : const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isReconciled
+              ? const Color(0xFFA5D6A7)
+              : const Color(0xFFFFCC80),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isReconciled ? Icons.check_circle : Icons.info_outline,
+            size: 20,
+            color: isReconciled ? Colors.green.shade700 : Colors.orange.shade800,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              isReconciled
+                  ? 'Saldo conciliado: Bs. ${currentBalance.toStringAsFixed(2)} cuadra con el historial'
+                  : 'Saldo en cuenta: Bs. ${currentBalance.toStringAsFixed(2)} (Calculado según movimientos: Bs. ${calculatedBalance.toStringAsFixed(2)})',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isReconciled
+                    ? Colors.green.shade800
+                    : Colors.orange.shade900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterRow() {
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemCount: _filterOptions.length,
+        itemBuilder: (context, index) {
+          final filter = _filterOptions[index];
+          return PeriodFilterButton(
+            label: filter,
+            isSelected: _selectedFilter == filter,
+            onTap: () => _selectFilter(filter),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTransactionItem(MovementEntity movement) {
+    String subtitle;
+    if (movement.linea != null && movement.linea!.isNotEmpty) {
+      subtitle = 'Línea ${movement.linea}';
+      if (movement.ruta != null && movement.ruta!.isNotEmpty) {
+        subtitle = '$subtitle • ${movement.ruta}';
+      }
+    } else if (movement.isIncome) {
+      subtitle = movement.tipo == MovementType.reembolso
+          ? 'Reembolso'
+          : 'Recarga de saldo';
+    } else {
+      subtitle = 'Pago de viaje';
+    }
+
+    final color = movement.isIncome ? Colors.green.shade700 : Colors.red.shade700;
 
     return InkWell(
-      onTap: () => _openDetail(tx),
+      onTap: () => _openDetail(movement),
       borderRadius: BorderRadius.circular(12),
       child: TransactionCard(
-        icon: _iconFor(type),
-        title: tx['description']?.toString() ?? _labelFor(type),
-        subtitle: _labelFor(type),
-        amount: '${isIncome ? '+' : '-'} Bs. ${amount.toStringAsFixed(2)}',
-        date: _parseDate(tx['timestamp']),
-        iconBackgroundColor: isIncome
+        icon: movement.isIncome
+            ? (movement.tipo == MovementType.reembolso ? Icons.undo : Icons.add_card)
+            : Icons.directions_bus_filled_outlined,
+        title: movement.descripcion,
+        subtitle: subtitle,
+        amount: movement.formattedSignedAmount,
+        date: movement.fecha,
+        iconBackgroundColor: movement.isIncome
             ? const Color(0xFFE8F5E9)
             : const Color(0xFFFFEBEE),
         iconColor: color,
@@ -329,8 +386,6 @@ class _MovimientosPageState extends State<MovimientosPage> {
               backgroundColor: Colors.green,
             ),
           );
-          // El saldo y el ledger cambiaron: recargar para que el reembolso
-          // aparezca en la lista sin tener que salir y volver a entrar.
           _load();
         } else if (state is TripPaymentError) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -356,23 +411,25 @@ class _MovimientosPageState extends State<MovimientosPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                height: 42,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
-                  itemCount: _filterOptions.length,
-                  itemBuilder: (context, index) {
-                    final filter = _filterOptions[index];
-                    return PeriodFilterButton(
-                      label: filter,
-                      isSelected: _selectedFilter == filter,
-                      onTap: () => setState(() => _selectedFilter = filter),
-                    );
-                  },
-                ),
+              BlocBuilder<WalletBloc, WalletState>(
+                builder: (context, state) {
+                  final balance = switch (state) {
+                    WalletLoaded(:final wallet) => wallet.currentBalance,
+                    TransactionHistoryLoaded(:final wallet) =>
+                      wallet.currentBalance,
+                    _ => 0.0,
+                  };
+                  return Column(
+                    children: [
+                      _buildBalanceCard(balance),
+                      _buildReconciliationBanner(state),
+                    ],
+                  );
+                },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
+              _buildFilterRow(),
+              const SizedBox(height: 16),
               Expanded(
                 child: BlocBuilder<WalletBloc, WalletState>(
                   builder: (context, state) {
@@ -382,25 +439,12 @@ class _MovimientosPageState extends State<MovimientosPage> {
                       );
                     }
 
-                    final balance = switch (state) {
-                      WalletLoaded(:final wallet) => wallet.currentBalance,
-                      TransactionHistoryLoaded(:final wallet) =>
-                        wallet.currentBalance,
-                      _ => 0.0,
-                    };
-                    final transactions = switch (state) {
-                      WalletLoaded(:final transactions) => transactions,
-                      TransactionHistoryLoaded(:final transactions) =>
-                        transactions,
-                      _ => const <Map<String, dynamic>>[],
-                    };
-                    final filtered = _filterByPeriod(transactions);
+                    final transactions = _extractTransactionsFromState(state);
+                    final filtered = _filterTransactions(transactions);
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildBalanceCard(balance),
-                        const SizedBox(height: 20),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -426,7 +470,7 @@ class _MovimientosPageState extends State<MovimientosPage> {
                                   child: ListView.builder(
                                     itemCount: filtered.length,
                                     itemBuilder: (context, index) =>
-                                        _buildItem(filtered[index]),
+                                        _buildTransactionItem(filtered[index]),
                                   ),
                                 ),
                         ),

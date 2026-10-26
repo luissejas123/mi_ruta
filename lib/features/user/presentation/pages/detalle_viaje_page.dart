@@ -99,7 +99,7 @@ class _DetalleViajePageState extends State<DetalleViajePage> {
                   const SizedBox(height: 4),
                   Text(
                     '${_formatDate(entry.date)} · ${_formatTime(entry.date)}',
-                    style: const TextStyle(fontSize: 13, color: Colors.black87),
+                    style: TextStyle(fontSize: 13, color: Colors.black87),
                   ),
                 ],
               ),

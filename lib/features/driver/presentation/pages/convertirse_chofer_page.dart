@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -400,15 +401,15 @@ class _ApplicationFormState extends State<_ApplicationForm> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: AppColors.of(context).border),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
-            const Icon(Icons.lock_outline, size: 18, color: Colors.grey),
+            Icon(Icons.lock_outline, size: 18, color: AppColors.of(context).textSecondary),
             const SizedBox(width: 10),
             Expanded(
-              child: Text('Línea: $text', style: const TextStyle(color: Colors.grey)),
+              child: Text('Línea: $text', style: TextStyle(color: AppColors.of(context).textSecondary)),
             ),
           ],
         ),
@@ -484,7 +485,7 @@ class _ApplicationFormState extends State<_ApplicationForm> {
           const SizedBox(height: 4),
           Text(
             'Solo JPG o PNG • Máximo 5 MB por archivo',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 12, color: AppColors.of(context).textSecondary),
           ),
           const SizedBox(height: 12),
           _documentSlot('SOAT', _soatFile, () async {

@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -82,16 +83,16 @@ class _HistorialView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFD9D9D9),
+      backgroundColor: AppColors.of(context).surfaceMuted,
       // Esta pantalla nunca es un destino del bottom nav (siempre se llega
       // empujándola desde WalletPage/PerfilPage, con predecesor real al
       // que volver) — antes no tenía ningún botón de regreso, en ningún
       // estado (loading/error/vacío/cargado).
       appBar: AppBar(
-        backgroundColor: const Color(0xFFD9D9D9),
+        backgroundColor: AppColors.of(context).surfaceMuted,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: AppColors.of(context).textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -176,7 +177,7 @@ class _TripHistoryListWidgetState extends State<TripHistoryListWidget> {
     final filteredTrips = _filteredTrips;
 
     return Container(
-      color: const Color(0xFFD9D9D9),
+      color: AppColors.of(context).surfaceMuted,
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -186,7 +187,7 @@ class _TripHistoryListWidgetState extends State<TripHistoryListWidget> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'MOVIMIENTOS',
                       maxLines: 1,
@@ -194,7 +195,7 @@ class _TripHistoryListWidgetState extends State<TripHistoryListWidget> {
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
-                        color: Colors.black,
+                        color: AppColors.of(context).textPrimary,
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -202,7 +203,7 @@ class _TripHistoryListWidgetState extends State<TripHistoryListWidget> {
                   if (widget.onDownloadFullHistory != null)
                     IconButton(
                       tooltip: 'Descargar historial completo',
-                      icon: const Icon(Icons.download_outlined, color: Colors.black87),
+                      icon: Icon(Icons.download_outlined, color: AppColors.of(context).textPrimary),
                       onPressed: widget.onDownloadFullHistory,
                     ),
                 ],
@@ -248,11 +249,11 @@ class _TripHistoryListWidgetState extends State<TripHistoryListWidget> {
               ),
               const SizedBox(height: 18),
               if (filteredTrips.isEmpty)
-                const Expanded(
+                Expanded(
                   child: Center(
                     child: Text(
                       'No hay viajes registrados',
-                      style: TextStyle(fontSize: 16, color: Colors.black54),
+                      style: TextStyle(fontSize: 16, color: AppColors.of(context).textSecondary),
                     ),
                   ),
                 )

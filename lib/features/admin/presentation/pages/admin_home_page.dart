@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
@@ -425,11 +426,11 @@ class _NoPermissionsCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: const Padding(
+      child: Padding(
         padding: EdgeInsets.all(16),
         child: Text(
           'No tienes privilegios asignados. Contacta a un administrador.',
-          style: TextStyle(color: Colors.black54),
+          style: TextStyle(color: AppColors.of(context).textSecondary),
         ),
       ),
     );

@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 
@@ -79,7 +80,7 @@ class DocumentUploadSection extends StatelessWidget {
                   'Solo JPG o PNG • Máximo 5 MB por archivo',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade500,
+                    color: AppColors.of(context).textSecondary,
                   ),
                 ),
               ],
@@ -152,7 +153,7 @@ class _DocumentItemTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: AppColors.of(context).surfaceMuted,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -180,7 +181,7 @@ class _DocumentItemTile extends StatelessWidget {
                   fileSizeKb,
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey.shade600,
+                    color: AppColors.of(context).textSecondary,
                   ),
                 ),
               ],

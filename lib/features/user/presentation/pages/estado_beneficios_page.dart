@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
@@ -171,13 +172,13 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
         padding: EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.star_outline, size: 56, color: Colors.grey),
+            Icon(Icons.star_outline, size: 56, color: AppColors.of(context).textSecondary),
             SizedBox(height: 16),
             Text(
               'Aún no tienes solicitudes de beneficio.',

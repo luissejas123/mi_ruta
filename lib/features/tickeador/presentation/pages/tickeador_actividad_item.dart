@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/tickeador/domain/entities/station_log_entity.dart';
 
@@ -57,7 +58,7 @@ class TickeadorActividadItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: AppColors.of(context).surfaceMuted,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -78,11 +79,11 @@ class TickeadorActividadItem extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   '$_logTypeLabel · ${log.stationName}',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 12),
                 ),
                 Text(
                   _formatTimestamp(log.timestamp),
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                  style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 11),
                 ),
               ],
             ),

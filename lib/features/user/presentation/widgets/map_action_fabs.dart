@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 /// Grupo de FABs flotantes del mapa de inicio:
@@ -30,7 +31,7 @@ class MapActionFabs extends StatelessWidget {
             backgroundColor: Colors.white,
             onPressed: onMyLocation,
             tooltip: 'Mi ubicación',
-            child: const Icon(Icons.my_location, color: Colors.black87),
+            child: Icon(Icons.my_location, color: AppColors.of(context).textPrimary),
           ),
         ),
         Positioned(
@@ -41,9 +42,9 @@ class MapActionFabs extends StatelessWidget {
             backgroundColor: Colors.white,
             onPressed: onTogglePin,
             tooltip: 'Mover pin al destino',
-            child: const Icon(
+            child: Icon(
               Icons.push_pin,
-              color: Colors.black87,
+              color: AppColors.of(context).textPrimary,
               size: 20,
             ),
           ),
@@ -57,7 +58,7 @@ class MapActionFabs extends StatelessWidget {
               backgroundColor: Colors.white,
               onPressed: onClearSearch,
               tooltip: 'Limpiar búsqueda',
-              child: const Icon(Icons.close, color: Colors.black87),
+              child: Icon(Icons.close, color: AppColors.of(context).textPrimary),
             ),
           ),
       ],

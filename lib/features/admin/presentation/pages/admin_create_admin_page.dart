@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/admin_privileges_bloc.dart';
@@ -221,9 +222,9 @@ class _AdminCreateAdminPageState extends State<AdminCreateAdminPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Al crear la cuenta tu sesión se restaura automáticamente.',
-                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                  style: TextStyle(fontSize: 12, color: AppColors.of(context).textSecondary),
                 ),
                 if (_errorLocal != null)
                   Padding(

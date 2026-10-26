@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -411,10 +412,10 @@ class _AdminMetricasPageState extends State<AdminMetricasPage> {
                   ),
                   child: Text(
                     '${data.completionRate.toStringAsFixed(1)}% efectividad',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
-                      color: Colors.black87,
+                      color: AppColors.of(context).textPrimary,
                     ),
                   ),
                 ),
@@ -462,12 +463,6 @@ class _AdminMetricasPageState extends State<AdminMetricasPage> {
                 ),
               ],
             ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -630,7 +625,7 @@ class _AdminMetricasPageState extends State<AdminMetricasPage> {
                   color: _amarillo.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.assessment_outlined, color: Colors.black87),
+                child: Icon(Icons.assessment_outlined, color: AppColors.of(context).textPrimary),
               ),
               title: const Text('Reportes operativos', style: TextStyle(fontWeight: FontWeight.w600)),
               subtitle: const Text('Ver detalle por chofer, calificaciones y flota'),
@@ -651,7 +646,7 @@ class _AdminMetricasPageState extends State<AdminMetricasPage> {
                   color: _amarillo.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.groups_outlined, color: Colors.black87),
+                child: Icon(Icons.groups_outlined, color: AppColors.of(context).textPrimary),
               ),
               title: const Text('Pasajeros transportados', style: TextStyle(fontWeight: FontWeight.w600)),
               subtitle: const Text('Consulta por ruta y rango de fechas'),
@@ -709,7 +704,7 @@ class _AdminMetricasPageState extends State<AdminMetricasPage> {
                 ),
                 Text(
                   label,
-                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  style: TextStyle(fontSize: 12, color: AppColors.of(context).textPrimary),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],

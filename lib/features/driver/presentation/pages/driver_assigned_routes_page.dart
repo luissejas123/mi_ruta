@@ -128,7 +128,7 @@ class AssignedRouteCard extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                const Icon(Icons.map_outlined, size: 38, color: Colors.black87),
+                Icon(Icons.map_outlined, size: 38, color: Colors.black87),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(

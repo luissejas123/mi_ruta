@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/navigation/home_router.dart';
@@ -107,7 +108,7 @@ class _ModoPruebaSection extends StatelessWidget {
             fontSize: 11,
             fontWeight: FontWeight.bold,
             letterSpacing: 1,
-            color: Colors.grey.shade600,
+            color: AppColors.of(context).textSecondary,
           ),
         ),
         const SizedBox(height: 10),

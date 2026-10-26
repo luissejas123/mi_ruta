@@ -100,7 +100,7 @@ class _RecargaSaldoPageState extends State<RecargaSaldoPage> {
                   ),
                   child: Column(
                     children: [
-                      const Text(
+                      Text(
                         'SALDO DISPONIBLE',
                         style: TextStyle(
                           color: Colors.black54,

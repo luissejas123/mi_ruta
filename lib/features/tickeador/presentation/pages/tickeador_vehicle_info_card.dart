@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/tickeador/domain/entities/vehicle_entity.dart';
 
@@ -72,7 +73,7 @@ class _VehicleRow extends StatelessWidget {
             width: 120,
             child: Text(
               label,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 13),
             ),
           ),
           Expanded(

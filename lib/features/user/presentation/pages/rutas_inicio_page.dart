@@ -415,7 +415,7 @@ class _RutasInicioViewState extends State<_RutasInicioView> {
                     BoxShadow(color: Colors.black26, blurRadius: 4),
                   ],
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     SizedBox(
                       width: 18,

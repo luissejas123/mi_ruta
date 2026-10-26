@@ -36,7 +36,7 @@ class BalanceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'SALDO DISPONIBLE',
             style: TextStyle(
               color: Colors.black54,
@@ -58,7 +58,7 @@ class BalanceCard extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               cardNumber!,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.black54,
                 fontSize: 13,
               ),

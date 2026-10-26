@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 /// Pantalla vacía mostrada cuando el campo de búsqueda no tiene texto.
@@ -6,7 +7,7 @@ class SearchEmptyHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -14,7 +15,7 @@ class SearchEmptyHint extends StatelessWidget {
           SizedBox(height: 12),
           Text(
             'Escribe una dirección o lugar',
-            style: TextStyle(color: Colors.black45, fontSize: 15),
+            style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 15),
           ),
         ],
       ),

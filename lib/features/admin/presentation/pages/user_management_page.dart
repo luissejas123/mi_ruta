@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
@@ -173,7 +174,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
                         user.fullName,
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      Text(user.email, style: const TextStyle(color: Colors.black54)),
+                      Text(user.email, style: TextStyle(color: AppColors.of(context).textSecondary)),
                     ],
                   ),
                 ),
@@ -487,10 +488,10 @@ class _UserManagementPageState extends State<UserManagementPage> {
               const SizedBox(height: 8),
               Expanded(
                 child: visible.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           'No se encontraron usuarios',
-                          style: TextStyle(color: Colors.black54),
+                          style: TextStyle(color: AppColors.of(context).textSecondary),
                         ),
                       )
                     : RefreshIndicator(
@@ -606,7 +607,7 @@ class _DetailRow extends StatelessWidget {
             width: 90,
             child: Text(
               label,
-              style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w600),
+              style: TextStyle(color: AppColors.of(context).textSecondary, fontWeight: FontWeight.w600),
             ),
           ),
           Expanded(child: Text(value)),

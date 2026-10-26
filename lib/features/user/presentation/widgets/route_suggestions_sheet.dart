@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/user/domain/entities/place_result.dart';
 import 'package:mi_ruta/features/user/domain/services/route_finder_service.dart';
@@ -50,8 +51,8 @@ class RouteSuggestionsSheet extends StatelessWidget {
                     ),
                     Text(
                       'Hacia: ${destination.name}',
-                      style: const TextStyle(
-                        color: Colors.black54,
+                      style: TextStyle(
+                        color: AppColors.of(context).textSecondary,
                         fontSize: 12,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -68,7 +69,7 @@ class RouteSuggestionsSheet extends StatelessWidget {
                 : '${(m.distanceMeters / 1000).toStringAsFixed(1)} km';
             return ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const CircleAvatar(
+              leading: CircleAvatar(
                 backgroundColor: Color(0xFFFBC02D),
                 radius: 18,
                 child: Icon(
@@ -86,7 +87,7 @@ class RouteSuggestionsSheet extends StatelessWidget {
                   : null,
               trailing: Text(
                 dist,
-                style: const TextStyle(fontSize: 12, color: Colors.black54),
+                style: TextStyle(fontSize: 12, color: AppColors.of(context).textSecondary),
               ),
               onTap: () {
                 Navigator.pop(context);

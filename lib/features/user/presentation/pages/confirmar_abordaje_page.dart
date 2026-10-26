@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -140,7 +141,7 @@ class _ConfirmarAbordajePageState extends State<ConfirmarAbordajePage> {
               const SizedBox(height: 4),
               Text(
                 'Elegí cuál abordaste.',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 12, color: AppColors.of(context).textSecondary),
               ),
               const SizedBox(height: 12),
               ConstrainedBox(
@@ -354,7 +355,7 @@ class _ConfirmarAbordajePageState extends State<ConfirmarAbordajePage> {
             const SizedBox(height: 8),
             Text(
               'Escanea el QR fijo de la unidad o escribe su placa para confirmar que abordaste.',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 28),
             ElevatedButton.icon(
@@ -373,7 +374,7 @@ class _ConfirmarAbordajePageState extends State<ConfirmarAbordajePage> {
                 const Expanded(child: Divider()),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text('O', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                  child: Text('O', style: TextStyle(color: AppColors.of(context).textSecondary, fontWeight: FontWeight.bold)),
                 ),
                 const Expanded(child: Divider()),
               ],

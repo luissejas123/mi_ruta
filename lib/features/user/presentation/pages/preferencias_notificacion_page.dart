@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/notification_preferences_cubit.dart';
@@ -83,12 +84,12 @@ class PreferenciasNotificacionPage extends StatelessWidget {
                   ),
                 ),
               ),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(20, 20, 20, 4),
                 child: Text(
                   'Cuando desactivas una categoría, dejarás de ver sus notificaciones '
                   'en la lista y en el contador de no leídas.',
-                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                  style: TextStyle(fontSize: 12, color: AppColors.of(context).textSecondary),
                 ),
               ),
             ],

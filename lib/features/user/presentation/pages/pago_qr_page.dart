@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -362,7 +363,7 @@ class _PagoQRViewState extends State<_PagoQRView> {
                       child: Text(
                         'O',
                         style: TextStyle(
-                          color: Colors.grey.shade500,
+                          color: AppColors.of(context).textSecondary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -397,7 +398,7 @@ class _PagoQRViewState extends State<_PagoQRView> {
                   'Máximo 5 MB — PNG, JPG',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade500,
+                    color: AppColors.of(context).textSecondary,
                   ),
                 ),
                 if (_selectedQRImage != null) _buildSelectedQRImage(isBusy),

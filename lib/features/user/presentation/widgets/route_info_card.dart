@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 /// Card que muestra la información de una ruta durante el abordaje:
@@ -102,7 +103,7 @@ class RouteInfoCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.of(context).surface,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Colors.black12),
             ),
@@ -111,24 +112,24 @@ class RouteInfoCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.location_on_outlined, size: 18, color: Colors.black54),
+                    Icon(Icons.location_on_outlined, size: 18, color: AppColors.of(context).textSecondary),
                     const SizedBox(width: 8),
                     Text(
                       distance ?? 'A 1.2 km',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Colors.black,
+                        color: AppColors.of(context).textPrimary,
                       ),
                     ),
                     const Spacer(),
-                    const Icon(Icons.traffic_outlined, size: 18, color: Colors.black54),
+                    Icon(Icons.traffic_outlined, size: 18, color: AppColors.of(context).textSecondary),
                     const SizedBox(width: 6),
                     Text(
                       trafficStatus ?? 'Tráfico moderado',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: Colors.black87,
+                        color: AppColors.of(context).textPrimary,
                       ),
                     ),
                   ],
@@ -150,14 +151,14 @@ class RouteInfoCard extends StatelessWidget {
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    const Icon(Icons.access_time_outlined, size: 18, color: Colors.black54),
+                    Icon(Icons.access_time_outlined, size: 18, color: AppColors.of(context).textSecondary),
                     const SizedBox(width: 8),
                     Text(
                       'Tiempo de llegada aprox. ${estimatedArrival ?? eta ?? '25 min'}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black,
+                        color: AppColors.of(context).textPrimary,
                       ),
                     ),
                   ],

@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -390,7 +391,7 @@ class _CategoryCard extends StatelessWidget {
               ),
             ),
             if (!enabled)
-              const Text(
+              Text(
                 'Desactivado',
                 style: TextStyle(color: Colors.black54, fontSize: 12),
               )
@@ -416,7 +417,7 @@ class _CategoryCard extends StatelessWidget {
                 style: const TextStyle(color: Colors.black54, fontSize: 13),
               ),
             const SizedBox(width: 8),
-            const Icon(
+            Icon(
               Icons.arrow_forward_ios,
               color: Colors.black54,
               size: 16,
@@ -732,7 +733,7 @@ class _QrDetailSheetState extends State<_QrDetailSheet> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.of(context).surface, // el QR necesita fondo blanco para escanearse
               borderRadius: BorderRadius.circular(12),
             ),
             child: qrData != null
@@ -746,7 +747,7 @@ class _QrDetailSheetState extends State<_QrDetailSheet> {
           const SizedBox(height: 12),
           Text(
             'El pasajero escanea este código para pagar.',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: AppColors.of(context).textSecondary),
           ),
         ],
       ),

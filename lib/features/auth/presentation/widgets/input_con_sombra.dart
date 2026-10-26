@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class InputConSombra extends StatelessWidget {
@@ -19,7 +20,7 @@ class InputConSombra extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(

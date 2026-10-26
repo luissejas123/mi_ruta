@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
@@ -38,7 +39,7 @@ class _AdminPrivilegesPageState extends State<AdminPrivilegesPage> {
     if (authState is! AuthLoaded || !authState.user.canManagePermissions) {
       return Scaffold(
         appBar: AppBar(title: const Text('Gestión de privilegios')),
-        body: const Center(
+        body: Center(
           child: Padding(
             padding: EdgeInsets.all(24),
             child: Column(
@@ -49,7 +50,7 @@ class _AdminPrivilegesPageState extends State<AdminPrivilegesPage> {
                 Text(
                   'No tienes permiso para gestionar privilegios',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.black54),
+                  style: TextStyle(color: AppColors.of(context).textSecondary),
                 ),
               ],
             ),
@@ -114,10 +115,10 @@ class _AdminPrivilegesPageState extends State<AdminPrivilegesPage> {
             return const Center(child: CircularProgressIndicator());
           }
           if (state.admins.isEmpty) {
-            return const Center(
+            return Center(
               child: Text(
                 'No hay administradores registrados',
-                style: TextStyle(color: Colors.black54),
+                style: TextStyle(color: AppColors.of(context).textSecondary),
               ),
             );
           }
@@ -217,12 +218,12 @@ class _AdminTile extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         admin.email,
-                        style: const TextStyle(color: Colors.black54),
+                        style: TextStyle(color: AppColors.of(context).textSecondary),
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, color: Colors.black54),
+                Icon(Icons.chevron_right, color: AppColors.of(context).textSecondary),
               ],
             ),
             const SizedBox(height: 12),

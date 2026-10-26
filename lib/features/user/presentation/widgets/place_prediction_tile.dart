@@ -18,7 +18,7 @@ class PlacePredictionTile extends StatelessWidget {
     final secondaryText = (sf?['secondary_text'] as String?) ?? '';
 
     return ListTile(
-      leading: const CircleAvatar(
+      leading: CircleAvatar(
         radius: 18,
         backgroundColor: Color(0xFFFBC02D),
         child: Icon(Icons.location_on, color: Colors.black87, size: 18),

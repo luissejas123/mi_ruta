@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/admin/domain/entities/admin_permissions.dart';
@@ -158,8 +159,8 @@ class _AdminPermissionsEditPageState extends State<AdminPermissionsEditPage> {
                               ),
                               Text(
                                 widget.user.email,
-                                style: const TextStyle(
-                                  color: Colors.black54,
+                                style: TextStyle(
+                                  color: AppColors.of(context).textSecondary,
                                 ),
                               ),
                             ],

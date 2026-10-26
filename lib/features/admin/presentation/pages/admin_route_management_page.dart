@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/admin/domain/services/admin_access_service.dart';
@@ -72,7 +73,7 @@ class _AdminRouteManagementPageState extends State<AdminRouteManagementPage> {
     if (authState is! AuthLoaded || !authState.user.canManageRoutes) {
       return Scaffold(
         appBar: AppBar(title: const Text('Gestión de rutas')),
-        body: const Center(
+        body: Center(
           child: Padding(
             padding: EdgeInsets.all(24),
             child: Column(
@@ -83,7 +84,7 @@ class _AdminRouteManagementPageState extends State<AdminRouteManagementPage> {
                 Text(
                   'No tienes permiso para gestionar rutas',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.black54),
+                  style: TextStyle(color: AppColors.of(context).textSecondary),
                 ),
               ],
             ),
@@ -193,10 +194,10 @@ class _AdminRouteManagementPageState extends State<AdminRouteManagementPage> {
               ),
               Expanded(
                 child: visible.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           'No se encontraron rutas',
-                          style: TextStyle(color: Colors.black54),
+                          style: TextStyle(color: AppColors.of(context).textSecondary),
                         ),
                       )
                     : RefreshIndicator(

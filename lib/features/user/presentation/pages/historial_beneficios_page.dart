@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
@@ -89,7 +90,7 @@ class _HistorialBeneficiosPageState extends State<HistorialBeneficiosPage> {
             const SizedBox(height: 8),
             Text(
               'Cuando envíes una solicitud, aparecerá aquí.',
-              style: TextStyle(color: Colors.grey.shade600),
+              style: TextStyle(color: AppColors.of(context).textSecondary),
               textAlign: TextAlign.center,
             ),
           ],
@@ -112,7 +113,7 @@ class _HistorialBeneficiosPageState extends State<HistorialBeneficiosPage> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       elevation: 0,
-      color: Colors.white,
+      color: AppColors.of(context).surface,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -147,9 +148,9 @@ class _HistorialBeneficiosPageState extends State<HistorialBeneficiosPage> {
             const SizedBox(height: 10),
             Row(
               children: [
-                const Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey),
+                Icon(Icons.calendar_today_outlined, size: 16, color: AppColors.of(context).textSecondary),
                 const SizedBox(width: 6),
-                Text(date, style: TextStyle(color: Colors.grey.shade700)),
+                Text(date, style: TextStyle(color: AppColors.of(context).textSecondary)),
               ],
             ),
             const SizedBox(height: 14),
@@ -163,13 +164,13 @@ class _HistorialBeneficiosPageState extends State<HistorialBeneficiosPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: AppColors.of(context).surfaceMuted,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline, size: 18, color: Colors.black87),
+                    Icon(Icons.info_outline, size: 18, color: AppColors.of(context).textPrimary),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(

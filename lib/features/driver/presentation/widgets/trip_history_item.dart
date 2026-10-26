@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/driver/domain/entities/driver_trip_entity.dart';
 
@@ -53,7 +54,7 @@ class TripHistoryItem extends StatelessWidget {
                 if (trip.createdAt != null)
                   Text(
                     '${trip.createdAt!.day}/${trip.createdAt!.month}/${trip.createdAt!.year}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: AppColors.of(context).textSecondary),
                   ),
               ],
             ),

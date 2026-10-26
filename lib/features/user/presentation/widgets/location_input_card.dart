@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 /// Tarjeta de entrada de ubicación con origen y destino.
@@ -22,7 +23,7 @@ class LocationInputCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -73,7 +74,7 @@ class LocationInputCard extends StatelessWidget {
               ),
             ),
           ),
-          Divider(height: 1, color: Colors.grey.shade200),
+          Divider(height: 1, color: AppColors.of(context).border),
           // Botón de intercambio
           InkWell(
             onTap: onSwap,
@@ -82,7 +83,7 @@ class LocationInputCard extends StatelessWidget {
               child: Icon(Icons.swap_vert, color: Colors.blue.shade700),
             ),
           ),
-          Divider(height: 1, color: Colors.grey.shade200),
+          Divider(height: 1, color: AppColors.of(context).border),
           // Destino
           GestureDetector(
             onTap: onDestinationTap,

@@ -1,4 +1,5 @@
 // ignore_for_file: use_build_context_synchronously
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -298,7 +299,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
           else if (_qrUrl != null)
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.of(context).surface, // fondo blanco: QR escaneable
                 borderRadius: BorderRadius.circular(12),
               ),
               padding: const EdgeInsets.all(12),
@@ -327,7 +328,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
           else
             const Text('QR no disponible'),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Escanea este código con tu app bancaria',
             style: TextStyle(fontSize: 13, color: Colors.black54),
           ),
@@ -465,7 +466,7 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
       const SizedBox(height: 4),
       Text(
         'Solo JPG o PNG • Máximo 5 MB',
-        style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+        style: TextStyle(fontSize: 12, color: AppColors.of(context).textSecondary),
       ),
       const SizedBox(height: 12),
       GestureDetector(
@@ -481,8 +482,8 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
             ),
             borderRadius: BorderRadius.circular(12),
             color: _selectedImage != null
-                ? Colors.green.shade50
-                : Colors.grey.shade50,
+                ? AppColors.of(context).success.withValues(alpha: 0.12)
+                : AppColors.of(context).surfaceMuted,
           ),
           child: _selectedImage != null
               ? Column(
@@ -526,9 +527,9 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
                                     _selectedImage = null;
                                     _comprobanteEnviado = false;
                                   }),
-                            child: const Text(
+                            child: Text(
                               'Cambiar',
-                              style: TextStyle(color: Colors.black54),
+                              style: TextStyle(color: AppColors.of(context).textSecondary),
                             ),
                           ),
                         ],
@@ -543,13 +544,13 @@ class _RecargaQRPageState extends State<RecargaQRPage> {
                       Icon(
                         Icons.cloud_upload_outlined,
                         size: 32,
-                        color: Colors.grey.shade600,
+                        color: AppColors.of(context).textSecondary,
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Toca para subir comprobante',
                         style: TextStyle(
-                          color: Colors.grey.shade600,
+                          color: AppColors.of(context).textSecondary,
                           fontSize: 13,
                         ),
                       ),

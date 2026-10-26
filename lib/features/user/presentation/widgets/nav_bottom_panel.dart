@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/user/domain/services/trip_phase_service.dart';
 
@@ -94,7 +95,7 @@ class NavBottomPanel extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF4F4F4),
+                  color: AppColors.of(context).surfaceMuted,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.black12),
                 ),
@@ -138,19 +139,19 @@ class NavBottomPanel extends StatelessWidget {
                         Expanded(
                           child: Text(
                             info.title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
-                              color: Colors.black,
+                              color: AppColors.of(context).textPrimary,
                             ),
                           ),
                         ),
                         Text(
                           _fmtDist(remainingMeters),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
-                            color: Colors.black,
+                            color: AppColors.of(context).textPrimary,
                           ),
                         ),
                       ],
@@ -158,13 +159,13 @@ class NavBottomPanel extends StatelessWidget {
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        const Icon(Icons.traffic_outlined, size: 18, color: Colors.black54),
+                        Icon(Icons.traffic_outlined, size: 18, color: AppColors.of(context).textSecondary),
                         const SizedBox(width: 8),
-                        const Text(
+                        Text(
                           'Tráfico moderado',
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.black87,
+                            color: AppColors.of(context).textPrimary,
                           ),
                         ),
                         const Spacer(),
@@ -202,15 +203,15 @@ class NavBottomPanel extends StatelessWidget {
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        const Icon(Icons.access_time_outlined, size: 18, color: Colors.black54),
+                        Icon(Icons.access_time_outlined, size: 18, color: AppColors.of(context).textSecondary),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             _arrivalText(),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: Colors.black,
+                              color: AppColors.of(context).textPrimary,
                             ),
                           ),
                         ),

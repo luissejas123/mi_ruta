@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -266,7 +267,7 @@ class _SolicitudBeneficioPageState extends State<SolicitudBeneficioPage> {
                 const SizedBox(height: 4),
                 Text(
                   'Solo JPG o PNG • Máximo 5 MB por archivo',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 12, color: AppColors.of(context).textSecondary),
                 ),
                 const SizedBox(height: 12),
                 DocumentUploadSection(

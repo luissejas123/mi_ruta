@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -352,7 +353,7 @@ class _NotifyStopSectionState extends State<_NotifyStopSection> {
               state.lastStopNotifiedCount! > 0
                   ? 'Se avisó a ${state.lastStopNotifiedCount} pasajero(s).'
                   : 'No hay pasajeros recientes a bordo de esta unidad para notificar.',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: AppColors.of(context).textSecondary),
             ),
           ],
         ],

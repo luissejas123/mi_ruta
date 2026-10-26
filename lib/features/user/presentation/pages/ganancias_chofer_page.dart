@@ -155,7 +155,7 @@ class _GananciasChoferPageState extends State<GananciasChoferPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.trending_up, color: Colors.black),
               SizedBox(width: 8),

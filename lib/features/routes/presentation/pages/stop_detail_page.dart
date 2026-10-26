@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_stop_info.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
@@ -38,16 +39,16 @@ class StopDetailPage extends StatelessWidget {
               const SizedBox(height: 24),
               Text(
                 'Parada: ${stopInfo.stopName}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: AppColors.of(context).textPrimary,
                 ),
               ),
               const SizedBox(height: 10),
               Text(
                 'Líneas disponibles: ${stopInfo.routeLines.join(', ')}',
-                style: const TextStyle(fontSize: 13, color: Colors.black54),
+                style: TextStyle(fontSize: 13, color: AppColors.of(context).textSecondary),
               ),
             ],
           ),

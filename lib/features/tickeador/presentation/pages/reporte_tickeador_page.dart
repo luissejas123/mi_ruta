@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
@@ -105,7 +106,7 @@ class _ReporteTickeadorPageState extends State<ReporteTickeadorPage> {
                   'Auditoría de lo cobrado en las unidades que pasaron por tu estación — no '
                   'es dinero que hayas recibido vos, es una consulta para verificar contra '
                   'lo que viste pasar.',
-                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12.5, color: AppColors.of(context).textSecondary),
                 ),
                 const SizedBox(height: 16),
                 SharedDateFilter(
@@ -143,7 +144,7 @@ class _ReporteTickeadorPageState extends State<ReporteTickeadorPage> {
         child: Text(
           'No se registraron vehículos en tu estación en este rango de fechas — marca '
           'salida/llegada de alguna unidad para poder generar este reporte.',
-          style: TextStyle(color: Colors.grey.shade600),
+          style: TextStyle(color: AppColors.of(context).textSecondary),
         ),
       );
     }
@@ -189,7 +190,7 @@ class _ReporteTickeadorPageState extends State<ReporteTickeadorPage> {
             child: Text(
               'No hay cobros registrados en este rango de fechas para las unidades vistas '
               'en tu estación.',
-              style: TextStyle(color: Colors.grey.shade600),
+              style: TextStyle(color: AppColors.of(context).textSecondary),
             ),
           ),
         const SizedBox(height: 10),
@@ -237,7 +238,7 @@ class _StatTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+          Text(label, style: TextStyle(fontSize: 11.5, color: AppColors.of(context).textSecondary)),
           const SizedBox(height: 4),
           Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ],
@@ -278,7 +279,7 @@ class _DayBreakdown extends StatelessWidget {
                         Text(e.passengerName,
                             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                         Text(e.vehicleId,
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                            style: TextStyle(fontSize: 11, color: AppColors.of(context).textSecondary)),
                       ],
                     ),
                   ),
@@ -320,7 +321,7 @@ class _ReportRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-                Text(subtitle, style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+                Text(subtitle, style: TextStyle(fontSize: 11.5, color: AppColors.of(context).textSecondary)),
               ],
             ),
           ),

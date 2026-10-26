@@ -1,4 +1,5 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:mi_ruta/core/theme/app_colors.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
@@ -316,13 +317,13 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: const Color(0xFFF0E7D9),
+      color: AppColors.of(context).surfaceMuted,
       borderRadius: BorderRadius.circular(12),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 24, color: Colors.black54),
+        Icon(icon, size: 24, color: AppColors.of(context).textSecondary),
         const Spacer(),
         Text(
           '$value',
@@ -330,7 +331,7 @@ class _SummaryCard extends StatelessWidget {
         ),
         Text(
           label,
-          style: const TextStyle(fontSize: 13, color: Colors.black54),
+          style: TextStyle(fontSize: 13, color: AppColors.of(context).textSecondary),
         ),
       ],
     ),

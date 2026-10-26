@@ -82,7 +82,7 @@ class _ConfirmacionBeneficioPageState extends State<ConfirmacionBeneficioPage> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

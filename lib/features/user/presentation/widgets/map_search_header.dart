@@ -44,7 +44,7 @@ class MapSearchHeader extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.search, color: Colors.black87),
+                  Icon(Icons.search, color: Colors.black87),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -60,7 +60,7 @@ class MapSearchHeader extends StatelessWidget {
                     ),
                   ),
                   if (searchText != null)
-                    const Icon(Icons.close, color: Colors.black54, size: 18),
+                    Icon(Icons.close, color: Colors.black54, size: 18),
                 ],
               ),
             ),

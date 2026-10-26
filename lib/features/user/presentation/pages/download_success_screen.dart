@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/custom_bottom_nav.dart';
 import 'package:open_file/open_file.dart';
@@ -43,7 +44,7 @@ class DownloadSuccessScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 Text(
                   'Archivo: $fileName',
-                  style: TextStyle(fontSize: 13, color: Colors.black54),
+                  style: TextStyle(fontSize: 13, color: AppColors.of(context).textSecondary),
                 ),
                 const SizedBox(height: 34),
                 if (filePath.isNotEmpty)

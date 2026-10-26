@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:mi_ruta/features/tickeador/domain/entities/station_log_entity.dart';
 import 'package:mi_ruta/features/tickeador/presentation/pages/tickeador_actividad_item.dart';
@@ -45,7 +46,7 @@ class TickeadorActividadSection extends StatelessWidget {
                 Text(
                   'No hay actividad registrada todavía',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: 13),
                 ),
               ],
             ),

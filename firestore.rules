@@ -246,6 +246,20 @@ service cloud.firestore {
             && routeRef in requester().get('presidente_info', {}).get('managed_lines', []));
     }
 
+    // Mapa en tiempo real: posición en vivo de cada unidad en servicio.
+    // Cualquier sesión la ve; solo el chofer de la unidad la escribe o la
+    // borra (LiveLocationDatasource, publicada por DriverServiceMap).
+    match /vehicle_locations/{vehicleId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.resource.data.driver_id == request.auth.uid
+        && request.resource.data.vehicle_id == vehicleId
+        && request.resource.data.lat is number
+        && request.resource.data.lng is number;
+      allow delete: if isSignedIn()
+        && resource.data.driver_id == request.auth.uid;
+    }
+
     // `notifications/{uid}/items/{itemId}` — subcolección por usuario.
     // La lectura es solo del dueño; la escritura la hace cualquier sesión
     // autenticada a propósito, porque un chofer/tickeador notifica a otros

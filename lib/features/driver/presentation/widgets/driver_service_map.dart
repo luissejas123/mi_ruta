@@ -9,6 +9,7 @@ import 'package:mi_ruta/core/theme/map_styles.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/core/utils/location_icon_painter.dart';
 import 'package:mi_ruta/core/utils/map_utils.dart';
+import 'package:mi_ruta/features/driver/domain/services/live_location_publisher.dart';
 import 'package:mi_ruta/features/routes/domain/entities/route_entity.dart';
 import 'package:mi_ruta/features/user/domain/usecases/get_current_location_usecase.dart';
 
@@ -24,11 +25,19 @@ class DriverServiceMap extends StatefulWidget {
   final bool inService;
   final double height;
 
+  /// Placa de la unidad y uid del chofer. Si se pasan y la unidad está en
+  /// servicio, la posición se publica para el mapa en tiempo real de los
+  /// pasajeros (`vehicle_locations`).
+  final String? vehicleId;
+  final String? driverId;
+
   const DriverServiceMap({
     super.key,
     required this.assignedRoute,
     required this.inService,
     this.height = 220,
+    this.vehicleId,
+    this.driverId,
   });
 
   @override
@@ -59,7 +68,33 @@ class _DriverServiceMapState extends State<DriverServiceMap> {
   @override
   void didUpdateWidget(DriverServiceMap oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.inService != widget.inService) _loadLocationIcon();
+    if (oldWidget.inService != widget.inService) {
+      _loadLocationIcon();
+      // Servicio detenido: la unidad deja de verse en el mapa de pasajeros.
+      final vehicleId = oldWidget.vehicleId;
+      if (!widget.inService && vehicleId != null && vehicleId.isNotEmpty) {
+        getIt<LiveLocationPublisher>().stop(vehicleId);
+      }
+    }
+  }
+
+  /// Mapa en tiempo real: publica la posición mientras la unidad está en
+  /// servicio. El publisher limita la frecuencia de escrituras.
+  void _publishPosition(Position position) {
+    final vehicleId = widget.vehicleId;
+    final driverId = widget.driverId;
+    if (!widget.inService || vehicleId == null || vehicleId.isEmpty) return;
+    if (driverId == null || driverId.isEmpty) return;
+    getIt<LiveLocationPublisher>().onPosition(
+      vehicleId: vehicleId,
+      driverId: driverId,
+      latitude: position.latitude,
+      longitude: position.longitude,
+      heading: position.heading >= 0 ? position.heading : null,
+      routeRef: widget.assignedRoute?.ref,
+      routeName: widget.assignedRoute?.name,
+      distance: Geolocator.distanceBetween,
+    );
   }
 
   /// Círculo tipo "punto" en vez del pin genérico de Maps, verde/naranja
@@ -104,6 +139,7 @@ class _DriverServiceMapState extends State<DriverServiceMap> {
       if (!mounted) return;
       final updated = LatLng(position.latitude, position.longitude);
       setState(() => _myLocation = updated);
+      _publishPosition(position);
       // El marcador se movía solo (arriba), pero la cámara se quedaba fija
       // en la posición inicial — sin esto la app parecía no rastrear en
       // tiempo real (docs/PLAN_SEGURIDAD_TARIFAS_GPS.md, Bloque 1).

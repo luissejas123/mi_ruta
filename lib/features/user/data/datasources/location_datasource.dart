@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -43,11 +45,48 @@ class LocationDatasource {
       );
     }
 
-    final position = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    );
-    return LocationResult(
-      location: LatLng(position.latitude, position.longitude),
-    );
+    // Obs. 2 — el mapa esperaba un fix de GPS de alta precisión (en frío
+    // puede tardar 10-30 s) antes de dibujarse. Ahora: 1) la última
+    // posición conocida, que es instantánea, y 2) si no hay, un fix con
+    // límite de tiempo. El stream de ubicación en vivo de cada pantalla
+    // corrige la posición apenas llega una más precisa.
+    try {
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null &&
+          DateTime.now().difference(last.timestamp) <
+              const Duration(minutes: 10)) {
+        return LocationResult(location: LatLng(last.latitude, last.longitude));
+      }
+    } catch (_) {
+      // Algunos dispositivos no soportan la última posición: se sigue.
+    }
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+      return LocationResult(
+        location: LatLng(position.latitude, position.longitude),
+      );
+    } on TimeoutException {
+      try {
+        final position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 8),
+          ),
+        );
+        return LocationResult(
+          location: LatLng(position.latitude, position.longitude),
+        );
+      } on TimeoutException {
+        return const LocationResult(
+          location: defaultCenter,
+          error: 'No se pudo obtener tu ubicación. Buscando señal de GPS…',
+        );
+      }
+    }
   }
 }

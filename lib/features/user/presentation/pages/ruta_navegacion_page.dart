@@ -619,6 +619,13 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
       ],
       child: Scaffold(
         body: BlocBuilder<NavigationBloc, NavigationState>(
+          // Obs. 2 — el cronómetro emite un estado nuevo cada segundo. Antes
+          // eso reconstruía el GoogleMap y recalculaba polilíneas y
+          // marcadores cada segundo. Ahora el mapa solo se reconstruye
+          // cuando cambia algo distinto del tiempo transcurrido; el
+          // cronómetro se actualiza en su propio BlocBuilder (NavTopBar).
+          buildWhen: (previous, current) =>
+              previous.copyWith(elapsed: current.elapsed) != current,
           builder: (context, state) {
             final polylines = NavigationPolylineBuilderService.buildPolylines(
               phase: state.phase,
@@ -668,10 +675,14 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
                 ),
-                NavTopBar(
-                  routeName: widget.route.name,
-                  elapsed: DistanceUtils.formatDuration(state.elapsed),
-                  onBack: _onBackPressed,
+                BlocBuilder<NavigationBloc, NavigationState>(
+                  buildWhen: (previous, current) =>
+                      previous.elapsed != current.elapsed,
+                  builder: (context, timeState) => NavTopBar(
+                    routeName: widget.route.name,
+                    elapsed: DistanceUtils.formatDuration(timeState.elapsed),
+                    onBack: _onBackPressed,
+                  ),
                 ),
                 if (state.boardingTripId != null)
                   Positioned(

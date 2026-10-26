@@ -7,6 +7,9 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mi_ruta/core/theme/map_styles.dart';
 import 'package:mi_ruta/core/theme/theme_cubit.dart';
 import 'package:mi_ruta/core/utils/location_icon_painter.dart';
+import 'package:mi_ruta/features/driver/data/datasources/live_location_datasource.dart';
+import 'package:mi_ruta/features/driver/domain/entities/live_vehicle_location.dart';
+import 'package:mi_ruta/features/user/data/datasources/location_datasource.dart';
 
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/mi_ruta_bloc.dart';
@@ -39,6 +42,15 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
   BitmapDescriptor? _locationIcon;
   StreamSubscription<Position>? _positionSubscription;
 
+  /// Obs. 2 — último centro de cámara, guardado localmente. Antes cada
+  /// cuadro del arrastre del mapa mandaba un evento al BLoC y reconstruía
+  /// toda la pantalla (incluido el GoogleMap): eso trababa el mapa.
+  LatLng? _lastCameraTarget;
+
+  /// Mapa en tiempo real: unidades en servicio que publican su posición.
+  StreamSubscription<List<LiveVehicleLocation>>? _liveVehiclesSub;
+  List<LiveVehicleLocation> _liveVehicles = const [];
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +82,25 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
         debugPrint('[MiRutaScreen] Error en el stream de ubicación: $error');
       },
     );
+    _listenLiveVehicles();
+  }
+
+  /// Escucha la posición en vivo de las unidades en servicio. Si la regla
+  /// de Firestore aún no está desplegada, el error se ignora y el mapa
+  /// funciona igual, sin las unidades.
+  void _listenLiveVehicles() {
+    _liveVehiclesSub = getIt<LiveLocationDatasource>().watch().listen(
+      (vehicles) {
+        if (!mounted) return;
+        final now = DateTime.now();
+        setState(() {
+          _liveVehicles = vehicles.where((v) => v.isFresh(now)).toList();
+        });
+      },
+      onError: (Object error) {
+        debugPrint('[MiRutaScreen] Unidades en vivo no disponibles: $error');
+      },
+    );
   }
 
   Future<void> _loadUnreadCount() async {
@@ -92,6 +123,7 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
   @override
   void dispose() {
     _positionSubscription?.cancel();
+    _liveVehiclesSub?.cancel();
     _mapController?.dispose();
     super.dispose();
   }
@@ -111,7 +143,13 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
   }
 
   void _togglePinMode() {
-    context.read<MiRutaBloc>().add(const MiRutaPinModeToggled());
+    final bloc = context.read<MiRutaBloc>();
+    // Al entrar al modo pin, el BLoC necesita el centro actual de la cámara
+    // (ya no se le manda en cada cuadro del arrastre).
+    if (!bloc.state.isPinMode && _lastCameraTarget != null) {
+      bloc.add(MiRutaCameraMoved(_lastCameraTarget!));
+    }
+    bloc.add(const MiRutaPinModeToggled());
   }
 
   void _confirmPinDestination() {
@@ -171,32 +209,63 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
           ),
           infoWindow: InfoWindow(title: state.searchText ?? 'Destino'),
         ),
+      for (final v in _liveVehicles)
+        Marker(
+          markerId: MarkerId('unidad_${v.vehicleId}'),
+          position: LatLng(v.latitude, v.longitude),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueOrange,
+          ),
+          rotation: v.heading ?? 0,
+          flat: v.heading != null,
+          infoWindow: InfoWindow(
+            title: v.routeName ?? 'Unidad en servicio',
+            snippet: 'Placa ${v.vehicleId}',
+          ),
+        ),
     };
   }
 
   Widget _buildMap(MiRutaState state, bool isDark) {
-    if (state.myLocationLatLng == null) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFFFFC12F)),
-      );
-    }
+    // Obs. 2 — el mapa se dibuja de inmediato (centrado en Cochabamba si
+    // todavía no hay ubicación) en vez de dejar la pantalla con un spinner
+    // hasta que el GPS responda. Cuando llega la ubicación, el
+    // BlocListener mueve la cámara.
+    final initialTarget =
+        state.myLocationLatLng ?? LocationDatasource.defaultCenter;
     return GoogleMap(
       style: isDark ? MapStyles.dark : null,
       initialCameraPosition: CameraPosition(
-        target: state.myLocationLatLng!,
-        zoom: 15,
+        target: initialTarget,
+        zoom: state.myLocationLatLng != null ? 15 : 13,
       ),
       onMapCreated: (controller) {
         _mapController = controller;
+        // Si la ubicación llegó antes de que el mapa terminara de crearse,
+        // el BlocListener no pudo mover la cámara: se centra acá.
+        final location = context.read<MiRutaBloc>().state.myLocationLatLng;
+        if (location != null && state.myLocationLatLng == null) {
+          controller.moveCamera(CameraUpdate.newLatLngZoom(location, 15));
+        }
       },
       onCameraMove: (pos) {
-        context.read<MiRutaBloc>().add(MiRutaCameraMoved(pos.target));
+        _lastCameraTarget = pos.target;
+        // Solo el modo pin necesita saber que la cámara se mueve (para
+        // ocultar la dirección); un evento al empezar alcanza.
+        final bloc = context.read<MiRutaBloc>();
+        if (bloc.state.isPinMode && !bloc.state.isCameraMoving) {
+          bloc.add(MiRutaCameraMoved(pos.target));
+        }
       },
       onCameraMoveStarted: () {
         context.read<MiRutaBloc>().add(const MiRutaCameraMoveStarted());
       },
       onCameraIdle: () {
-        context.read<MiRutaBloc>().add(const MiRutaCameraIdle());
+        final bloc = context.read<MiRutaBloc>();
+        if (bloc.state.isPinMode && _lastCameraTarget != null) {
+          bloc.add(MiRutaCameraMoved(_lastCameraTarget!));
+        }
+        bloc.add(const MiRutaCameraIdle());
       },
       myLocationEnabled: false,
       myLocationButtonEnabled: false,
@@ -242,6 +311,12 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
                     child: Stack(
                       children: [
                         Positioned.fill(child: _buildMap(state, isDark)),
+                        if (state.myLocationLatLng == null)
+                          const Positioned(
+                            top: 12,
+                            left: 12,
+                            child: _LocatingChip(),
+                          ),
                         if (state.isPinMode)
                           MapPinOverlay(
                             isCameraMoving: state.isCameraMoving,
@@ -344,6 +419,39 @@ class _MiRutaScreenState extends State<MiRutaScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Aviso pequeño mientras llega la primera ubicación (el mapa ya se ve).
+class _LocatingChip extends StatelessWidget {
+  const _LocatingChip();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      elevation: 3,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Buscando tu ubicación…',
+              style: TextStyle(fontSize: 13, color: scheme.onSurface),
+            ),
+          ],
+        ),
       ),
     );
   }

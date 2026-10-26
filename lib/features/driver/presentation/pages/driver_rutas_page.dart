@@ -111,7 +111,12 @@ class _DriverRutasView extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      DriverServiceMap(assignedRoute: assignedRoute, inService: vehicle.isOnDuty),
+                      DriverServiceMap(
+                        assignedRoute: assignedRoute,
+                        inService: vehicle.isOnDuty,
+                        vehicleId: vehicle.vehicleId,
+                        driverId: vehicle.ownerUid,
+                      ),
                       const SizedBox(height: 16),
                       Container(
                         padding: const EdgeInsets.all(16),

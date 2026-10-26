@@ -22,6 +22,8 @@ import 'package:mi_ruta/features/admin/data/repositories/admin_route_repository_
 import 'package:mi_ruta/features/admin/domain/repositories/admin_route_repository.dart';
 import 'package:mi_ruta/features/admin/domain/usecases/admin_route_usecases.dart';
 import 'package:mi_ruta/features/admin/data/datasources/admin_income_datasource.dart';
+import 'package:mi_ruta/features/driver/data/datasources/live_location_datasource.dart';
+import 'package:mi_ruta/features/driver/domain/services/live_location_publisher.dart';
 import 'package:mi_ruta/features/admin/data/datasources/transported_passengers_datasource.dart';
 import 'package:mi_ruta/features/admin/data/repositories/transported_passengers_repository_impl.dart';
 import 'package:mi_ruta/features/admin/domain/repositories/transported_passengers_repository.dart';
@@ -657,6 +659,14 @@ void setupDependencies() {
   // ============================================
   // ADMIN FEATURE - PASAJEROS TRANSPORTADOS
   // ============================================
+  // Mapa en tiempo real: posición de las unidades en servicio
+  getIt.registerSingleton<LiveLocationDatasource>(
+    LiveLocationDatasource(firestore: getIt<FirebaseFirestore>()),
+  );
+  getIt.registerSingleton<LiveLocationPublisher>(
+    LiveLocationPublisher(datasource: getIt<LiveLocationDatasource>()),
+  );
+
   // Reporte de ingresos del administrador (Obs. 8)
   getIt.registerSingleton<AdminIncomeDatasource>(
     AdminIncomeDatasource(firestore: getIt<FirebaseFirestore>()),

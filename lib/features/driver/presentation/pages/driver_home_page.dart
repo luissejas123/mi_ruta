@@ -437,6 +437,8 @@ class _VehicleCard extends StatelessWidget {
           assignedRoute: assignedRoute,
           inService: vehicle.isOnDuty,
           height: 340,
+          vehicleId: vehicle.vehicleId,
+          driverId: vehicle.ownerUid,
         ),
         // Oculto a pedido del usuario (2026-10): el conteo no se actualizaba
         // en vivo durante la prueba. El stream/bloc (`boardedCount`,

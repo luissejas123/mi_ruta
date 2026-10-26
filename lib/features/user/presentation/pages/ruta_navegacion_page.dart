@@ -268,6 +268,7 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
       await _payViaQr(
         tripId: tripId,
         driverId: driverId,
+        routeRef: routeRef,
         routeName: widget.route.name,
         fare: fare,
       );
@@ -354,6 +355,7 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
   Future<void> _payViaQr({
     required String tripId,
     required String driverId,
+    required String routeRef,
     required String routeName,
     required double fare,
   }) async {
@@ -394,8 +396,15 @@ class _RutaNavegacionViewState extends State<_RutaNavegacionView>
       _pendingQrBoardingTripId = tripId;
       _payingViaQr = true;
     });
+    // Línea y viaje del abordaje confirmado: un QR de otra línea u otro
+    // viaje se rechaza en `TripPaymentService` antes de cobrar nada.
     context.read<TripPaymentBLoC>().add(
-      ProcessPaymentEvent(userId: authState.user.uid, qrData: qrResult!),
+      ProcessPaymentEvent(
+        userId: authState.user.uid,
+        qrData: qrResult!,
+        expectedRouteRef: routeRef,
+        expectedTripId: tripId,
+      ),
     );
   }
 

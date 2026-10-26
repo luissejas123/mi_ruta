@@ -6,6 +6,7 @@ import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/tickeador/domain/entities/tickeador_payments_report.dart';
 import 'package:mi_ruta/features/tickeador/domain/services/tickeador_report_export_service.dart';
 import 'package:mi_ruta/features/tickeador/domain/services/tickeador_service.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/shared_date_filter.dart';
 
 const _amarillo = Color(0xFFFFC12F);
 
@@ -107,24 +108,11 @@ class _ReporteTickeadorPageState extends State<ReporteTickeadorPage> {
                   style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickDate(isFrom: true),
-                        icon: const Icon(Icons.calendar_today_outlined, size: 16),
-                        label: Text('Desde ${_fmt(_from)}'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickDate(isFrom: false),
-                        icon: const Icon(Icons.calendar_today_outlined, size: 16),
-                        label: Text('Hasta ${_fmt(_to)}'),
-                      ),
-                    ),
-                  ],
+                SharedDateFilter(
+                  from: _from,
+                  to: _to,
+                  onPickDate: (isFrom) => _pickDate(isFrom: isFrom),
+                  title: 'Período de auditoría',
                 ),
                 const SizedBox(height: 20),
                 if (snapshot.connectionState != ConnectionState.done)

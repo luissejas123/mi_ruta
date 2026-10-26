@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mi_ruta/features/admin/domain/entities/operational_report.dart';
 
 class OperationalReportDatasource {
@@ -7,7 +7,10 @@ class OperationalReportDatasource {
   OperationalReportDatasource({required FirebaseFirestore firestore})
     : _firestore = firestore;
 
-  Future<OperationalReport> getReport() async {
+  Future<OperationalReport> getReport({
+    DateTime? from,
+    DateTime? to,
+  }) async {
     final snapshots = await Future.wait([
       _firestore
           .collection('users')
@@ -51,6 +54,36 @@ class OperationalReportDatasource {
 
     final consolidatedUsers = uniqueUsers.values;
     final consolidatedTrips = uniqueTrips.values;
+
+    final filteredTrips = consolidatedTrips.where((doc) {
+      if (from == null || to == null) return true;
+
+      final data = doc.data();
+
+      final rawDate = data['date'] ??
+          data['created_at'] ??
+          data['createdAt'] ??
+          data['timestamp'] ??
+          data['start_time'] ??
+          data['startTime'];
+
+      if (rawDate == null) return false;
+
+      DateTime? tripDate;
+
+      if (rawDate is Timestamp) {
+        tripDate = rawDate.toDate();
+      } else if (rawDate is DateTime) {
+        tripDate = rawDate;
+      } else {
+        tripDate = DateTime.tryParse(rawDate.toString());
+      }
+
+      if (tripDate == null) return false;
+
+      return !tripDate.isBefore(from) && !tripDate.isAfter(to);
+    }).toList();
+
     final consolidatedVehicles = uniqueVehicles.values;
 
     final serviceVehicleIds = <String>{};
@@ -63,7 +96,7 @@ class OperationalReportDatasource {
     }
 
     // Compatibilidad con registros antiguos que no guardan in_service.
-    for (final doc in consolidatedTrips) {
+    for (final doc in filteredTrips) {
       final trip = doc.data();
       final status = (trip['status'] ?? '').toString().trim().toLowerCase();
       final vehicleId = (trip['vehicle_id'] ?? trip['vehicleId'] ?? '')
@@ -95,7 +128,7 @@ class OperationalReportDatasource {
 
     final tripsByDriver = <String, List<Map<String, dynamic>>>{};
     final tripLinesByDriver = <String, Set<String>>{};
-    for (final doc in consolidatedTrips) {
+    for (final doc in filteredTrips) {
       final trip = doc.data();
       final driverId = (trip['driver_uid'] ?? trip['driver_id'] ?? '')
           .toString();
@@ -178,6 +211,7 @@ class OperationalReportDatasource {
       registeredPassengers: countUsersWithRole({'user', 'passenger'}),
       registeredTicketers: countUsersWithRole({'tickeador', 'ticketing'}),
       blockedAccounts: blockedAccounts,
+      totalTrips: filteredTrips.length,
     );
   }
 }

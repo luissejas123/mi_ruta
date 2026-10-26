@@ -1,4 +1,4 @@
-import 'package:equatable/equatable.dart';
+﻿import 'package:equatable/equatable.dart';
 
 class DriverOperationalStatus extends Equatable {
   final String id;
@@ -46,6 +46,7 @@ class OperationalReport extends Equatable {
   final int registeredPassengers;
   final int registeredTicketers;
   final int blockedAccounts;
+  final int totalTrips;
 
   const OperationalReport({
     required this.drivers,
@@ -56,6 +57,7 @@ class OperationalReport extends Equatable {
     required this.registeredPassengers,
     required this.registeredTicketers,
     required this.blockedAccounts,
+    this.totalTrips = 0,
   });
 
   @override
@@ -68,6 +70,7 @@ class OperationalReport extends Equatable {
     registeredPassengers,
     registeredTicketers,
     blockedAccounts,
+    totalTrips,
   ];
 
   /// Filtra a los choferes cuyo `assignedRouteRef` está entre [managedLines]

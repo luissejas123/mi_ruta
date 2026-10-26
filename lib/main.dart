@@ -268,12 +268,25 @@ class MyApp extends StatelessWidget {
               home: const _AuthGate(),
               // Ambos banners globales se componen en un unico `builder`:
               // MaterialApp solo admite uno.
-              builder: (context, child) => RouteUpdateBanner(
-                status: getIt<RouteDataSyncService>().syncStatus,
-                child: _ConnectivityBanner(
-                  child: child ?? const SizedBox.shrink(),
-                ),
-              ),
+              builder: (context, child) {
+                // Responsive: respeta el tamaño de letra del teléfono pero
+                // lo limita para que tarjetas y botones no se desborden.
+                final media = MediaQuery.of(context);
+                return MediaQuery(
+                  data: media.copyWith(
+                    textScaler: media.textScaler.clamp(
+                      minScaleFactor: 0.85,
+                      maxScaleFactor: 1.3,
+                    ),
+                  ),
+                  child: RouteUpdateBanner(
+                    status: getIt<RouteDataSyncService>().syncStatus,
+                    child: _ConnectivityBanner(
+                      child: child ?? const SizedBox.shrink(),
+                    ),
+                  ),
+                );
+              },
           );
           },
         ),

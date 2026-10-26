@@ -2,6 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/features/admin/data/datasources/admin_income_datasource.dart';
+import 'package:mi_ruta/features/admin/domain/entities/admin_income_report.dart';
+import 'package:mi_ruta/features/admin/presentation/widgets/admin_income_card.dart';
 import 'package:mi_ruta/features/admin/presentation/bloc/transported_passengers_bloc.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/consulta_pasajeros_transportados_page.dart';
 import 'package:mi_ruta/features/admin/presentation/pages/reportes_operativos_page.dart';
@@ -64,6 +67,7 @@ class _AdminMetricasPageState extends State<AdminMetricasPage> {
   late DateTime _from;
   late DateTime _to;
   late Future<AdminMetricsData> _metricsFuture;
+  late Future<AdminIncomeReport> _incomeFuture;
 
   @override
   void initState() {
@@ -71,6 +75,22 @@ class _AdminMetricasPageState extends State<AdminMetricasPage> {
     _from = DateTime.now().subtract(const Duration(days: 7));
     _to = DateTime.now();
     _metricsFuture = _loadMetrics();
+    _incomeFuture = _loadIncome();
+  }
+
+  /// Ingresos del período (Obs. 8): pasajes cobrados, reembolsos y recargas.
+  Future<AdminIncomeReport> _loadIncome() {
+    return getIt<AdminIncomeDatasource>().getIncome(
+      from: DateTime(_from.year, _from.month, _from.day),
+      to: DateTime(_to.year, _to.month, _to.day, 23, 59, 59),
+    );
+  }
+
+  void _reloadAll() {
+    setState(() {
+      _metricsFuture = _loadMetrics();
+      _incomeFuture = _loadIncome();
+    });
   }
 
   Future<AdminMetricsData> _loadMetrics() async {
@@ -241,9 +261,7 @@ class _AdminMetricasPageState extends State<AdminMetricasPage> {
       );
       return;
     }
-    setState(() {
-      _metricsFuture = _loadMetrics();
-    });
+    _reloadAll();
   }
 
   @override
@@ -256,21 +274,15 @@ class _AdminMetricasPageState extends State<AdminMetricasPage> {
           IconButton(
             tooltip: 'Actualizar',
             icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                _metricsFuture = _loadMetrics();
-              });
-            },
+            onPressed: _reloadAll,
           ),
         ],
       ),
       body: RefreshIndicator(
         color: _amarillo,
         onRefresh: () async {
-          setState(() {
-            _metricsFuture = _loadMetrics();
-          });
-          await _metricsFuture;
+          _reloadAll();
+          await Future.wait([_metricsFuture, _incomeFuture]);
         },
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -281,6 +293,25 @@ class _AdminMetricasPageState extends State<AdminMetricasPage> {
               onPickDate: (isFrom) => _pickDate(isFrom: isFrom),
               onApply: _applyDateFilter,
               title: 'Período de métricas',
+            ),
+            const SizedBox(height: 16),
+            FutureBuilder<AdminIncomeReport>(
+              future: _incomeFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox.shrink();
+                }
+                if (snapshot.hasError) {
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.error_outline),
+                      title: const Text('No se pudieron cargar los ingresos'),
+                      subtitle: Text('${snapshot.error}'),
+                    ),
+                  );
+                }
+                return AdminIncomeCard(report: snapshot.data!);
+              },
             ),
             const SizedBox(height: 16),
             FutureBuilder<AdminMetricsData>(
@@ -431,37 +462,6 @@ class _AdminMetricasPageState extends State<AdminMetricasPage> {
                 ),
               ],
             ),
-            if (data.totalRevenue > 0) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.green.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.monetization_on, color: Colors.green.shade700),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Recaudación estimada en período',
-                            style: TextStyle(fontSize: 12, color: Colors.black54),
-                          ),
-                          Text(
-                            'Bs. ${data.totalRevenue.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green.shade800,
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ],

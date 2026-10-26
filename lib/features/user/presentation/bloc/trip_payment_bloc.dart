@@ -52,10 +52,8 @@ class TripPaymentBLoC extends Bloc<TripPaymentEvent, TripPaymentState> {
     ProcessPaymentEvent event,
     Emitter<TripPaymentState> emit,
   ) async {
-if (_isProcessingPayment) return;
-_isProcessingPayment = true;
-
-emit(const TripPaymentLoading());
+    if (_isProcessingPayment) return;
+    _isProcessingPayment = true;
     emit(const TripPaymentLoading());
 
     try {

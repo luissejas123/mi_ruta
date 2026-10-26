@@ -8,6 +8,7 @@ import 'package:mi_ruta/features/user/presentation/bloc/wallet_state.dart';
 import 'package:mi_ruta/features/user/presentation/pages/beneficios_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/pago_qr_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/movimientos_page.dart';
+import 'package:mi_ruta/features/user/presentation/pages/passenger_wallet_report_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/recarga_saldo_page.dart';
 import 'package:mi_ruta/features/user/presentation/pages/solicitud_beneficio_page.dart';
 import 'package:mi_ruta/features/user/presentation/widgets/balance_card.dart';
@@ -86,7 +87,9 @@ class _WalletPageState extends State<WalletPage> {
   void _navigateToPagoQR() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => PagoQRPage(homeBuilder: widget.homeBuilder)),
+      MaterialPageRoute(
+        builder: (_) => PagoQRPage(homeBuilder: widget.homeBuilder),
+      ),
     );
     if (!mounted) return;
     _loadWalletData();
@@ -104,6 +107,15 @@ class _WalletPageState extends State<WalletPage> {
       context,
       MaterialPageRoute(builder: (_) => const BeneficiosPage()),
     );
+  }
+
+  Future<void> _navigateToPassengerReport() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PassengerWalletReportPage()),
+    );
+    if (!mounted) return;
+    _loadWalletData();
   }
 
   PreferredSizeWidget _buildAppBar() {
@@ -160,6 +172,12 @@ class _WalletPageState extends State<WalletPage> {
           label: 'MOVIMIENTOS',
           icon: Icons.receipt_long_outlined,
           onPressed: _navigateToMovimientos,
+        ),
+        const SizedBox(height: 12),
+        _ActionButton(
+          label: 'REPORTE DEL PASAJERO',
+          icon: Icons.analytics_outlined,
+          onPressed: _navigateToPassengerReport,
         ),
         const SizedBox(height: 12),
         _ActionButton(
@@ -250,6 +268,8 @@ class _WalletPageState extends State<WalletPage> {
           final wallet = state is WalletLoaded
               ? state.wallet
               : state is TransactionHistoryLoaded
+              ? state.wallet
+              : state is PassengerReportLoaded
               ? state.wallet
               : null;
 

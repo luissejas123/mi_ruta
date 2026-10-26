@@ -362,6 +362,16 @@ expone en la app como tipo, monto, línea, ruta, viaje_id y fecha):
    $$\text{Saldo} = \sum_{\text{completed}} (\text{monto}_{\text{recarga}} + \text{monto}_{\text{reembolso}}) - \sum_{\text{completed}} (\text{monto}_{\text{pago\_viaje}})$$
 3. Solo los movimientos con `estado == 'completed'` alteran el saldo disponible de la billetera.
 
+**Reporte privado del pasajero:** `WalletDatasource.getPassengerReportData`
+consulta el ledger completo filtrado por `user_id` y los viajes de
+`trips` filtrados por `passenger_id`. `PassengerWalletReport` suma
+`top_up`/`recharge` como ingresos, `trip_payment` como pagos y `refund` como
+reembolsos; agrupa los pagos por `route_ref` (con fallback a los campos de
+ruta del movimiento) y cuenta una sola vez cada viaje cancelado/reembolsado.
+El saldo calculado (`ingresos - pagos + reembolsos`) se compara con el saldo
+actual de `users/{uid}.wallet`; una diferencia se muestra como discrepancia,
+no se corrige ni se oculta desde el reporte.
+
 ---
 
 ## ⚙️ Colección: config

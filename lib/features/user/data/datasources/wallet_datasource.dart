@@ -75,8 +75,10 @@ class WalletDatasource {
         userId: userId,
         currentBalance: baseBalance,
         currency: walletData['currency'] as String? ?? 'Bs',
-        createdAt: parseFirestoreDate(walletData['created_at']) ?? DateTime.now(),
-        updatedAt: parseFirestoreDate(walletData['updated_at']) ?? DateTime.now(),
+        createdAt:
+            parseFirestoreDate(walletData['created_at']) ?? DateTime.now(),
+        updatedAt:
+            parseFirestoreDate(walletData['updated_at']) ?? DateTime.now(),
       );
     } catch (e) {
       throw Exception('Error obteniendo billetera: $e');
@@ -129,8 +131,7 @@ class WalletDatasource {
         if (!doc.exists) throw Exception('Usuario no encontrado');
 
         final userData = doc.data() as Map<String, dynamic>;
-        final walletData =
-            (userData['wallet'] as Map<String, dynamic>?) ?? {};
+        final walletData = (userData['wallet'] as Map<String, dynamic>?) ?? {};
         final currentBalance =
             ((walletData['current_balance'] ?? walletData['balance'] ?? 0.0)
                     as num)
@@ -179,8 +180,7 @@ class WalletDatasource {
         if (!doc.exists) throw Exception('Usuario no encontrado');
 
         final userData = doc.data() as Map<String, dynamic>;
-        final walletData =
-            (userData['wallet'] as Map<String, dynamic>?) ?? {};
+        final walletData = (userData['wallet'] as Map<String, dynamic>?) ?? {};
         final currentBalance =
             ((walletData['current_balance'] ?? walletData['balance'] ?? 0.0)
                     as num)
@@ -266,6 +266,39 @@ class WalletDatasource {
       }
 
       throw Exception('Error obteniendo historial: $e');
+    }
+  }
+
+  /// Obtiene el ledger completo y los viajes asociados al pasajero para su
+  /// reporte. Las consultas por `user_id`/`passenger_id` evitan mezclar
+  /// movimientos o viajes de otras cuentas.
+  Future<
+    ({
+      List<Map<String, dynamic>> transactions,
+      List<Map<String, dynamic>> trips,
+    })
+  >
+  getPassengerReportData(String userId) async {
+    try {
+      final transactionSnapshot = await _firestore
+          .collection('transactions')
+          .where('user_id', isEqualTo: userId)
+          .get();
+      final tripSnapshot = await _firestore
+          .collection('trips')
+          .where('passenger_id', isEqualTo: userId)
+          .get();
+
+      return (
+        transactions: transactionSnapshot.docs
+            .map((doc) => doc.data())
+            .toList(),
+        trips: tripSnapshot.docs
+            .map((doc) => {...doc.data(), 'id': doc.id})
+            .toList(),
+      );
+    } catch (e) {
+      throw Exception('Error consultando el reporte del pasajero: $e');
     }
   }
 }

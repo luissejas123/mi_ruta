@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
@@ -127,6 +128,7 @@ class _MovimientosPageState extends State<MovimientosPage> {
     }
 
     if (!mounted) return;
+    final colors = AppColors.of(context);
 
     await showModalBottomSheet<void>(
       context: context,
@@ -147,14 +149,14 @@ class _MovimientosPageState extends State<MovimientosPage> {
               const SizedBox(height: 4),
               Text(
                 'Línea: ${movement.linea}${movement.ruta != null ? ' • Ruta: ${movement.ruta}' : ''}',
-                style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                style: TextStyle(color: colors.textSecondary, fontSize: 13),
               ),
             ],
             if (movement.viajeId != null) ...[
               const SizedBox(height: 4),
               Text(
                 'ID de viaje: ${movement.viajeId}',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                style: TextStyle(color: colors.textSecondary, fontSize: 12),
               ),
             ],
             const SizedBox(height: 12),
@@ -163,7 +165,7 @@ class _MovimientosPageState extends State<MovimientosPage> {
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: movement.isIncome ? Colors.green.shade700 : Colors.black87,
+                color: movement.isIncome ? colors.success : colors.textPrimary,
               ),
             ),
             if (refundable) ...[
@@ -188,7 +190,7 @@ class _MovimientosPageState extends State<MovimientosPage> {
               const SizedBox(height: 16),
               Text(
                 'Este viaje ya no se puede cancelar.',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                style: TextStyle(color: colors.textSecondary, fontSize: 13),
               ),
             ],
           ],
@@ -240,45 +242,50 @@ class _MovimientosPageState extends State<MovimientosPage> {
     final double? currentBalance = state is WalletLoaded
         ? state.wallet.currentBalance
         : state is TransactionHistoryLoaded
-            ? state.wallet.currentBalance
-            : null;
+        ? state.wallet.currentBalance
+        : null;
 
     final double? calculatedBalance = state is WalletLoaded
         ? state.calculatedBalance
         : state is TransactionHistoryLoaded
-            ? state.calculatedBalance
-            : null;
+        ? state.calculatedBalance
+        : null;
 
     final bool isReconciled = state is WalletLoaded
         ? state.isBalanceReconciled
         : state is TransactionHistoryLoaded
-            ? state.isBalanceReconciled
-            : true;
+        ? state.isBalanceReconciled
+        : true;
 
     if (currentBalance == null || calculatedBalance == null) {
       return const SizedBox.shrink();
     }
+    // El historial se carga con un límite de 50 movimientos: con más, la
+    // suma no incluye todo y el "no cuadra" sería falso.
+    final loadedCount = state is WalletLoaded
+        ? state.transactions.length
+        : state is TransactionHistoryLoaded
+        ? state.transactions.length
+        : 0;
+    if (loadedCount >= 50) return const SizedBox.shrink();
+
+    final colors = AppColors.of(context);
+    final tone = isReconciled ? colors.success : colors.warning;
 
     return Container(
       margin: const EdgeInsets.only(top: 14, bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: isReconciled
-            ? const Color(0xFFE8F5E9)
-            : const Color(0xFFFFF3E0),
+        color: tone.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isReconciled
-              ? const Color(0xFFA5D6A7)
-              : const Color(0xFFFFCC80),
-        ),
+        border: Border.all(color: tone.withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
           Icon(
             isReconciled ? Icons.check_circle : Icons.info_outline,
             size: 20,
-            color: isReconciled ? Colors.green.shade700 : Colors.orange.shade800,
+            color: tone,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -289,9 +296,7 @@ class _MovimientosPageState extends State<MovimientosPage> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: isReconciled
-                    ? Colors.green.shade800
-                    : Colors.orange.shade900,
+                color: tone,
               ),
             ),
           ),
@@ -326,30 +331,27 @@ class _MovimientosPageState extends State<MovimientosPage> {
       if (movement.ruta != null && movement.ruta!.isNotEmpty) {
         subtitle = '$subtitle • ${movement.ruta}';
       }
-    } else if (movement.isIncome) {
-      subtitle = movement.tipo == MovementType.reembolso
-          ? 'Reembolso'
-          : 'Recarga de saldo';
     } else {
-      subtitle = 'Pago de viaje';
+      subtitle = movement.tipoLabel;
     }
 
-    final color = movement.isIncome ? Colors.green.shade700 : Colors.red.shade700;
+    final colors = AppColors.of(context);
+    final color = movement.isIncome ? colors.success : colors.danger;
 
     return InkWell(
       onTap: () => _openDetail(movement),
       borderRadius: BorderRadius.circular(12),
       child: TransactionCard(
         icon: movement.isIncome
-            ? (movement.tipo == MovementType.reembolso ? Icons.undo : Icons.add_card)
+            ? (movement.tipo == MovementType.reembolso
+                  ? Icons.undo
+                  : Icons.add_card)
             : Icons.directions_bus_filled_outlined,
         title: movement.descripcion,
         subtitle: subtitle,
         amount: movement.formattedSignedAmount,
         date: movement.fecha,
-        iconBackgroundColor: movement.isIncome
-            ? const Color(0xFFE8F5E9)
-            : const Color(0xFFFFEBEE),
+        iconBackgroundColor: color.withValues(alpha: 0.14),
         iconColor: color,
         amountColor: color,
       ),
@@ -389,10 +391,7 @@ class _MovimientosPageState extends State<MovimientosPage> {
           _load();
         } else if (state is TripPaymentError) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: Colors.red,
-            ),
+            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
           );
         }
         context.read<TripPaymentBLoC>().add(const ClearPaymentEvent());

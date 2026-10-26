@@ -1,3 +1,4 @@
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 /// Botón de filtro por período reutilizable.
@@ -15,22 +16,23 @@ class PeriodFilterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF5C210) : Colors.grey.shade100,
+          color: isSelected ? colors.brand : colors.surfaceMuted,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xFFF5C210) : Colors.grey.shade300,
+            color: isSelected ? colors.brand : colors.border,
             width: 1,
           ),
         ),
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: isSelected ? Colors.black : Colors.black87,
+            color: isSelected ? colors.onBrand : colors.textPrimary,
             fontWeight: FontWeight.w600,
           ),
         ),

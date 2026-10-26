@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mi_ruta/core/di/dependency_injection.dart';
+import 'package:mi_ruta/core/theme/app_colors.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mi_ruta/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mi_ruta/features/user/presentation/bloc/passenger_report_bloc.dart';
@@ -36,8 +37,8 @@ class _MiReportePageState extends State<MiReportePage> {
   /// debajo del BlocProvider (el de este State está por encima).
   void _load(BuildContext blocContext) {
     blocContext.read<PassengerReportBLoC>().add(
-          LoadPassengerReportEvent(userId: _userId, period: _selectedPeriod),
-        );
+      LoadPassengerReportEvent(userId: _userId, period: _selectedPeriod),
+    );
   }
 
   /// Un reporte sin ningún movimiento se trata como "sin datos".
@@ -68,7 +69,10 @@ class _MiReportePageState extends State<MiReportePage> {
           ),
         ),
         body: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          padding: EdgeInsets.symmetric(
+            horizontal: MediaQuery.sizeOf(context).width < 360 ? 16 : 24,
+            vertical: 20,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -81,9 +85,9 @@ class _MiReportePageState extends State<MiReportePage> {
                   builder: (context, state) {
                     if (state is PassengerReportInitial ||
                         state is PassengerReportLoading) {
-                      return const Center(
+                      return Center(
                         child: CircularProgressIndicator(
-                          color: Color(0xFFFFC12F),
+                          color: AppColors.of(context).brand,
                         ),
                       );
                     }
@@ -158,69 +162,79 @@ class _MiReportePageState extends State<MiReportePage> {
   }
 
   Widget _buildSummaryCards(BuildContext context, PassengerReport report) {
-    return Row(
-      children: [
-        // Tarjeta Ingresos
-        Expanded(
-          child: _SummaryCard(
-            label: 'Ingresos',
-            amount: _formatCurrency(report.totalIncome),
-            icon: Icons.trending_up,
-            color: Colors.green.shade700,
-          ),
-        ),
-        const SizedBox(width: 12),
-        // Tarjeta Pagos de viajes
-        Expanded(
-          child: _SummaryCard(
-            label: 'Pagos Viaje',
-            amount: _formatCurrency(report.totalPayments),
-            icon: Icons.directions_bus,
-            color: Colors.blue.shade700,
-          ),
-        ),
-        const SizedBox(width: 12),
-        // Tarjeta Reembolsos
-        Expanded(
-          child: _SummaryCard(
-            label: 'Reembolsos',
-            amount: _formatCurrency(report.totalRefunds),
-            icon: Icons.undo,
-            color: Colors.orange.shade700,
-          ),
-        ),
-      ],
+    final colors = AppColors.of(context);
+    final cards = [
+      _SummaryCard(
+        label: 'Ingresos',
+        amount: _formatCurrency(report.totalIncome),
+        icon: Icons.trending_up,
+        color: colors.success,
+      ),
+      _SummaryCard(
+        label: 'Pagos Viaje',
+        amount: _formatCurrency(report.totalPayments),
+        icon: Icons.directions_bus,
+        color: colors.info,
+      ),
+      _SummaryCard(
+        label: 'Reembolsos',
+        amount: _formatCurrency(report.totalRefunds),
+        icon: Icons.undo,
+        color: colors.warning,
+      ),
+    ];
+    // Responsive: 3 columnas en pantallas anchas, 1 por fila en teléfonos
+    // angostos (antes la fila de 3 tarjetas se desbordaba en < 400 px).
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 12.0;
+        final columns = constraints.maxWidth >= 560
+            ? 3
+            : constraints.maxWidth >= 360
+            ? 2
+            : 1;
+        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final card in cards) SizedBox(width: width, child: card),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildRouteChargesSection(
-      BuildContext context, PassengerReport report) {
+    BuildContext context,
+    PassengerReport report,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           'Cobros por ruta',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
         report.routeCharges.isEmpty
             ? const _EmptyRouteCharges()
             : Column(
-                children: report.routeCharges.map((charge) => _RouteChargeTile(
-                  routeName: charge.routeName,
-                  tripCount: charge.tripCount,
-                  totalAmount: charge.totalAmount,
-                )).toList(),
+                children: report.routeCharges
+                    .map(
+                      (charge) => _RouteChargeTile(
+                        routeName: charge.routeName,
+                        tripCount: charge.tripCount,
+                        totalAmount: charge.totalAmount,
+                      ),
+                    )
+                    .toList(),
               ),
       ],
     );
   }
 
-  Widget _buildCancellationBadge(
-      BuildContext context, PassengerReport report) {
+  Widget _buildCancellationBadge(BuildContext context, PassengerReport report) {
     return Chip(
       label: Text('${report.cancellationCount} cancelaciones'),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -233,16 +247,24 @@ class _MiReportePageState extends State<MiReportePage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 60, color: Colors.red),
+          Icon(
+            Icons.error_outline,
+            size: 60,
+            color: AppColors.of(context).danger,
+          ),
           const SizedBox(height: 16),
-          Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16),
+          ),
           const SizedBox(height: 24),
           ElevatedButton(
             // Reintenta el mismo período que estaba elegido.
             onPressed: () => _load(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFFC12F),
-              foregroundColor: Colors.black,
+              backgroundColor: AppColors.of(context).brand,
+              foregroundColor: AppColors.of(context).onBrand,
             ),
             child: const Text('Reintentar'),
           ),
@@ -256,16 +278,27 @@ class _MiReportePageState extends State<MiReportePage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.receipt_long, size: 64, color: Color(0xFFFFC12F)),
+          Icon(
+            Icons.receipt_long,
+            size: 64,
+            color: AppColors.of(context).brand,
+          ),
           const SizedBox(height: 16),
           Text(
             'Aún no tienes viajes en este período',
-            style: const TextStyle(fontSize: 16, color: Colors.grey),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              color: AppColors.of(context).textSecondary,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             '${period.label} vacío',
-            style: const TextStyle(fontSize: 14, color: Colors.grey),
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.of(context).textSecondary,
+            ),
           ),
         ],
       ),
@@ -289,13 +322,14 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3), width: 1),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,23 +338,30 @@ class _SummaryCard extends StatelessWidget {
             children: [
               Icon(icon, color: color, size: 24),
               const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: color,
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            amount,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              amount,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: colors.textPrimary,
+              ),
             ),
           ),
         ],
@@ -343,31 +384,34 @@ class _RouteChargeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      color: Colors.white,
+      color: colors.surface,
       elevation: 0,
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         title: Text(
           // `routeName` ya viene como "Línea 101" desde el repositorio.
           routeName,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            color: colors.textPrimary,
           ),
         ),
         subtitle: Text(
-          '${tripCount} viajes',
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
+          '$tripCount ${tripCount == 1 ? 'viaje' : 'viajes'}',
+          style: TextStyle(fontSize: 12, color: colors.textSecondary),
         ),
         trailing: Text(
           _formatAmount(totalAmount),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFFFFC12F),
+            // Amarillo puro sobre blanco no se lee: accentText es más oscuro
+            // en modo claro y amarillo en modo oscuro.
+            color: colors.accentText,
           ),
         ),
       ),
@@ -383,16 +427,17 @@ class _EmptyRouteCharges extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: colors.surfaceMuted,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: const Text(
+      child: Text(
         'Sin cobros por ruta',
-        style: TextStyle(color: Colors.grey, fontSize: 14),
+        style: TextStyle(color: colors.textSecondary, fontSize: 14),
       ),
     );
   }

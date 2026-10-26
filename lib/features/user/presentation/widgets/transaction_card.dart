@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mi_ruta/core/theme/app_colors.dart';
 
 /// Tarjeta de transacción/movimiento reutilizable.
 class TransactionCard extends StatelessWidget {
@@ -25,13 +26,14 @@ class TransactionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: colors.border),
       ),
       child: Row(
         children: [
@@ -41,16 +43,16 @@ class TransactionCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: Colors.black87,
+                    color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _formatDate(date),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 12, color: colors.textSecondary),
                 ),
               ],
             ),
@@ -60,7 +62,7 @@ class TransactionCard extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 14,
-              color: amountColor ?? Colors.black87,
+              color: amountColor ?? colors.textPrimary,
             ),
           ),
         ],
